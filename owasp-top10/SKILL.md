@@ -1,0 +1,145 @@
+---
+name: owasp-top10
+description: Audit a whole codebase against every OWASP Top 10 (2025) category and write a markdown report of findings with file:line evidence, severity, and concrete fixes; optionally apply the fixes with --fix and verify them with the project's build, tests, and live checks. Use whenever the user asks for an OWASP audit, OWASP Top 10 check, security audit, appsec review, "is this code secure", or a security review of a whole project or module, even if they don't say "OWASP" explicitly. For reviewing only the current diff or a PR, use security-review instead; for scanning a container image or infrastructure, this is not the right tool. Args - optional path/module to limit scope, optional --fix to apply fixes after reporting, optional --out <file> for the report path (default security/OWASP-AUDIT.md).
+---
+
+# OWASP Top 10 (2025) Audit
+
+Audit the whole project (not just the current diff) against each of the ten OWASP Top 10:2025 categories, write a report, and optionally fix what you find.
+
+The value of this audit comes from evidence. A finding without a concrete file:line and a plausible attack path is noise, and noise trains people to ignore security reports. Report fewer, real findings over many speculative ones, and say plainly when a category has no issues.
+
+## Arguments
+
+- A path or module name → limit the audit to that scope.
+- `--fix` → after writing the report, apply fixes (Phase 5). Without it, never edit source files.
+- `--out <file>` → report path. Default: `security/OWASP-AUDIT.md` at the repo root.
+- No args → audit the whole repository, report only.
+
+**If the report file already exists:** when its `Commit:` matches HEAD and the tree is clean (or only the report changed), reuse it — for `--fix`, go straight to Phase 5. If the code has changed since, re-audit, but carry forward still-valid findings and note which were resolved. Never silently overwrite a report that contains remediation notes.
+
+**Running project code:** building and testing execute project code (build plugins, install scripts, test fixtures). That's expected for the user's own repository. If the repo is third-party or otherwise untrusted, ask before building or running anything.
+
+## Phase 1 – Understand the system
+
+You can't judge access control or crypto without knowing what the system is for, so start here.
+
+1. Read `CLAUDE.md`, `README*`, architecture/security docs.
+2. Identify languages, frameworks, build system, and dependency manifests (`pom.xml`, `build.gradle*`, `package.json` + lockfile, `requirements*.txt`/`pyproject.toml`, `go.mod`, `Cargo.toml`, `Gemfile`, `*.csproj`, `composer.json`, Dockerfiles, CI workflows).
+3. Map the attack surface:
+   - **Entry points**: HTTP routes/controllers, RPC handlers, message consumers, CLI args, file/socket readers, deserializers, LLM tool calls.
+   - **Trust boundaries**: where untrusted data enters, where it is authenticated, where it reaches sinks (DB, shell, filesystem, HTML, crypto, outbound network).
+   - **Assets**: secrets, keys, credentials, PII, payment/card data, tokens.
+4. Skip generated/vendored/build output (`target/`, `build/`, `dist/`, `node_modules/`, `vendor/`, generated sources) — but do read dependency manifests and lockfiles.
+
+Write a 3–6 line system summary for the report before auditing. It anchors severity: an unauthenticated endpoint matters very differently in a public web service vs. a local CLI tool.
+
+## Phase 2 – Audit each category
+
+Read `references/owasp-2025.md` now. It lists, per category, what to look for, grep starting points, and common false positives.
+
+Work through all ten categories. For each:
+
+1. Use the grep hints (translated to the stack you found in Phase 1) to find candidates quickly, then **read the surrounding code** to confirm. Grep hits are leads, not findings.
+2. Trace data flow from source to sink. Ask: can an attacker actually control this input? Is it validated/encoded/parameterized somewhere upstream?
+3. Record each confirmed or plausible issue with: category, title, severity, `file:line`, evidence (short code excerpt), attack scenario (concrete inputs → bad outcome), and a specific fix.
+4. If a category doesn't apply (e.g. no web layer → most XSS checks are N/A), say so in one line with the reason. Don't pad.
+
+For large codebases (roughly >40 source files) you may use parallel Explore agents to locate candidates per category, but confirm every finding by reading the code yourself.
+
+**Dependency scanning (A03):** try to run a dependency checker. Before concluding the project can't be built, look for the build tool the project expects — see `references/build-tools.md` (wrappers, version managers, wrapper caches, IDE-bundled tools). Prefer tools already present; don't install anything without asking. Scanners and first builds often need the network: if an offline run fails on a missing plugin or vulnerability database, say so and ask (or retry online if the user has allowed network use) rather than recording "can't build". If no scanner runs, review manifest versions manually and record exactly what was tried under "Out of scope / not checked".
+
+### Severity
+
+Rate on realistic impact × exploitability in *this* system's deployment context:
+
+- **Critical** – remote, unauthenticated compromise of secrets/data/code execution.
+- **High** – compromise needing some precondition (authenticated user, network position), or direct exposure of keys/credentials.
+- **Medium** – weakens a defense layer; exploitable in combination or with effort.
+- **Low** – hardening / defense-in-depth.
+- **Info** – observation worth knowing, no direct risk.
+
+For demos, samples and templates, rate as if the code were deployed as documented, and note that context in the system summary — sample code is what integrators copy.
+
+Mark each finding **Confirmed** (you observed the facts and traced the path end to end) or **Plausible** (exploitability depends on deployment or on code you couldn't see). Plausible is about what you couldn't observe, not about facts you checked — a secret you saw inside the shipped artifact is Confirmed even if you don't know where the artifact is deployed. Explain what would confirm a Plausible one.
+
+## Phase 3 – Write the report
+
+Create the report directory if needed. Use this structure:
+
+```markdown
+# OWASP Top 10 (2025) Audit — <project name>
+
+_Date: <YYYY-MM-DD> · Scope: <path or "whole repository"> · Commit: <short sha> · Tree: <clean|dirty>_
+
+## System summary
+<3–6 lines: what it does, entry points, trust boundaries, key assets>
+
+## Summary
+| Category | Status | Findings |
+|---|---|---|
+| A01 Broken Access Control | Issues / No issues found / N/A | C:0 H:1 M:0 L:0 |
+| ... all ten ... |
+
+<2–4 sentence overall assessment and the top 3 things to fix first>
+
+## Remediation  <!-- only after --fix -->
+| Finding | Severity | Status | Notes |
+|---|---|---|---|
+
+**Verification:** <baseline tests → tests after; artifact and live checks with results>
+**Breaking changes for operators:** <new required env vars/secrets, closed ports, timeouts, removed files>
+**Follow-ups:** <secret rotation, deferred design decisions, recommended infra controls>
+
+## Findings
+
+### A0X — <Category name>
+
+#### [SEV] <Short title> (Confirmed|Plausible)
+**Status:** <only after --fix: Fixed · Partially fixed · Deferred (needs decision) · Not fixed (recommendation) — one or two lines on what changed and how it was verified>
+- **Location:** `path/to/File.java:123`
+- **Evidence:**
+  ```java
+  <minimal excerpt>
+  ```
+- **Scenario:** <concrete attacker input → outcome>
+- **Fix:** <specific change, with a code sketch when it helps>
+
+(categories with no findings: one line stating what was checked and why it's clean or N/A)
+
+## Out of scope / not checked
+<things you couldn't assess: runtime config, infra, deployed secrets, scanners not run and what was tried>
+```
+
+Order findings within each category by severity. Keep evidence excerpts short — enough to recognise the problem.
+
+Never copy a real secret value into the report: show the key name and redact the value (`password: "****"`, optionally with length or a short prefix). Reports are often shared more widely than the repository.
+
+Then print a short terminal summary: counts by severity, the top 3 fixes, and the report path.
+
+## Phase 4 – Self-check before finishing
+
+Re-read each finding and drop or downgrade any that:
+- rely on input the attacker can't actually control,
+- are already mitigated upstream (validation, framework auto-escaping, parameterized APIs),
+- are in test code only (mention test-only issues as Info at most, unless test keys/secrets are shipped).
+
+Make sure all ten categories appear in the summary table, and that no secret value appears in the report.
+
+## Phase 5 – Fix (only with --fix)
+
+1. Run `git status`. If tracked source files have uncommitted changes, stop and ask before editing — don't mix your edits with the user's.
+2. Run the project's build/tests to get a baseline; note pre-existing failures.
+3. **Triage before editing.** For each finding decide:
+   - **Fix now** — a local change; behaviour stays compatible for legitimate users (validation, bounds, removing a log line, safer defaults).
+   - **Fix with operational impact** — changes how the system is deployed or run (new required env var or secret, closed port, timeouts, removed bundled file). Do it, but list it under "Breaking changes for operators".
+   - **Needs a decision** — changes a protocol, wire format, public API, data model or trust model, or has several reasonable designs. Don't pick one silently: ask the user if they're present; otherwise mark it **Deferred** with the options and trade-offs.
+
+   Then fix Critical and High first, then Medium. Leave Low/Info as recommendations unless trivial.
+4. One logical fix at a time; rebuild and rerun tests after each. If a fix breaks tests, either adjust it or revert it and mark the finding Deferred with the reason.
+5. **Verify each fix at the strongest practical level** — see `references/verification.md`. Unit tests show the logic holds; they rarely show that a secret left the artifact, a port is bound correctly, or a fail-closed path fails closed. When a fix concerns what ships or how the service runs, rebuild from clean and inspect the artifact, or run the service locally and probe it. Record each check in the report.
+6. Add a regression test for a fix where the project has tests and it's practical.
+7. **Keep docs in sync.** Anything that changes how the system is built, configured, deployed or called must be reflected in the docs users rely on (README run instructions, config docs, generated per-file docs, sample configs, scripts). Grep the docs for the old names, paths and values you changed. A fix that leaves the README's instructions broken just moves the failure to the next person.
+8. **Committed secrets:** when a fix removes a secret from the repository, the old value stays in git history and every clone. Say in the report that it is compromised and must be rotated. History rewriting (`git filter-repo`) is the user's decision — never do it yourself.
+9. Fill in the Remediation section and the per-finding Status lines (see the template).
+10. Leave the result reviewable: keep fixes as separable changes per finding, and don't commit unless asked. If the user wants a commit and you're on the default branch, suggest a branch such as `security/owasp-fixes`. End with `git status` / `git diff --stat` and a suggested commit message listing the fixes, operator-facing changes and deferred items.
