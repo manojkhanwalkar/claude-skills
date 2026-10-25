@@ -9,7 +9,8 @@ Use when the server must run as a long-lived service, be shared by several clien
   `spring.ai.mcp.server.protocol: streamable` (default in 2.x) and `server.port`.
   The endpoint is `spring.ai.mcp.server.streamable-http.mcp-endpoint` (default `/mcp`).
 - Console logging is fine again (stdout isn't the protocol).
-- Security: bind to localhost unless told otherwise; validate `Origin`; for anything remote,
+- Security: bind to localhost unless told otherwise — Spring Boot listens on all interfaces by default,
+  so set `server.address: 127.0.0.1` explicitly and check with `ss -ltnp`; validate `Origin`; for anything remote,
   add authentication (Spring Security / OAuth2 resource server) — an unauthenticated MCP endpoint
   is remote code execution for whatever the tools can do.
 
