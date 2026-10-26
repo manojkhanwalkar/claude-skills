@@ -1,6 +1,6 @@
 # OWASP Top 10 (2025) Audit — claude-skills
 
-_Date: 2026-10-25 · Scope: whole repository · Commit: 1194339 · Tree: clean_
+_Date: 2026-10-25 · Scope: whole repository · Commit: 1194339 · Tree: clean · Fixed in: owasp-top10-fixes (PR #1)_
 
 ## System summary
 A private collection of four Claude Code skills (`owasp-top10`, `review-agent`, `mcp-builder`, `document`): Markdown instructions plus reference files, installed under `~/.claude/skills/`. There is no executable code, build, or dependency manifest. The "attack surface" is the behaviour the skills induce in an agent: the agent reads repositories (possibly untrusted) as input, runs their builds and tests, writes docs/reports that may be shared, and generates new MCP server code. Assets at risk are the user's machine (code execution via builds or injected instructions), secrets in audited repositories, and the security of generated code.
