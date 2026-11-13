@@ -1,6 +1,6 @@
 ---
 name: owasp-llm-top10
-description: Audit code that uses LLMs or AI agents against the OWASP Top 10 for LLM Applications (2025, LLM01–LLM10) and the OWASP Top 10 for Agentic Applications (2026, ASI01–ASI10) - prompt injection, sensitive data disclosure, output handling, excessive agency, system prompt leakage, memory and context poisoning, tool misuse, inter-agent trust, unbounded consumption - and write a report with file:line evidence, severity and fixes; optionally apply fixes with --fix. Use whenever a change or project touches prompts, model calls, chatbots, guardrails, RAG or embeddings, agent memory, MCP or A2A servers and clients, tool definitions or LLM-generated output, and as part of every security review of such code, even if the user doesn't say "OWASP" or "LLM". Use with --diff for a PR or branch (alongside security-review), or without it for a whole project. Not a substitute for owasp-top10 (classic web risks) - run both when both apply. Args - optional path/module scope, optional --diff [base] to audit only the changes against base (default origin/main), optional --fix, optional --out <file>.
+description: Audit code that uses LLMs or AI agents against the OWASP Top 10 for LLM Applications (2025, LLM01–LLM10) and the OWASP Top 10 for Agentic Applications (2026, ASI01–ASI10) - and write a report with file:line evidence, severity and fixes; optionally apply fixes with --fix. Use whenever a change or project touches prompts, model calls, chatbots, guardrails, RAG or embeddings, agent memory, MCP or A2A servers and clients, tool definitions or LLM-generated output, and as part of every security review of such code, even if the user doesn't say "OWASP" or "LLM". Use with --diff for a PR or branch (alongside security-review), or without it for a whole project. Not a substitute for owasp-top10 (classic web risks) - run both when both apply. Args - optional path/module scope, optional --diff [base] to audit only the changes against base (default the repository's default branch), optional --fix, optional --out <file>.
 ---
 
 # OWASP Top 10 for LLM and Agentic Applications — Audit
@@ -17,7 +17,7 @@ As with every audit, the value is evidence. A finding needs a concrete `file:lin
 ## Arguments
 
 - A path or module → limit the scope to it.
-- `--diff [base]` → audit only what changed against `base` (default `origin/main`), but read enough of the surrounding code to trace each changed path end to end. This is the mode for PR and security reviews.
+- `--diff [base]` → audit only what changed against `base` (default `origin/<default branch>`, from `gh repo view --json defaultBranchRef` or `origin/HEAD`), but read enough of the surrounding code to trace each changed path end to end. This is the mode for PR and security reviews.
 - `--fix` → after the report, fix confirmed findings (Phase 5). Without it, never edit source files.
 - `--out <file>` → report path. Default: `security/LLM-AUDIT.md` in a private repo; outside the working tree for a public or unknown one (`~/.claude/security-reports/<repo>/LLM-AUDIT.md`). Check visibility first with `gh repo view --json visibility`.
 - In `--diff` mode with no `--out`, return the report in the reply (or as a PR comment if the calling workflow asks) instead of writing a file.
@@ -103,4 +103,4 @@ Follow `owasp-top10` Phase 5: check `git status`, take a baseline build, triage 
 
 ## Use in reviews
 
-When a PR or branch touches any part of the AI surface (prompts, model calls, guardrails, tools, MCP or A2A endpoints, memory, RAG), run this skill with `--diff` as part of the security review, next to `security-review`. Fold confirmed High and Medium findings into the review's fix list, and include the summary table (only the rows that changed or apply) in the PR's findings comment.
+When a PR or branch touches any part of the AI surface (prompts, model calls, guardrails, tools, MCP or A2A endpoints, memory, RAG), run this skill with `--diff` as part of the security review, next to `security-review`. Fold confirmed Critical, High and Medium findings into the review's fix list (the `pr-review` skill runs this step), and include the summary table (only the rows that changed or apply) in the PR's findings comment.

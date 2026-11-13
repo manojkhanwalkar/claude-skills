@@ -5,14 +5,14 @@ description: Review a GitHub pull request end to end - an independent review of 
 
 # PR Review
 
-Take one pull request from "opened" to "merged on main":
+Take one pull request from "opened" to "merged on its base branch" (`main`, `master`, …):
 
 1. Review it with fresh eyes.
 2. Fix what is really wrong, with tests.
 3. Report the findings on the PR.
 4. Merge only when it is green.
 
-The bar for merging is that every confirmed High or Medium finding is fixed, the full build and tests pass locally and in CI, and the PR description and docs still match the code.
+The bar for merging is that every confirmed Critical, High or Medium finding is fixed — from the review and from the security checks — the full build and tests pass locally and in CI, and the PR description and docs still match the code.
 
 ## Arguments
 
@@ -65,11 +65,19 @@ Checklist: read every changed file in full, not only the hunks.
 
 For each finding record:
 - `file:line`;
-- severity (High, Medium or Low);
+- severity (Critical, High, Medium or Low);
 - the defect in one sentence;
 - a concrete failure scenario.
 
 Verify each finding by reproducing it with a test or tracing the code, and drop anything speculative.
+
+### Security checks
+
+Alongside the review, on the same diff:
+- Run the `security-review` skill.
+- If the diff touches the AI surface (prompts, model calls, chatbots, guardrails, tools, MCP or A2A endpoints, agent memory, RAG), also run `owasp-llm-top10 --diff origin/<base>`.
+
+Add their confirmed findings to the findings list with their own severity; they go through Phase 3 and the merge gate like any other finding.
 
 ## Phase 3 – Fix
 
@@ -96,22 +104,22 @@ Post one comment (`gh pr comment <n> --body-file -`):
 | 2 | … | Low | **Open:** why, and what decision is needed |
 | 3 | … | — | **Not a bug:** why |
 
-Below the table, give one line with the test results (counts before and after). If the PR body now says something untrue, update it with `gh pr edit`.
+Below the table, give one line with the test results (counts before and after) and one with coverage (before and after; if under 95%, what is uncovered and why), and say which security checks ran. If the PR body now says something untrue, update it with `gh pr edit`.
 
 ## Phase 5 – Merge
 
-Skip this phase with `--no-merge`, or if any High or Medium finding is still open; in that case report and stop.
+Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is still open; in that case report and stop.
 
-1. Wait for CI on the pushed head (`gh pr checks <n> --watch`). If a check fails, read its log, fix the problem on the branch (back to Phase 3), and wait again. Never merge on red, and never bypass required checks.
+1. Wait for CI on the pushed head (`gh pr checks <n> --watch`). If the repository has no checks at all ("no checks reported"), say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting. If a check fails, read its log, fix the problem on the branch (back to Phase 3), and wait again. Never merge on red, and never bypass required checks.
 2. Check that `gh pr view <n> --json mergeStateStatus` is `CLEAN`.
-   - **Behind main:** update the branch (`git merge origin/<base>`, or `gh pr update-branch`), re-run the tests and wait for CI.
+   - **Behind the base branch:** update the branch (`git merge origin/<base>`, or `gh pr update-branch`), re-run the tests and wait for CI.
    - **Conflicts:** resolve them on the branch, keeping both sides' intent. Ask the user if the intent is unclear.
-3. Squash-merge and delete the branch: `gh pr merge <n> --squash --delete-branch`. Then update local `main` (`git checkout main && git pull`).
+3. Squash-merge and delete the branch: `gh pr merge <n> --squash --delete-branch`. Then update the local base branch (`git checkout <base> && git pull`).
 
 ## Final report to the user
 
 - The PR number and title, and whether it was merged (with the commit SHA).
 - The findings table, condensed.
-- Test counts, and CI status.
+- Test counts, coverage, and CI status.
 - Anything left open that needs the user's decision.
 - Follow-ups the user usually wants after a merge (for example, updating design docs). Don't do them unless they're part of the request.

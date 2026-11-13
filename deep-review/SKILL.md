@@ -1,13 +1,13 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase (never a PR or diff) that optimizes performance, removes duplication, improves readability and maintainability, rechecks security, and hardens the code against failures (timeouts, retries, resource limits, graceful degradation), then applies the changes in small verified steps using the project's own build and tests. Use only when the user asks to look at the whole code base, e.g. "deep review the project", "go over the entire codebase", "make the whole project faster/more robust/cleaner". Do NOT use for reviewing a pull request, a branch, the current diff or a few files; use code-review or security-review for those. Args - optional path/module to limit scope, optional --report-only (no edits), optional --focus <list> of perf,dup,readability,security,resilience (default all), optional --out <file> to also write the report as markdown.
+description: Deep review of an ENTIRE codebase (never a PR or diff) that optimizes performance, removes duplication, improves readability and maintainability, rechecks security, and hardens the code against failures (timeouts, retries, resource limits, graceful degradation), then applies the changes in small verified steps using the project's own build and tests. Use only when the user asks to look at the whole code base, e.g. "deep review the project", "go over the entire codebase", "make the whole project faster/more robust/cleaner". Do NOT use for reviewing a pull request, a branch, the current diff or a few files; use pr-review (review, fix and merge), code-review or security-review for those. Args - optional path/module to limit scope, optional --report-only (no edits), optional --focus <list> of perf,dup,readability,security,resilience (default all), optional --out <file> to also write the report as markdown.
 ---
 
 # Deep Review
 
 A whole-codebase pass across five areas: **performance, duplication, readability/maintenance, security, resilience**. It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
 
-This skill looks at everything in scope, not at what changed recently. If the user is asking about a PR, a branch, a diff or "my changes", stop. Tell them to use `/code-review` (or `/security-review`) instead.
+This skill looks at everything in scope, not at what changed recently. If the user is asking about a PR, a branch, a diff or "my changes", stop. Tell them to use `/pr-review` to review, fix and merge it (or `/code-review` / `/security-review` to only report) instead.
 
 The value comes from verified, behaviour-preserving improvements. A finding is worth reporting or fixing only if it has a `file:line`, a concrete cost (a failure scenario, a measurable or clearly reasoned cost, or a maintenance burden), and a fix you checked. A few real improvements beat many speculative ones.
 
