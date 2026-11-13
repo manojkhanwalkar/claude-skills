@@ -15,3 +15,5 @@ Personal [Claude Code](https://claude.com/claude-code) skills, installed at `~/.
 | [`document`](document/SKILL.md) | Writes per-file and per-function docs plus a project summary merged into the README. |
 
 Run one in Claude Code with `/<skill-name>`, e.g. `/owasp-top10 --fix`.
+
+`templates/` holds files the rules in `~/.claude/CLAUDE.md` tell every project to copy, such as `artifact-cleanup.yml`.

@@ -102,7 +102,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 
 | PR | Contents |
 |---|---|
-| 1 – Scaffold | `pyproject.toml` with tooling (ruff, mypy strict, pytest, pytest-cov `fail_under = 95`), `uv.lock`, `.python-version`, `src/<pkg>/__init__.py`, one smoke test, all of `.github/` (CI, CodeQL, security scan, release, Dependabot, PR template, CODEOWNERS), `SECURITY.md`, the IntelliJ files. From `references/github-setup.md`. |
+| 1 – Scaffold | `pyproject.toml` with tooling (ruff, mypy strict, pytest, pytest-cov `fail_under = 95`), `uv.lock`, `.python-version`, `src/<pkg>/__init__.py`, one smoke test, all of `.github/` (CI, CodeQL, security scan, release, artifact cleanup, Dependabot, PR template, CODEOWNERS), `SECURITY.md`, the IntelliJ files. From `references/github-setup.md`. |
 | 2…n – One module each | Bottom-up dependency order. For each: port the Java tests first as Python tests (they should fail), then the code until they pass, then add tests up to ≥95% coverage. Keep PRs small enough to review (aim < ~800 changed lines; split big modules by package). |
 | n+1 – Parity & docs | End-to-end parity suite (below), README with run/connect commands, docs. |
 
