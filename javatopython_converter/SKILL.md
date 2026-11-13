@@ -92,7 +92,9 @@ Update both whenever a later PR changes behaviour, APIs, data or architecture.
    gh repo create <owner>/<name> --private --source . --remote origin --push \
      --description "Python port of <JavaName>"
    ```
-5. **Repository settings** — see `references/github-setup.md` §Settings: secret scanning + push protection, Dependabot alerts and security updates, private vulnerability reporting, auto-delete head branches, squash-merge only. Branch protection on `main` is set **after PR 1's CI has run once**, so the required check names exist.
+   Use `--public` instead of `--private` when the user passed `--public` or chose a public repo.
+5. **Repository settings** — see `references/github-setup.md` §Settings: secret scanning + push protection, Dependabot alerts and security updates, private vulnerability reporting (public repos), auto-delete head branches, squash-merge only. Branch protection on `main` is set **after PR 1's CI has run once**, so the required check names exist.
+6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the path with `/` replaced by `-`): a project memory with the Java origin (repo + SHA), the design doc and diagram links, and a **merged-PR counter** (starts at 0) for rule 5. Add the pointers to `MEMORY.md`.
 
 ## Phase 4 – Convert through PRs
 
@@ -100,7 +102,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 
 | PR | Contents |
 |---|---|
-| 1 – Scaffold | `pyproject.toml` with tooling (ruff, mypy strict, pytest, pytest-cov `fail_under = 95`), `src/<pkg>/__init__.py`, one smoke test, all of `.github/` (CI, CodeQL, security scan, release, Dependabot, PR template, CODEOWNERS), `SECURITY.md`, the IntelliJ files. From `references/github-setup.md`. |
+| 1 – Scaffold | `pyproject.toml` with tooling (ruff, mypy strict, pytest, pytest-cov `fail_under = 95`), `uv.lock`, `.python-version`, `src/<pkg>/__init__.py`, one smoke test, all of `.github/` (CI, CodeQL, security scan, release, Dependabot, PR template, CODEOWNERS), `SECURITY.md`, the IntelliJ files. From `references/github-setup.md`. |
 | 2…n – One module each | Bottom-up dependency order. For each: port the Java tests first as Python tests (they should fail), then the code until they pass, then add tests up to ≥95% coverage. Keep PRs small enough to review (aim < ~800 changed lines; split big modules by package). |
 | n+1 – Parity & docs | End-to-end parity suite (below), README with run/connect commands, docs. |
 
@@ -118,7 +120,8 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 ### Proving parity
 
 - Every Java test has a Python counterpart (name mapping in the test's docstring: `Ports: FooTest.testBar`). List any you intentionally drop, with the reason, in the PR body.
-- **Golden tests:** for anything with an external contract, run the Java build to capture real responses (HTTP, MCP tool results, CLI output) for a representative input set, commit them under `tests/golden/`, and assert the Python output matches. Generate the inputs to cover edge cases (empty, max size, invalid, unicode, error paths).
+- **Golden tests:** for anything with an external contract, run the Java build to capture real responses (HTTP, MCP tool results, CLI output) for a representative input set, commit them under `tests/golden/` together with the capture script (stdlib-only, so it can be re-run), and assert the Python output matches. Generate the inputs to cover edge cases (empty, max size, invalid, unicode, error paths). For MCP servers capture over raw JSON-RPC: the `initialize` result (capabilities, serverInfo, instructions), `tools/list` (names, titles, annotations, input schemas) and `tools/call` results *and* JSON-RPC errors (unknown tool, schema-invalid arguments). Framework defaults leak into the contract — e.g. Spring AI repeats a tool's exception message on two lines and adds default annotations — capture rather than guess.
+- **Prototype the risky semantics first** (number formatting, floating-point maths, error texts) against the golden data before planning PRs, so contract surprises surface early.
 - For servers, an **end-to-end test** that starts the real Python server (subprocess or ASGI test client for HTTP; stdio subprocess for MCP) and calls it as a client would.
 - Differences that are bugs in the Java code: keep the Java behaviour by default, record it in the design doc's Open questions, and ask the user.
 
@@ -134,14 +137,15 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
    - Non-idiomatic Python (Java-isms: getters/setters, static-only classes, manual resource closing, `== None`, index loops)?
    `pr-review` fixes confirmed findings with tests, posts the findings table, waits for CI and squash-merges. Never merge with failing CI or an open High/Medium finding.
 5. Update the design doc and diagram if the PR changed behaviour, APIs, data or architecture.
+6. After the merge, increment the merged-PR counter in the project memory. When it reaches a multiple of 5, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
 
 After PR 1 merges and CI has run: set branch protection (`references/github-setup.md` §Branch protection) with the CI, CodeQL and security jobs as required checks.
 
 ## Phase 5 – Wrap up
 
-1. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`): a project memory with the Java origin (repo + SHA), the design doc and diagram links, and the merged-PR count for rule 5's deep-review cadence. Add the pointers to `MEMORY.md`.
+1. **Project memory:** bring it up to date (merged-PR count, open questions, links).
 2. If the port added the project's first LLM/agent feature, run **`owasp-llm-top10`** on the whole project; if it handles sensitive data, run **`owasp-top10`** (rule 4).
-3. **Deep review** (rule 5): if the merged-PR count reached a multiple of 5, run `deep-review` and ship it as its own PR through Phase 4's gate.
+3. **Deep review** (rule 5): already run after every 5th merge in Phase 4; nothing extra here unless a multiple of 5 was reached by the last merge.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 
 ## Final report to the user

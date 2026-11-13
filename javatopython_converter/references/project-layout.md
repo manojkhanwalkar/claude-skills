@@ -67,6 +67,7 @@ files = ["src", "tests"]
 testpaths = ["tests"]
 addopts = "-ra --strict-markers --cov=<pkg> --cov-branch --cov-report=term-missing --cov-report=xml"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.coverage.report]
 fail_under = 95

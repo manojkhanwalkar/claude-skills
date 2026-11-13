@@ -11,10 +11,12 @@ create the project** and use the newer one if the tag moved:
 
 ```bash
 for r in actions/checkout actions/setup-python astral-sh/setup-uv actions/upload-artifact \
-         actions/download-artifact github/codeql-action aquasecurity/trivy-action \
+         actions/download-artifact aquasecurity/trivy-action \
          gitleaks/gitleaks-action actions/dependency-review-action; do
   t=$(gh api repos/$r/releases/latest --jq .tag_name); echo "$r $t $(gh api repos/$r/commits/$t --jq .sha)"
 done
+# codeql-action's "latest release" is a codeql-bundle tag, not an action version: pin the major tag
+echo "github/codeql-action v4 $(gh api repos/github/codeql-action/commits/v4 --jq .sha)"
 ```
 
 | Action | Tag | SHA |
@@ -339,6 +341,8 @@ account, so it's fine to write. Don't invent team handles.
 
 Please do **not** open a public issue. Use GitHub's private vulnerability reporting instead
 (*Security → Report a vulnerability* on this repository).
+<!-- Private repo: private vulnerability reporting isn't available; replace the line above with
+     "Contact the maintainer (<owner>) directly" — never write a personal email address unasked. -->
 
 ## Handling data
 
@@ -351,11 +355,11 @@ Never commit secrets or `.env` files. Test data must be synthetic.
 
 ```bash
 R=<owner>/<name>
-gh api -X PATCH repos/$R -f delete_branch_on_merge=true -F allow_squash_merge=true \
+gh api -X PATCH repos/$R -F delete_branch_on_merge=true -F allow_squash_merge=true \
   -F allow_merge_commit=false -F allow_rebase_merge=false
 gh api -X PUT repos/$R/vulnerability-alerts            # Dependabot alerts
 gh api -X PUT repos/$R/automated-security-fixes        # Dependabot security updates
-gh api -X PUT repos/$R/private-vulnerability-reporting
+gh api -X PUT repos/$R/private-vulnerability-reporting   # public repos only
 # Secret scanning + push protection (free on public repos; private needs Secret Protection):
 gh api -X PATCH repos/$R --input - <<'EOF'
 {"security_and_analysis":{"secret_scanning":{"status":"enabled"},"secret_scanning_push_protection":{"status":"enabled"}}}
