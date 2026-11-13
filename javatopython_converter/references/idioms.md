@@ -1,0 +1,74 @@
+# Java → Python mapping
+
+Pick versions from PyPI at conversion time (`uv add <pkg>` resolves the newest), never from memory.
+
+## Frameworks (defaults)
+
+| Java | Python default | Notes |
+|---|---|---|
+| Spring Boot web (`@RestController`) | **FastAPI** + **uvicorn** | Pydantic models for request/response; `Depends` for injection; exception handlers mirror `@ControllerAdvice` status mapping. |
+| Spring WebFlux / reactive | FastAPI with `async def` | |
+| Spring AI MCP server (`@McpTool`) | official **`mcp`** SDK (`mcp.server.fastmcp.FastMCP`) | Keep tool names, descriptions and parameter names/descriptions identical; stdio by default, `streamable-http` if Java used HTTP. |
+| Spring AI MCP client | `mcp` SDK `ClientSession` + `stdio_client` / `streamablehttp_client` | |
+| Spring AI `ChatClient` / LangChain4j | **`anthropic`** SDK (or the provider the Java code used) | Keep model ids and prompts; load the `claude-api` skill before writing model calls. |
+| Spring `@Configuration` / `application.yml` | **pydantic-settings** `BaseSettings` | `a.b.c` property → `A_B_C` env var; keep the same defaults. |
+| Spring DI (`@Component`, `@Autowired`) | plain constructors + a small composition root (`app.py`) | No DI framework unless the graph is large. |
+| Spring Data JPA / JDBC | **SQLAlchemy 2.x** (+ Alembic) | |
+| Spring `@Scheduled` | `asyncio` task loop, or APScheduler if cron expressions are used | |
+| Spring Security / JWT | FastAPI security deps + **PyJWT** | Same algorithms, issuer/audience checks, clock skew. |
+| picocli / commons-cli / `main(String[])` | **argparse** (stdlib); **typer** if subcommands are many | Same flags and exit codes. |
+| Servlet filters | Starlette middleware | |
+
+## Libraries
+
+| Java | Python |
+|---|---|
+| JUnit 5 / TestNG | **pytest** (`@ParameterizedTest` → `@pytest.mark.parametrize`, `@BeforeEach` → fixtures) |
+| Mockito | `unittest.mock` / `pytest-mock` |
+| AssertJ / Hamcrest | plain `assert`, `pytest.approx`, `pytest.raises(match=...)` |
+| WireMock / MockWebServer | **respx** (httpx) or `pytest-httpserver` |
+| Testcontainers | `testcontainers` (Python) |
+| Spring `MockMvc` / `WebTestClient` | FastAPI `TestClient` / `httpx.AsyncClient(transport=ASGITransport(app))` |
+| JaCoCo | **coverage.py** via pytest-cov |
+| Jackson | **Pydantic v2** (`model_validate_json`, `model_dump(by_alias=True)`); `json` for simple cases |
+| Lombok `@Data` / records | `@dataclass(frozen=True, slots=True)` or Pydantic `BaseModel` |
+| `java.net.http.HttpClient` / RestTemplate / WebClient / OkHttp | **httpx** (explicit `timeout=` always) |
+| Resilience4j / Spring Retry | **tenacity** (retry only recoverable + idempotent; `wait_random_exponential`) |
+| Bucket4j / Guava RateLimiter | small token-bucket class + `asyncio.Semaphore` for the concurrency cap |
+| Caffeine / Guava cache | `functools.lru_cache(maxsize=…)` or `cachetools.TTLCache` — always bounded |
+| SLF4J / Logback | `logging` (`logging.getLogger(__name__)`), config via `logging.config.dictConfig` |
+| Guava collections | stdlib `collections`, `itertools` |
+| Apache Commons Lang/IO | stdlib (`str` methods, `pathlib`, `shutil`) |
+| `java.time` | `datetime` (always timezone-aware), `zoneinfo` |
+| `BigDecimal` | `decimal.Decimal` with an explicit context/rounding |
+| `ExecutorService` / `CompletableFuture` | `asyncio` (I/O) or `concurrent.futures` (CPU) |
+| `AtomicInteger` / `synchronized` | `threading.Lock` (threads) / `asyncio.Lock` (async) — or avoid shared state |
+| `Optional<T>` | `T | None` |
+| Checked exceptions | a package exception hierarchy rooted at `<Pkg>Error` |
+| Jakarta Validation (`@NotNull`, `@Size`) | Pydantic `Field(...)` constraints |
+
+## Semantics that bite
+
+- **Integer overflow:** Java `int`/`long` wrap; Python ints don't. If results can overflow and the contract depends on it, mask explicitly (`((x + 2**31) % 2**32) - 2**31`) and test it.
+- **Division:** Java `int / int` truncates toward zero; Python `//` floors. Use `int(a / b)` only for small values; prefer `math.trunc` with `Fraction`/`Decimal` or `-(-a // b)` patterns, and test negatives.
+- **Modulo** of negatives differs (`-7 % 3` is `-1` in Java, `2` in Python): use `math.fmod` for floats, or `a - b * int(a / b)`.
+- **Double formatting:** Java prints `1.0E10`, `NaN`, `Infinity`; Python prints `10000000000.0`, `nan`, `inf`. Reproduce Java formatting where it is part of the output contract.
+- **Division by zero:** Java `double` gives `Infinity`/`NaN`; Python raises `ZeroDivisionError`. Match the Java result or the Java error contract deliberately.
+- **String:** Java `String.length()` counts UTF-16 units; Python `len()` counts code points. `split` with regex vs literal; Java `trim()` vs Python `strip()` (different whitespace sets).
+- **Equality:** `==` on Java objects is identity; Python `==` is value equality. `equals`/`hashCode` → dataclass `eq`/`frozen`.
+- **Collections ordering:** `HashMap` order is unspecified; Python `dict` keeps insertion order. Don't make tests depend on one or the other unless the contract does.
+- **Null handling:** a Java method that returns `null` → return `None` and type it `T | None`; don't silently change to raising.
+- **Static mutable state / singletons:** module-level state is shared per process; make it explicit and bounded.
+
+## Idiom checklist (reviewers look for these Java-isms)
+
+- getters/setters → attributes or `@property`
+- classes with only static methods → module-level functions
+- `try/finally: close()` → `with`
+- `if x == None` → `if x is None`
+- `for i in range(len(xs))` → `for x in xs` / `enumerate`
+- string concatenation in loops → `"".join(...)` / f-strings
+- `interface` with one impl → drop it, or a `typing.Protocol`
+- builders → keyword arguments with defaults
+- `CamelCase` methods/variables → `snake_case`; constants `UPPER_SNAKE`
+- explicit type checks (`instanceof` chains) → `match` statement or polymorphism
