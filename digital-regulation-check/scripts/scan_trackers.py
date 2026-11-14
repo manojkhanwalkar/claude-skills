@@ -28,11 +28,11 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
 from typing import Iterator, NamedTuple
 
 MAX_FILE_BYTES = 2 * 1024 * 1024
-MAX_LINE_CHARS = 10_000
 SKIP_DIRS = {
     ".git", ".hg", ".svn", "node_modules", "target", "build", "dist", "out",
     ".gradle", ".idea", ".venv", "venv", "__pycache__", ".mypy_cache",
@@ -70,13 +70,16 @@ TRACKERS = {
 }
 TRACKER_RES = [(name, re.compile(p, re.IGNORECASE)) for name, p in TRACKERS.items()]
 
-SCRIPT_SRC = re.compile(r"<script\b[^>]*\bsrc\s*=\s*['\"]((?:https?:)?//[^'\"]+)['\"][^>]*>", re.IGNORECASE)
+SCRIPT_OPEN = re.compile(r"<script\b", re.IGNORECASE)
+SRC_ATTR = re.compile(r"\bsrc\s*=\s*['\"]((?:https?:)?//[^'\"]+)['\"]", re.IGNORECASE)
+MAX_TAG_CHARS = 4096
 INTEGRITY = re.compile(r"\bintegrity\s*=", re.IGNORECASE)
 DYNAMIC_SCRIPT = re.compile(r"createElement\(\s*['\"]script['\"]\s*\)|import\(\s*['\"]https?://")
 COOKIE_WRITE = re.compile(
-    r"document\.cookie\s*=|Set-Cookie|\baddCookie\s*\(|\bset_cookie\s*\(|\bsetcookie\s*\(|"
-    r"\bres(ponse)?\.cookie\s*\(|cookies\.set\s*\(|ResponseCookie\.from|new\s+Cookie\s*\(|"
-    r"HttpCookie\s*\(|Cookies\.set\s*\(",
+    r"document\.cookie\s*=|set-cookie|\baddCookie\s*\(|\bset_?cookie\s*\(|"
+    r"\bres(ponse)?\.cookie\s*\(|cookies(\(\s*\))?\.set\s*\(|ResponseCookie\.from|new\s+Cookie\s*\(|"
+    r"HttpCookie\s*\(",
+    re.IGNORECASE,
 )
 CLIENT_STORAGE = re.compile(r"\b(localStorage|sessionStorage)\.setItem\s*\(|\bindexedDB\.open\s*\(")
 FINGERPRINT = re.compile(
@@ -99,16 +102,29 @@ class Hit(NamedTuple):
     detail: str
 
 
-def scan_line(path: str, lineno: int, line: str) -> Iterator[Hit]:
-    line = line[:MAX_LINE_CHARS]
-    for m in SCRIPT_SRC.finditer(line):
-        src = m.group(1)
-        if FIRST_PARTY_HOSTS.search(src):
+def scan_scripts(path: str, text: str) -> Iterator[Hit]:
+    """Third-party <script src> tags, also when the tag spans several lines.
+
+    Finds each "<script" and reads up to the next ">" (bounded), so the cost is
+    linear in the file size whatever the markup looks like.
+    """
+    for m in SCRIPT_OPEN.finditer(text):
+        end = text.find(">", m.end(), m.end() + MAX_TAG_CHARS)
+        if end < 0:
             continue
-        host = src.split("//", 1)[1].split("/", 1)[0]
+        tag = text[m.start():end + 1]
+        src = SRC_ATTR.search(tag)
+        if not src or FIRST_PARTY_HOSTS.search(src.group(1)):
+            continue
+        host = src.group(1).split("//", 1)[1].split("/", 1)[0]
+        lineno = text.count("\n", 0, m.start()) + 1
         yield Hit(path, lineno, "third-party-script", host)
-        if not INTEGRITY.search(m.group(0)):
+        if not INTEGRITY.search(tag):
             yield Hit(path, lineno, "no-sri", host)
+
+
+def scan_line(path: str, lineno: int, line: str) -> Iterator[Hit]:
+    """Line-level leads (everything except <script src> tags, see scan_scripts)."""
     if DYNAMIC_SCRIPT.search(line):
         yield Hit(path, lineno, "third-party-script", "dynamic script load")
     for name, rx in TRACKER_RES:
@@ -146,16 +162,24 @@ def scan_file(path: str) -> Iterator[Hit]:
     if not path.lower().endswith(SCAN_SUFFIXES) or path.lower().endswith(".min.js"):
         return
     try:
-        if os.path.islink(path) or os.path.getsize(path) > MAX_FILE_BYTES:
+        st = os.lstat(path)
+        # Regular files only: no symlinks, FIFOs or devices (a FIFO would block forever).
+        if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_FILE_BYTES:
             return
         with open(path, "rb") as fh:
-            data = fh.read()
+            data = fh.read(MAX_FILE_BYTES + 1)
     except OSError:
         return
-    if b"\0" in data[:8192]:
+    if len(data) > MAX_FILE_BYTES or b"\0" in data[:8192]:
         return
-    for lineno, line in enumerate(data.decode("utf-8", errors="replace").splitlines(), start=1):
-        yield from scan_line(path, lineno, line)
+    yield from scan_text(path, data.decode("utf-8", errors="replace"))
+
+
+def scan_text(path: str, text: str) -> Iterator[Hit]:
+    hits = list(scan_scripts(path, text))
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        hits.extend(scan_line(path, lineno, line))
+    yield from sorted(hits, key=lambda h: h.line)
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -33,6 +33,17 @@ class LuhnAndPanTest(unittest.TestCase):
         self.assertEqual(kinds("v = 1.4539148803436467"), [])        # part of a decimal
         self.assertEqual(kinds('"12345678901234567890123"'), [])     # too long
 
+    def test_pan_at_end_of_sentence(self):
+        self.assertEqual(kinds('log("Charged card 4539148803436467.")'), ["pan"])
+
+    def test_pan_after_short_number(self):
+        self.assertEqual(kinds("exp 12/25 4539148803436467"), ["pan"])
+        self.assertEqual(kinds("qty 1 378282246310013"), ["pan"])
+        self.assertEqual(kinds("qty 1 4539 1488 0343 6467 2"), ["pan"])
+
+    def test_many_groups_reported_once_each(self):
+        self.assertEqual(kinds("4539148803436467 4539148803436467"), ["pan", "pan"])
+
     def test_pan_never_printed_in_full(self):
         hit = next(s.scan_line("a", 1, "4539148803436467"))
         self.assertNotIn("453914880343", hit.detail)
@@ -69,8 +80,14 @@ class FieldAndLogTest(unittest.TestCase):
     def test_log_without_sensitive_name(self):
         self.assertEqual(kinds('logger.debug("span ok {}", span);'), [])
 
-    def test_long_line_truncated(self):
-        self.assertEqual(kinds("a" * (s.MAX_LINE_CHARS + 10) + " 4539148803436467"), [])
+    def test_pan_beyond_column_10000_found(self):
+        self.assertEqual(kinds('{"x":"' + "a" * 20000 + '","card":"4539148803436467"}'), ["pan"])
+
+    def test_underscore_and_kotlin_loggers(self):
+        self.assertEqual(kinds('self._logger.info("email %s", email)', "a.py"), ["log-pii"])
+        self.assertEqual(kinds("_log.info(email)", "a.py"), ["log-pii"])
+        self.assertEqual(kinds('logger.info { "email $email" }', "A.kt"), ["log-pii"])
+        self.assertEqual(kinds("catalog.find(email)", "a.py"), [])
 
 
 class FileWalkTest(unittest.TestCase):
@@ -122,6 +139,30 @@ class FileWalkTest(unittest.TestCase):
         self.assertEqual(rec["kind"], "ssn")
         self.assertFalse(rec["in_test"])
 
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "needs FIFOs")
+    def test_fifo_skipped(self):
+        os.mkfifo(os.path.join(self.root, "src", "pipe.js"))
+        rc, out, _ = self.run_main(self.root)  # would block forever if the FIFO were opened
+        self.assertEqual(rc, 0)
+
+    def test_oversized_file_skipped(self):
+        big = os.path.join(self.root, "big.txt")
+        with open(big, "w") as f:
+            f.write("234-56-7890\n" + "x" * s.MAX_FILE_BYTES)
+        self.assertEqual(self.run_main(big)[1], "")
+
+    def test_files_from_a_file_and_default_dir(self):
+        listing = os.path.join(self.root, "list.txt")
+        with open(listing, "w") as f:
+            f.write(os.path.join(self.root, "src", "App.java") + "\n")
+        self.assertIn("App.java", self.run_main("--files-from", listing)[1])
+        old = os.getcwd()
+        os.chdir(self.root)
+        try:
+            self.assertEqual(len(self.run_main()[1].strip().splitlines()), 2)
+        finally:
+            os.chdir(old)
+
     def test_missing_file_is_ignored(self):
         rc, out, _ = self.run_main(os.path.join(self.root, "nope.txt"))
         self.assertEqual((rc, out), (0, ""))
@@ -129,7 +170,9 @@ class FileWalkTest(unittest.TestCase):
     def test_test_path_patterns(self):
         for p in ("src/test/java/A.java", "tests/a.py", "a/FooTest.java", "a/foo.spec.ts", "a/test_foo.py", "a/foo_test.go"):
             self.assertTrue(s.TEST_PATH.search(p), p)
-        for p in ("src/main/java/A.java", "app/contest.py", "latest/x.js"):
+        for p in ("src/main/java/A.java", "app/contest.py", "latest/x.js", "exports/CREDIT.csv",
+                  "data/DEBIT.json", "reports/AUDIT.txt", "data/latest_cards.csv", "contest_results.py",
+                  "attest_signing.py", "src/main/java/TransactionSpec.java", "testimonials/a.txt"):
             self.assertFalse(s.TEST_PATH.search(p), p)
 
 

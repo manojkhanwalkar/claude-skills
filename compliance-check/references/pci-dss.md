@@ -56,7 +56,7 @@ Grep: `sha(1|256|512)\(|MessageDigest|hashlib|digest\(` near PAN · `@Column.*(c
 | **6.2.2** | Developers trained at least annually on secure coding for their languages. | Out of scope for code — list under "not checked". |
 | **6.2.3 / 6.2.3.1** | Every change to bespoke and custom software (including APIs) reviewed **before release** by someone other than the author, for security and coding vulnerabilities; manual reviews approved by management. | Required PR review (author ≠ approver), branch protection, `pr-review`. |
 | **6.2.4** | Code prevents common attacks: injection, attacks on data structures, crypto misuse, business-logic abuse (e.g. card testing, replaying a payment), access-control bypass. | `security-review` / `owasp-top10`; rate limits and velocity checks on payment endpoints. |
-| **6.3.1 / 6.3.3** | Vulnerabilities identified and ranked; critical/high patches applied within one month. | Dependabot / dependency review, CodeQL. |
+| **6.3.1 / 6.3.3** | Vulnerabilities identified and ranked; critical patches installed within one month of release, others within an appropriate time frame (per the entity's risk assessment). | Dependabot / dependency review, CodeQL. |
 | **6.3.2** | Inventory of bespoke software and third-party components (an SBOM). | SBOM generation in CI (CycloneDX / SPDX). |
 | **6.4.1 / 6.4.2** | Public-facing web apps protected by an automated solution that detects and prevents web attacks (WAF), actively running and logging. | Infrastructure; note if absent from IaC. |
 | **6.5.1 / 6.5.2** | Changes to production follow change control: reason, security impact, approval, testing, rollback plan; PCI requirements re-confirmed after significant changes. | PR template sections; release workflow with environment approval. |
@@ -77,7 +77,8 @@ Applies to any page that collects card data **or that embeds the processor's ifr
 - **7.2.1–7.2.6**: least privilege and deny by default for access to account data; application and system accounts get only what they need; **7.2.6** user queries of stored cardholder data are restricted to the least privileges. Check DB grants, IAM policies in IaC, admin endpoints, and that one customer can never read another's payment methods (IDOR).
 - **8.2.1 / 8.2.2**: unique IDs; shared or generic accounts only by exception.
 - **8.2.6 / 8.2.8**: inactive accounts disabled within 90 days; sessions re-authenticate after **15 minutes** idle (for access to the CDE / admin consoles).
-- **8.3.1, 8.4.2, 8.4.3, 8.5.1**: MFA for all access into the CDE and for all remote access; MFA not replayable or bypassable.
+- **8.3.1**: every user access is authenticated with at least one factor (something you know, have or are).
+- **8.4.1–8.4.3, 8.5.1**: MFA for all non-console administrative access and all access into the CDE (8.4.1/8.4.2) and for all remote network access (8.4.3); MFA systems not replayable or bypassable (8.5.1).
 - **8.3.4**: lockout after at most 10 failed attempts, for at least 30 minutes or until identity is confirmed.
 - **8.3.6**: passwords at least **12 characters** (8 if the system can't) with letters and numbers; **8.3.7** not one of the last 4; **8.3.2** stored and transmitted unreadable (salted, slow hash — bcrypt, scrypt, Argon2, PBKDF2).
 - **8.6.1–8.6.3**: system and application accounts that can log in interactively are controlled; **their passwords are not hard-coded in scripts, config files or source**; rotated per risk analysis. Grep: `password\s*[=:]`, `jdbc:.*password=`, `.env` committed, `docker-compose` secrets.

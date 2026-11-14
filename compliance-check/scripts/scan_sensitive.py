@@ -31,11 +31,11 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
 from typing import Iterator, NamedTuple
 
 MAX_FILE_BYTES = 2 * 1024 * 1024
-MAX_LINE_CHARS = 10_000
 SKIP_DIRS = {
     ".git", ".hg", ".svn", "node_modules", "target", "build", "dist", "out",
     ".gradle", ".idea", ".venv", "venv", "__pycache__", ".mypy_cache",
@@ -61,7 +61,11 @@ TEST_PANS = {
 # Woolworth wallet-card number). Never issued to a real person for that use.
 EXAMPLE_SSNS = {"123-45-6789", "078-05-1120", "219-09-9999", "111-11-1111", "222-22-2222", "333-33-3333"}
 
-PAN_CANDIDATE = re.compile(r"(?<![\d.])(?:\d[ -]?){12,18}\d(?![\d.])")
+# A run of digit groups joined by single spaces or hyphens, not part of a decimal.
+# Each run is split into groups and every window of consecutive groups holding
+# 13-19 digits is tried, so "exp 12/25 4539 1488 0343 6467" still finds the PAN.
+DIGIT_RUN = re.compile(r"(?<!\d)(?<!\d\.)\d+(?:[ -]\d+)*(?!\d|\.\d)")
+DIGIT_GROUP = re.compile(r"\d+")
 # Brand prefixes: Visa 4; Mastercard 51-55, 2221-2720; Amex 34/37; Discover 6011/64/65;
 # Diners 36/38/300-305; JCB 3528-3589; UnionPay 62; Maestro 50/56-58/6.
 BRAND_PREFIX = re.compile(
@@ -82,9 +86,10 @@ def normalise(line: str) -> str:
     return CAMEL.sub("_", line).lower()
 
 
+# Logger names, also with leading underscores (self._logger) and Kotlin's lambda form.
 LOG_CALL = re.compile(
-    r"\b(log(ger)?|LOG|LOGGER|console|logging|Log|slf4j|print(ln|f)?|System\.(out|err))"
-    r"\s*(\.\s*\w+)?\s*\(",
+    r"(?<![A-Za-z0-9])_*(log(ger)?|LOG|LOGGER|console|logging|Log|slf4j|print(ln|f)?|System\.(out|err))"
+    r"\s*(\.\s*\w+)?\s*[({]",
 )
 SENSITIVE_NAME = re.compile(
     r"(ssn|social_?security|tax_?id|\btin\b|\bpan\b|card_?number|cc_?num|account_?number|"
@@ -93,12 +98,18 @@ SENSITIVE_NAME = re.compile(
     r"last_?name|full_?name|email|phone|address)",
     re.IGNORECASE,
 )
-DIGIT_ONLY = re.compile(r"\D")
 
 
+# Test directories, and test file names by language convention. File-name rules
+# are tied to source extensions so data files such as CREDIT.csv or AUDIT.txt are
+# never mistaken for tests.
 TEST_PATH = re.compile(
-    r"(^|[/\\])(tests?|__tests__|spec|fixtures?|testdata|src[/\\]test)([/\\]|$)|"
-    r"(Test|Tests|IT|Spec)\.\w+$|(_test|\.test|\.spec|test_[^/\\]*)\.\w+$"
+    r"(^|[/\\])(tests?|__tests__|spec|fixtures?|testdata|src[/\\]test)[/\\]|"
+    r"(^|[/\\])\w*[a-z0-9](Test|Tests|IT)\.(java|kt|groovy|scala|cs)$|"
+    r"(^|[/\\])\w*Spec\.(groovy|scala|kt)$|"
+    r"(^|[/\\])test_[^/\\]*\.py$|"
+    r"(^|[/\\])[^/\\]*_(test\.(py|go)|spec\.rb)$|"
+    r"(^|[/\\])[^/\\]*\.(test|spec)\.[cm]?[jt]sx?$"
 )
 
 
@@ -126,17 +137,36 @@ def mask(value: str) -> str:
     return "…" + value[-4:]
 
 
+def pan_hits(line: str) -> Iterator[tuple[str, str]]:
+    """(kind, detail) for each PAN-like window of digit groups in the line."""
+    for run in DIGIT_RUN.finditer(line):
+        groups = DIGIT_GROUP.findall(run.group(0))
+        i = 0
+        while i < len(groups):
+            found = None
+            digits = ""
+            for j in range(i, len(groups)):
+                digits += groups[j]
+                if len(digits) > 19:
+                    break
+                if len(digits) < 13 or len(set(digits)) == 1:
+                    continue
+                if digits in TEST_PANS:
+                    found = ("test-pan", mask(digits), j)
+                elif luhn_ok(digits) and BRAND_PREFIX.match(digits):
+                    found = ("pan", f"{len(digits)} digits {mask(digits)}", j)
+                if found:
+                    break
+            if found:
+                yield found[0], found[1]
+                i = found[2] + 1  # don't report overlapping windows
+            else:
+                i += 1
+
+
 def scan_line(path: str, lineno: int, line: str) -> Iterator[Hit]:
-    if len(line) > MAX_LINE_CHARS:
-        line = line[:MAX_LINE_CHARS]
-    for m in PAN_CANDIDATE.finditer(line):
-        digits = DIGIT_ONLY.sub("", m.group(0))
-        if not 13 <= len(digits) <= 19 or len(set(digits)) == 1:
-            continue
-        if digits in TEST_PANS:
-            yield Hit(path, lineno, "test-pan", mask(digits))
-        elif luhn_ok(digits) and BRAND_PREFIX.match(digits):
-            yield Hit(path, lineno, "pan", f"{len(digits)} digits {mask(digits)}")
+    for kind, detail in pan_hits(line):
+        yield Hit(path, lineno, kind, detail)
     for m in SSN.finditer(line):
         kind = "example-ssn" if m.group(0) in EXAMPLE_SSNS else "ssn"
         yield Hit(path, lineno, kind, mask(m.group(0)))
@@ -164,12 +194,16 @@ def scan_file(path: str) -> Iterator[Hit]:
     if path.lower().endswith(SKIP_SUFFIXES):
         return
     try:
-        if os.path.islink(path) or os.path.getsize(path) > MAX_FILE_BYTES:
+        st = os.lstat(path)
+        # Regular files only: no symlinks, FIFOs or devices (a FIFO would block forever).
+        if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_FILE_BYTES:
             return
         with open(path, "rb") as fh:
-            data = fh.read()
+            data = fh.read(MAX_FILE_BYTES + 1)
     except OSError:
         return
+    if len(data) > MAX_FILE_BYTES:
+        return  # grew after the size check
     if b"\0" in data[:8192]:
         return  # binary
     text = data.decode("utf-8", errors="replace")

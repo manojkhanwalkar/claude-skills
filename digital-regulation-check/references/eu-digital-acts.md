@@ -84,7 +84,8 @@ Overlaps: GDPR Art. 22 automated decisions, `owasp-llm-top10` for security of LL
 ## DATA — Data Act (Reg. 2023/2854)
 
 - **Connected products and related services (Art. 3–5)**: product data and related-service data accessible to the user by design (from 12 Sep 2026 for new products) — directly or on request, easily, securely, free, in a structured machine-readable format, continuously and in real time where feasible; sharing with third parties at the user's request; pre-contract information about what data is generated.
-- **Data holders (Art. 8–12)**: fair, reasonable, non-discriminatory terms when sharing with data recipients; trade-secret protections; no use of the data to compete with the product's maker.
+- **Data holders (Art. 8–12)**: fair, reasonable, non-discriminatory terms when sharing with data recipients; trade-secret protections; data holders may not use non-personal product data to derive insights into the user's economic situation that could undermine the user's commercial position, and may use product data only as agreed with the user (Art. 4).
+- **Users and third parties (Art. 4(10), 6(2)(e))**: data obtained through access/sharing rights must not be used to develop a product that competes with the connected product it came from.
 - **Cloud/SaaS switching (Art. 23–31)**: customers can switch provider or go on-premises — export of exportable data and digital assets in open, interoperable formats; max 2 months' notice, 30-day transition; egress/switching charges abolished from 12 Jan 2027. Code check: complete export API/tooling, documented formats, no lock-in by design.
 - **Unfair contractual terms in B2B data contracts (Art. 13)** and **safeguards against unlawful government access to non-personal data (Art. 32)** — contractual/organisational.
 

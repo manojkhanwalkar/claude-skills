@@ -11,8 +11,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scan_trackers as t  # noqa: E402
 
 
-def hits(line, path="a.html"):
-    return [(h.kind, h.detail) for h in t.scan_line(path, 1, line)]
+def hits(text, path="a.html"):
+    return [(h.kind, h.detail) for h in t.scan_text(path, text)]
 
 
 class LineTest(unittest.TestCase):
@@ -47,6 +47,21 @@ class LineTest(unittest.TestCase):
     def test_good_signals(self):
         self.assertIn("gpc-signal", [k for k, _ in hits("if (navigator.globalPrivacyControl) {}", "a.js")])
         self.assertIn("consent-check", [k for k, _ in hits("window.__tcfapi('getTCData', 2, cb)", "a.js")])
+
+    def test_more_cookie_apis(self):
+        for line, path in (("http.SetCookie(w, c)", "a.go"), ("cookies().set('a', 'b')", "a.ts"),
+                           ("res.setHeader('set-cookie', v)", "a.js")):
+            self.assertIn("cookie-write", [k for k, _ in hits(line, path)], line)
+
+    def test_multiline_script_tag(self):
+        got = t.scan_text("a.html", '<p>x</p>\n<script\n  async\n  src="https://cdn.x.com/a.js">\n</script>')
+        self.assertEqual([(h.line, h.kind) for h in got], [(2, "third-party-script"), (2, "no-sri")])
+
+    def test_unclosed_script_tags_are_linear(self):
+        import time
+        start = time.monotonic()
+        self.assertEqual(hits("<script " * 200_000), [])
+        self.assertLess(time.monotonic() - start, 5)
 
     def test_plain_code_no_hits(self):
         self.assertEqual(hits("const total = items.reduce((a, b) => a + b, 0);", "a.js"), [])
@@ -96,6 +111,29 @@ class FileTest(unittest.TestCase):
         rc, out, _ = self.run_main("--json", "--files-from", "-", stdin=os.path.join(self.root, "index.html") + "\n")
         kinds = [json.loads(l)["kind"] for l in out.strip().splitlines()]
         self.assertEqual(kinds, ["third-party-script", "no-sri"])
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "needs FIFOs")
+    def test_fifo_skipped(self):
+        os.mkfifo(os.path.join(self.root, "pipe.js"))
+        self.assertEqual(self.run_main(self.root)[0], 0)
+
+    def test_oversized_file_skipped(self):
+        big = os.path.join(self.root, "big.js")
+        with open(big, "w") as f:
+            f.write("fbq('init')\n" + "x" * t.MAX_FILE_BYTES)
+        self.assertEqual(self.run_main(big)[1], "")
+
+    def test_files_from_a_file_and_default_dir(self):
+        listing = os.path.join(self.root, "list.txt")
+        with open(listing, "w") as f:
+            f.write(os.path.join(self.root, "index.html") + "\n")
+        self.assertIn("index.html", self.run_main("--files-from", listing)[1])
+        old = os.getcwd()
+        os.chdir(self.root)
+        try:
+            self.assertIn("index.html", self.run_main()[1])
+        finally:
+            os.chdir(old)
 
     def test_missing_path(self):
         self.assertEqual(self.run_main(os.path.join(self.root, "nope.js"))[:2], (0, ""))
