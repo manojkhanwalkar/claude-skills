@@ -51,7 +51,7 @@ Read every source file in scope fully; don't skim. On a large codebase (roughly 
 
 The areas, in the order they get fixed:
 
-1. **Security recheck.** Re-verify the security properties the project depends on: authentication and authorization on every entry point, input validation at trust boundaries, injection sinks, secrets, crypto, deserialization, upload and parser limits, PII in logs and errors, and dependency versions. Compare against the project's own security docs. A documented control that the code no longer enforces is a finding. This is a recheck, not a full audit. If it turns up systemic problems, recommend `/owasp-top10` in the report.
+1. **Security recheck.** Re-verify the security properties the project depends on: authentication and authorization on every entry point, input validation at trust boundaries, injection sinks, secrets, crypto, deserialization, upload and parser limits, PII in logs and errors, and dependency versions. Compare against the project's own security docs. A documented control that the code no longer enforces is a finding. This is a recheck, not a full audit. If it turns up systemic problems, recommend `/owasp-top10` in the report. If the project handles personal, payment or financial data, or serves EU (or other regulated-region) users, also recheck the compliance controls its design doc relies on and recommend `/compliance-check` and `/digital-regulation-check` for a full pass.
 2. **Resilience.** What happens when each outbound dependency is slow, down, or returns garbage:
    - timeouts on every network call;
    - bounded retries with backoff, only for idempotent operations;
