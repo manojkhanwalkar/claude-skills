@@ -130,6 +130,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 1. Local gate: `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, `uv run pytest --cov` — all green, coverage ≥ 95% (rule 7). Report coverage in the PR body; where 95% isn't reached, say what's uncovered and why.
 2. **`security-review`** skill on the branch; fix what it confirms (rule 4).
 3. **`owasp-llm-top10 --diff origin/main`** if the PR touches LLM/agent/MCP/A2A code; fix confirmed High and Medium.
+   **`compliance-check --diff origin/main`** if it touches personal, payment or financial data or their controls, and **`digital-regulation-check --diff origin/main`** if it touches consent, tracking, user rights, AI decisions, user-generated content or user-facing UI; fix confirmed Critical, High and Medium (rule 4).
 4. **`pr-review <n>`** — the separate-agent review (rule 3). When it starts its reviewer subagent, add this parity checklist to the subagent's prompt:
    - Compare each converted file with its Java source (give both paths). Any behaviour difference in the public contract, error handling, numeric semantics, ordering, null/None handling or defaults?
    - Any Java test without a Python counterpart, or a ported test that asserts less than the original?
@@ -144,7 +145,7 @@ After PR 1 merges and CI has run: set branch protection (`references/github-setu
 ## Phase 5 – Wrap up
 
 1. **Project memory:** bring it up to date (merged-PR count, open questions, links).
-2. If the port added the project's first LLM/agent feature, run **`owasp-llm-top10`** on the whole project; if it handles sensitive data, run **`owasp-top10`** (rule 4).
+2. If the port added the project's first LLM/agent feature, run **`owasp-llm-top10`** on the whole project; if it handles sensitive data, run **`owasp-top10`** (rule 4). Run **`compliance-check`** and **`digital-regulation-check`** on the whole new project and put their applicability tables and data maps in the design doc's Security/Compliance section.
 3. **Deep review** (rule 5): already run after every 5th merge in Phase 4; nothing extra here unless a multiple of 5 was reached by the last merge.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 

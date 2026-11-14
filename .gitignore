@@ -1,2 +1,4 @@
 # managed by Claude (synced from claude.ai), not authored here
 synced/
+__pycache__/
+*.pyc
