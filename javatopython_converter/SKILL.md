@@ -126,7 +126,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
   - Run Java CLI clients **one at a time**, each in its own process group (`start_new_session=True`) with a timeout, and kill the whole group on timeout. Under load a Java client can time out initializing, return from `main` without `System.exit` and hang forever on its non-daemon transport threads; it also hangs after a Spring start-up failure (missing jar, duplicate tool). Its child server JVMs keep the output pipes open, so killing only the client isn't enough.
   - Record cases whose Java output can never match by design (a Spring start-up stack trace with a timestamp) as dedicated tests, not golden cases.
 - **Cross-language tests** (local-only, skipped without a JDK/jars): Python clients against the Java servers *and* Java clients against the Python servers (override the Java client's server command with `--spring.ai.mcp.client.stdio.connections.<name>.command=…` / `args[i]=…`).
-- **Tests must never write to the user's home:** redirect `HOME` (and any log path) to a temp directory in `conftest.py` so servers started by tests, Python or Java, log there.
+- **Tests must never write to the user's home:** redirect `HOME` to a temp directory in `conftest.py` for Python processes, and give every Java process an explicit log path (`--logging.file.name=<tmp>` or `-Duser.home=<tmp>`): a JVM takes `user.home` from the password database and ignores `$HOME`.
 - **Prototype the risky semantics first** (number formatting, floating-point maths, error texts) against the golden data before planning PRs, so contract surprises surface early.
 - For servers, an **end-to-end test** that starts the real Python server (subprocess or ASGI test client for HTTP; stdio subprocess for MCP) and calls it as a client would.
 - Differences that are bugs in the Java code: keep the Java behaviour by default, record it in the design doc's Open questions, and ask the user.
@@ -146,7 +146,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 5. Update the design doc and diagram if the PR changed behaviour, APIs, data or architecture.
 6. After the merge, increment the merged-PR counter in the project memory — every merged PR counts, including Dependabot and workflow-only PRs. When it reaches a multiple of 5, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
 
-**Delegating PRs to agents:** a forked agent cannot start subagents, so it cannot run step 4's independent review itself. Give it the PR work up to a green CI, and have it **stop before merging and hand back**; the parent session starts the reviewer, sends the findings back for fixing, checks the fixes and only then says merge.
+**Delegating PRs to agents:** a forked agent cannot start subagents, so it cannot run the independent review itself. The fork does steps 1–3 (gate, security and OWASP/compliance checks) up to a green CI, then **stops before merging and hands back**. The parent runs steps 4–6: `pr-review <n>` (which starts the reviewer, posts the findings table and merges; it may send the fixes back to the fork to make), then the doc/diagram update and the merged-PR counter.
 
 After PR 1 merges and CI has run: set branch protection (`references/github-setup.md` §Branch protection) with the CI, CodeQL and security jobs as required checks.
 
