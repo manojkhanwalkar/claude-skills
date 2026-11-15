@@ -52,12 +52,17 @@ SCRIPT_SUFFIXES = (".js", ".mjs", ".ts")  # may build markup in template literal
 STYLE_SUFFIXES = (".css", ".scss", ".sass", ".less")
 
 TAG_OPEN = re.compile(r"<([a-zA-Z][a-zA-Z0-9-]*)\b")
-ATTR = re.compile(r"""([:@a-zA-Z_][-:.\w]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^{}]*)\}|([^\s"'>]+)))?""")
-LABEL_FOR = re.compile(r"""<label\b[^>]{0,500}?\b(?:for|htmlFor)\s*=\s*["'{]\s*["']?([^"'}\s]+)""", re.IGNORECASE)
+# Attribute keys include Vue (:x, @x, v-bind:x), Svelte (on:x) and Angular ([x], (x), [attr.x]) bindings.
+ATTR = re.compile(r"""(\[[\w.:-]+\]|\([\w.:-]+\)|[:@#*a-zA-Z_][-:.\w]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^{}]*)\}|([^\s"'>]+)))?""")
+LABEL_FOR = re.compile(r"""<label\b[^>]{0,500}?\s(?:(?::|v-bind:)?for|htmlFor|\[for\]|\[attr\.for\])\s*=\s*(?:["'{]\s*["']?)?([^"'}\s>]+)""",
+                       re.IGNORECASE)
 TITLE = re.compile(r"<title\b[^>]{0,200}>\s*([^<\s][^<]*)</title>", re.IGNORECASE)
 HEADING = re.compile(r"<h([1-6])\b", re.IGNORECASE)
-OUTLINE_NONE = re.compile(r"outline\s*:\s*(none|0)\b", re.IGNORECASE)
-FOCUS_STYLE = re.compile(r":focus(-visible|-within)?\b[^{]*\{[^}]*(outline\s*:(?!\s*(none|0)\b)|box-shadow\s*:(?!\s*none)|border)", re.IGNORECASE)
+NONE_VALUE = r"\s*(?:none|0(?:px|em|rem)?)\s*(?:!important\s*)?[;}]"
+OUTLINE_NONE = re.compile(r"outline\s*:\s*(?:none|0(?:px|em|rem)?)(?![\w.])", re.IGNORECASE)
+# A replacement focus indicator: a visible outline, box-shadow or border on a :focus rule (not "none"/0).
+FOCUS_STYLE = re.compile(r":focus(?:-visible|-within)?\b[^{]{0,500}\{[^}]{0,2000}?"
+                         r"(?:outline|box-shadow|border(?:-[a-z]+)?)\s*:(?!" + NONE_VALUE + r")", re.IGNORECASE)
 PASTE_BLOCK = re.compile(r"""on[Pp]aste\s*=\s*["'{][^"'}]*(return\s+false|preventDefault)""")
 
 FORM_CONTROLS = {"input", "select", "textarea"}
@@ -82,26 +87,65 @@ class Tag(NamedTuple):
     self_closing: bool
 
 
-def parse_tags(text: str) -> Iterator[Tag]:
-    """Opening tags with attributes; linear: each tag is sliced to the next '>' (bounded)."""
-    for m in TAG_OPEN.finditer(text):
+def parse_tags(text: str, jsx: bool = False) -> Iterator[Tag]:
+    """Opening tags with attributes, in one left-to-right pass.
+
+    Each tag is read up to the next '>' within MAX_TAG_CHARS. In JSX, a '>' inside {...} doesn't end
+    the tag, so braces are balanced incrementally. The next search starts after the tag, so no text is
+    read twice and the cost stays linear in the file size.
+    """
+    pos = 0
+    while True:
+        m = TAG_OPEN.search(text, pos)
+        if not m:
+            return
         name = m.group(1)
-        stop = text.find(">", m.end(), m.end() + MAX_TAG_CHARS)
+        limit = m.end() + MAX_TAG_CHARS
+        stop = text.find(">", m.end(), limit)
         if stop < 0:
+            pos = m.end()
             continue
-        # JSX attribute values may contain '>' inside {...}: extend while braces are unbalanced.
-        while text.count("{", m.end(), stop) > text.count("}", m.end(), stop):
-            nxt = text.find(">", stop + 1, m.end() + MAX_TAG_CHARS)
-            if nxt < 0:
-                break
-            stop = nxt
+        if jsx:
+            balance = text.count("{", m.end(), stop) - text.count("}", m.end(), stop)
+            while balance > 0:
+                nxt = text.find(">", stop + 1, limit)
+                if nxt < 0:
+                    break
+                balance += text.count("{", stop + 1, nxt) - text.count("}", stop + 1, nxt)
+                stop = nxt
+        pos = stop + 1
         body = text[m.end():stop]
         attrs = {}
         for a in ATTR.finditer(body):
-            key = a.group(1)
+            key = normalise_key(a.group(1))
             value = next((g for g in a.groups()[1:] if g is not None), None)
-            attrs[key.lower()] = value if value is not None else ""
+            attrs[key] = value if value is not None else ""
         yield Tag(name, attrs, m.start(), stop + 1, body.rstrip().endswith("/"))
+
+
+def normalise_key(key: str) -> str:
+    """Bound attributes count as the attribute: [attr.aria-label] / [aria-label] -> aria-label. (click) stays."""
+    key = key.lower()
+    if key.startswith("[") and key.endswith("]"):
+        key = key[1:-1]
+        if key.startswith("attr."):
+            key = key[5:]
+    return key
+
+
+def blank_comments(text: str) -> str:
+    """HTML comments replaced by spaces (newlines kept, so line numbers stay right); linear."""
+    out, pos = [], 0
+    while True:
+        start = text.find("<!--", pos)
+        if start < 0:
+            out.append(text[pos:])
+            return "".join(out)
+        end = text.find("-->", start + 4)
+        end = len(text) if end < 0 else end + 3
+        out.append(text[pos:start])
+        out.append("".join(c if c == "\n" else " " for c in text[start:end]))
+        pos = end
 
 
 def inner_text(text: str, tag: Tag, limit: int = 2000) -> str | None:
@@ -130,10 +174,14 @@ def visible_text(fragment: str) -> str:
     return (stripped + " " + alts).strip()
 
 
+NAME_ATTRS = ("aria-label", "aria-labelledby", "title")
+
+
 def has_name(attrs: dict) -> bool:
-    for key in ("aria-label", "aria-labelledby", "title", ":aria-label", "v-bind:aria-label"):
-        if attrs.get(key, "").strip():
-            return True
+    for key in NAME_ATTRS:
+        for variant in (key, ":" + key, "v-bind:" + key):
+            if attrs.get(variant, "").strip():
+                return True
     return False
 
 
@@ -149,19 +197,33 @@ class Lines:
 
 
 def scan_markup(path: str, text: str) -> Iterator[Hit]:
+    import bisect
+    text = blank_comments(text)
+    lower_path = path.lower()
+    jsx = lower_path.endswith((".jsx", ".tsx", ".js", ".mjs", ".ts", ".astro"))
+    # Outside plain HTML, a capitalised tag is a component (<Button label=…>), not the HTML element.
+    components_capitalised = not lower_path.endswith((".html", ".htm"))
     labelled_ids = {m.group(1) for m in LABEL_FOR.finditer(text)}
-    tags = list(parse_tags(text))
+    tags = list(parse_tags(text, jsx))
     label_spans = []
     for tag in tags:
         if tag.name.lower() == "label":
             content = inner_text(text, tag, 4000)
             if content is not None:
                 label_spans.append((tag.end, tag.end + len(content)))
+    label_spans.sort()
+    label_starts = [start for start, _ in label_spans]
+
+    def inside_a_label(index: int) -> bool:
+        i = bisect.bisect_right(label_starts, index) - 1
+        return i >= 0 and label_spans[i][0] <= index < label_spans[i][1]
     full_page = re.search(r"<html\b", text, re.IGNORECASE) is not None
     lines = Lines(text)
     last_heading = 0
 
     for tag in tags:
+        if components_capitalised and tag.name[0].isupper():
+            continue
         name = tag.name.lower()
         a = tag.attrs
         ln = lines.of(tag.start)
@@ -177,8 +239,8 @@ def scan_markup(path: str, text: str) -> Iterator[Hit]:
         if name in FORM_CONTROLS:
             kind = a.get("type", "text").lower()
             if not (name == "input" and kind in NO_LABEL_INPUT_TYPES):
-                control_id = a.get("id", "")
-                inside_label = any(s <= tag.start < e for s, e in label_spans)
+                control_id = a.get("id") or a.get(":id") or a.get("v-bind:id") or ""
+                inside_label = inside_a_label(tag.start)
                 if not (has_name(a) or (control_id and control_id in labelled_ids) or inside_label):
                     yield Hit(path, ln, "input-label", f"<{name}{' type=' + kind if name == 'input' else ''}> has no label")
 
@@ -213,7 +275,7 @@ def scan_markup(path: str, text: str) -> Iterator[Hit]:
 
         if name == "meta" and a.get("name", "").lower() == "viewport":
             content = a.get("content", "").lower().replace(" ", "")
-            scale = re.search(r"maximum-scale=([\d.]+)", content)
+            scale = re.search(r"maximum-scale=(\d+(?:\.\d+)?)", content)
             if "user-scalable=no" in content or "user-scalable=0" in content or (scale and float(scale.group(1)) < 2):
                 yield Hit(path, ln, "no-zoom", "viewport blocks zoom")
 
@@ -249,9 +311,17 @@ def scan_text(path: str, text: str) -> list[Hit]:
     elif lower.endswith(MARKUP_SUFFIXES) or (lower.endswith(SCRIPT_SUFFIXES) and "<" in text):
         hits.extend(scan_markup(path, text))
         if lower.endswith((".html", ".htm", ".vue", ".svelte")):
-            for block in re.finditer(r"<style\b[^>]*>(.*?)</style>", text, re.IGNORECASE | re.DOTALL):
-                offset = text.count("\n", 0, block.start(1))
-                hits.extend(h._replace(line=h.line + offset) for h in scan_style(path, block.group(1)))
+            lowered = text.lower()
+            pos = 0
+            while (start := lowered.find("<style", pos)) >= 0:
+                open_end = lowered.find(">", start)
+                close = lowered.find("</style", open_end + 1) if open_end >= 0 else -1
+                if close < 0:
+                    break
+                body = text[open_end + 1:close]
+                offset = text.count("\n", 0, open_end + 1)
+                hits.extend(h._replace(line=h.line + offset) for h in scan_style(path, body))
+                pos = close + 7
     return sorted(hits, key=lambda h: h.line)
 
 

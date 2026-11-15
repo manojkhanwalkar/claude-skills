@@ -70,6 +70,45 @@ class MarkupTest(unittest.TestCase):
         self.assertEqual(kinds("<button>" + "x" * 5000, page=False), [])
 
 
+class ReviewRegressionTest(unittest.TestCase):
+    """Cases from the independent review of the first version."""
+
+    def test_angular_bindings(self):
+        self.assertIn("click-no-key", kinds('<div (click)="go()">Go</div>', "a.component.html", page=False))
+        self.assertIn("anchor-no-href", kinds('<a (click)="go()">Go</a>', "a.component.html", page=False))
+        self.assertEqual(kinds('<button [attr.aria-label]="label"><i></i></button>', "a.component.html", page=False), [])
+        self.assertEqual(kinds('<label [for]="id">X</label><input [id]="id">', "a.component.html", page=False), [])
+
+    def test_components_are_not_html_elements(self):
+        jsx = 'const F = () => (<><Button label="Save" onClick={s} /><Input label="Email" /><Select label="C" /></>);'
+        self.assertEqual(kinds(jsx, "F.jsx", page=False), [])
+        self.assertIn("img-alt", kinds('<IMG SRC="x.png">'))  # plain HTML is case-insensitive
+
+    def test_unquoted_and_bound_label_targets(self):
+        self.assertEqual(kinds("<label for=e>E</label><input id=e>"), [])
+        self.assertEqual(kinds('<label :for="id">E</label><input :id="id">', "a.vue", page=False), [])
+
+    def test_comments_are_ignored_and_lines_kept(self):
+        hits = a.scan_text("a.html", PAGE.format('<!-- <img src="x"> -->\n<!--\n-->\n<img src="y">'))
+        self.assertEqual([(h.kind, h.line) for h in hits], [("img-alt", 4)])
+        self.assertEqual(kinds("<!-- unclosed <img src=x>", page=False), [])
+
+    def test_bad_viewport_value_does_not_crash(self):
+        self.assertEqual(kinds('<meta name="viewport" content="maximum-scale=1..0">'), ["no-zoom"])  # read as 1, like browsers
+
+    def test_border_none_is_not_a_focus_style_and_0px_counts_as_removed(self):
+        self.assertEqual(kinds("button:focus { outline: none; border: none; }", "a.css", page=False), ["outline-none"])
+        self.assertEqual(kinds("a:focus { outline: 0px }", "a.css", page=False), ["outline-none"])
+        self.assertEqual(kinds("a { outline: 0 } a:focus-visible { border-bottom: 2px solid #000; }", "a.css", page=False), [])
+
+    def test_hostile_braces_and_many_labels_stay_linear(self):
+        for text, path in (("<a{>" * 20_000, "a.jsx"), ("if (i<n){ x => { y } }\n" * 20_000, "a.js"),
+                           ("<label>A</label><input>\n" * 20_000, "a.html"), ("<style>" * 20_000, "a.html")):
+            start = time.monotonic()
+            a.scan_text(path, text)
+            self.assertLess(time.monotonic() - start, 10, path)
+
+
 class StyleTest(unittest.TestCase):
     def test_outline_removed_without_replacement(self):
         self.assertEqual(kinds("button:focus { outline: none; }", "a.css", page=False), ["outline-none"])

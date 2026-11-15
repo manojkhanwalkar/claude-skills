@@ -13,7 +13,7 @@ Make every user interface in the user's projects usable by people with disabilit
   - **Title II (state and local government):** DOJ's 2024 rule adopts **WCAG 2.1 Level AA**. An April 2026 interim final rule moved the deadlines to 26 April 2027 for entities serving 50,000 or more people, and 26 April 2028 for smaller ones.
   - **Title III (businesses open to the public):** no rule. Courts, settlements and DOJ guidance use **WCAG 2.1 AA** as the yardstick. Federal web-accessibility suits rose to about 3,100 in 2025.
   - **Elsewhere:** Section 508 means WCAG 2.0 AA for federal ICT. The European Accessibility Act means EN 301 549, which is WCAG 2.1 AA.
-- **The target here is WCAG 2.2 AA.** It contains all of 2.1 AA plus six A/AA criteria: Focus Not Obscured, Dragging Movements, Target Size, Consistent Help, Redundant Entry and Accessible Authentication. It is the current W3C recommendation, so meeting it meets every regime above.
+- **The target here is WCAG 2.2 AA.** It contains all of 2.1 AA plus six A/AA criteria: Focus Not Obscured, Dragging Movements, Target Size, Consistent Help, Redundant Entry and Accessible Authentication. It is the current W3C recommendation, and meeting it meets the WCAG level each regime above requires for web content. EN 301 549 and the EAA also have requirements beyond WCAG (non-web software, two-way communication, video players, documentation and support services, EAA Annex I). Name those under "Not checked" rather than implying conformance.
 - **No overlays.** "One line of script" accessibility widgets do not make a site conformant. In 2025 the FTC fined accessiBe $1M for claiming they did, and sites with overlays are still sued. Fix the code.
 - **Automation finds roughly 30–40% of issues.** The rest need a person: keyboard-only use, a screen reader, zoom and reflow, and judging whether a name or text alternative is meaningful. This skill does both.
 
@@ -31,9 +31,11 @@ This is an engineering review, not a legal opinion or a certified audit (VPAT/AC
 ## When it runs: new code and existing code
 
 - **Every PR that touches UI** (`pr-review` runs it): `ada-compatibility --diff origin/<base>`, plus a full read of each touched UI file. Confirmed Critical, High and Medium findings block the merge like any other finding.
-- **The first PR that modifies a project with a UI** after this skill exists, which is the **baseline**: run `ada-compatibility --fix` on the whole UI, not just the diff, and fix the existing issues.
-  - Put the fixes in the same PR if they are small, otherwise in a dedicated PR in the same task. They go through `pr-review` like any change.
-  - Record `ADA baseline: <date>, commit <sha>, report docs/ACCESSIBILITY-REVIEW.md` in the project memory. Later PRs see it and run in `--diff` mode.
+- **The first PR that modifies a project with a UI** after this skill exists, which is the **baseline**:
+  1. **Before the review starts**, write `ADA baseline: in progress since <date>` to the project memory. Every later review, including the review of the baseline fix PR itself, sees that line and runs only in `--diff` mode, so a baseline never starts a second baseline.
+  2. Run `ada-compatibility --fix` on the whole UI, not just the diff, and fix the existing issues. Small fixes go in the triggering PR. Larger ones go in one dedicated PR (`a11y: baseline fixes`) opened, reviewed and merged in the same task, before the triggering PR merges.
+  3. The merge gate covers the baseline too: the triggering PR merges only when no confirmed Critical, High or Medium finding is open in the touched UI, nor in the baseline (fixed, or merged in the baseline PR). Low findings may stay open with a reason in the report.
+  4. When the fixes are merged, replace the memory line with `ADA baseline: <date>, commit <sha>, report docs/ACCESSIBILITY-REVIEW.md`.
   - A project without a UI records `ADA: no UI` and is skipped until one appears.
 - **New projects with a UI:** set up the automated checks (Phase 5, "Guardrails") in the first UI PR.
 

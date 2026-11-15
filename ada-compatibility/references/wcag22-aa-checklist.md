@@ -208,7 +208,7 @@ The same criteria apply, through the platform accessibility APIs:
   ```js
   await page.keyboard.press('Tab'); await expect(page.getByRole('link', { name: 'Skip to main content' })).toBeFocused();
   ```
-- **Cypress:** `cy.injectAxe(); cy.checkA11y(null, { runOnly: ['wcag2a','wcag2aa','wcag21aa','wcag22aa'] })`.
+- **Cypress:** `cy.injectAxe(); cy.checkA11y(null, { runOnly: ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa'] })`.
 - **CLI or CI without a test suite:** `npx pa11y-ci` (runner `axe`, standard `WCAG2AA`) or `npx @axe-core/cli <urls> --exit`.
 - **Server-rendered pages in Java:** `org.jsoup` assertions on the rendered HTML (each `input` has a `label[for]` or `aria-label`; `html[lang]`; each `img[alt]`). Also `com.deque.html.axe-core:playwright` or `selenium` if a browser runs in CI.
 - **Linters:** `eslint-plugin-jsx-a11y` (recommended or strict), `eslint-plugin-vuejs-accessibility`, `@angular-eslint/template` accessibility rules, `stylelint-a11y`.
