@@ -112,7 +112,7 @@ Follow `owasp-top10` Phase 5 (baseline build, one change at a time, tests, verif
 - **Rights**: implement export, erasure, rectification and objection as code paths that reach every store in the data map, with tests; keep legally required records (financial, tax) with minimal data and a legal-hold flag.
 - **Defaults**: optional processing off by default; profile visibility minimal by default.
 - **AI**: disclose AI interaction and label generated content where required; add human review and an explanation path for automated decisions with legal or similarly significant effects; log for traceability.
-- **Accessibility**: fix to WCAG 2.2 AA (which satisfies 2.1 AA), test with an automated checker (axe-core, Pa11y, Lighthouse) plus keyboard-only and screen-reader passes on the core journeys.
+- **Accessibility**: use the `ada-compatibility` skill. It fixes to WCAG 2.2 AA, which covers the WCAG 2.1 AA web requirements of EN 301 549 (EN 301 549 and EAA Annex I add more for software, documentation and support), with axe tests plus keyboard-only and screen-reader passes on the core journeys.
 - Legal texts (privacy notice, cookie policy, terms, accessibility statement) are drafted for the user to approve, never published silently. Outward-facing settings or registrations are proposed, not applied.
 
 ## Use in reviews and new projects

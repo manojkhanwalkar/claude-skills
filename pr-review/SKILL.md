@@ -78,6 +78,7 @@ Alongside the review, on the same diff:
 - If the diff touches the AI surface (prompts, model calls, chatbots, guardrails, tools, MCP or A2A endpoints, agent memory, RAG), also run `owasp-llm-top10 --diff origin/<base>`.
 - If the diff touches regulated data or financial controls — personal data (names, SSNs, DOB, addresses, emails, credit reports, KYC), payment cards or payment providers, money, billing, subscriptions, ledgers, financial reports, audit logging, access control over such data, retention or deletion, or the CI/CD and deployment controls of such a system — also run `compliance-check --diff origin/<base>` (SOX, PII security controls, PCI DSS).
 - If the diff touches how the product treats people and their data — collection or new uses of personal data, consent, cookies or client storage, analytics, ads or third-party SDKs and scripts, sign-up, profile or account deletion, data export or sharing APIs, user-generated content, moderation or reporting, recommendations or ranking, AI features or automated decisions, user-facing UI (accessibility), data residency or new processors — also run `digital-regulation-check --diff origin/<base>` (GDPR, ePrivacy, DMA, DSA, AI Act, Data Act, EAA, CRA and similar laws).
+- If the diff touches user-facing UI (markup, templates, components, styles, client-side JS, user emails or documents, mobile screens), also run `ada-compatibility --diff origin/<base>` (WCAG 2.2 AA / ADA), reading every touched UI file in full. If the project has a UI and its memory has no `ADA baseline` line at all, this is the project's first modification since the skill existed. Follow the baseline steps in the `ada-compatibility` skill ("When it runs"): write `ADA baseline: in progress` to the memory first, fix the existing UI with `--fix` (in this PR, or in a dedicated baseline PR merged before this one), and record the completed baseline. If the line says `in progress`, run `--diff` only.
 - When unsure whether a compliance check applies, run it: each skill reports "not applicable" quickly when nothing relevant is touched.
 
 Add their confirmed findings to the findings list with their own severity; they go through Phase 3 and the merge gate like any other finding.
@@ -107,7 +108,7 @@ Post one comment (`gh pr comment <n> --body-file -`):
 | 2 | … | Low | **Open:** why, and what decision is needed |
 | 3 | … | — | **Not a bug:** why |
 
-Below the table, give one line with the test results (counts before and after) and one with coverage (before and after; if under 95%, what is uncovered and why), and say which security and compliance checks ran (with the applicable summary rows from `compliance-check` and `digital-regulation-check`, or "not applicable" and why). If the PR body now says something untrue, update it with `gh pr edit`.
+Below the table, give one line with the test results (counts before and after) and one with coverage (before and after; if under 95%, what is uncovered and why), and say which security and compliance checks ran (with the applicable summary rows from `compliance-check`, `digital-regulation-check` and `ada-compatibility`, or "not applicable" and why). If the PR body now says something untrue, update it with `gh pr edit`.
 
 ## Phase 5 – Merge
 
