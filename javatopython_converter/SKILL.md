@@ -121,6 +121,12 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 
 - Every Java test has a Python counterpart (name mapping in the test's docstring: `Ports: FooTest.testBar`). List any you intentionally drop, with the reason, in the PR body.
 - **Golden tests:** for anything with an external contract, run the Java build to capture real responses (HTTP, MCP tool results, CLI output) for a representative input set, commit them under `tests/golden/` together with the capture script (stdlib-only, so it can be re-run), and assert the Python output matches. Generate the inputs to cover edge cases (empty, max size, invalid, unicode, error paths). For MCP servers capture over raw JSON-RPC: the `initialize` result (capabilities, serverInfo, instructions), `tools/list` (names, titles, annotations, input schemas) and `tools/call` results *and* JSON-RPC errors (unknown tool, schema-invalid arguments). Framework defaults leak into the contract — e.g. Spring AI repeats a tool's exception message on two lines and adds default annotations — capture rather than guess.
+- **Capturing from the Java side is fragile — build that in:**
+  - Give every reply a deadline and restart the server on a dropped reply or a dead process: the MCP Java SDK's stdio transport occasionally drops a response ("Failed to enqueue message" in its log).
+  - Run Java CLI clients **one at a time**, each in its own process group (`start_new_session=True`) with a timeout, and kill the whole group on timeout. Under load a Java client can time out initializing, return from `main` without `System.exit` and hang forever on its non-daemon transport threads; it also hangs after a Spring start-up failure (missing jar, duplicate tool). Its child server JVMs keep the output pipes open, so killing only the client isn't enough.
+  - Record cases whose Java output can never match by design (a Spring start-up stack trace with a timestamp) as dedicated tests, not golden cases.
+- **Cross-language tests** (local-only, skipped without a JDK/jars): Python clients against the Java servers *and* Java clients against the Python servers (override the Java client's server command with `--spring.ai.mcp.client.stdio.connections.<name>.command=…` / `args[i]=…`).
+- **Tests must never write to the user's home:** redirect `HOME` (and any log path) to a temp directory in `conftest.py` so servers started by tests, Python or Java, log there.
 - **Prototype the risky semantics first** (number formatting, floating-point maths, error texts) against the golden data before planning PRs, so contract surprises surface early.
 - For servers, an **end-to-end test** that starts the real Python server (subprocess or ASGI test client for HTTP; stdio subprocess for MCP) and calls it as a client would.
 - Differences that are bugs in the Java code: keep the Java behaviour by default, record it in the design doc's Open questions, and ask the user.
@@ -138,7 +144,9 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
    - Non-idiomatic Python (Java-isms: getters/setters, static-only classes, manual resource closing, `== None`, index loops)?
    `pr-review` fixes confirmed findings with tests, posts the findings table, waits for CI and squash-merges. Never merge with failing CI or an open High/Medium finding.
 5. Update the design doc and diagram if the PR changed behaviour, APIs, data or architecture.
-6. After the merge, increment the merged-PR counter in the project memory. When it reaches a multiple of 5, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
+6. After the merge, increment the merged-PR counter in the project memory — every merged PR counts, including Dependabot and workflow-only PRs. When it reaches a multiple of 5, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
+
+**Delegating PRs to agents:** a forked agent cannot start subagents, so it cannot run step 4's independent review itself. Give it the PR work up to a green CI, and have it **stop before merging and hand back**; the parent session starts the reviewer, sends the findings back for fixing, checks the fixes and only then says merge.
 
 After PR 1 merges and CI has run: set branch protection (`references/github-setup.md` §Branch protection) with the CI, CodeQL and security jobs as required checks.
 
