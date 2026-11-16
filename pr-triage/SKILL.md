@@ -37,11 +37,14 @@ For each repository:
    If the result hits the limit, say the list is truncated. `mergeStateStatus` is computed lazily: re-query a PR once if it says `UNKNOWN`. Before a large `--all` run, check `gh api rate_limit`.
 3. **Security:** open Dependabot alerts and secret-scanning alerts, with every page counted:
    ```bash
-   gh api 'repos/<r>/dependabot/alerts?state=open&per_page=100' --paginate --slurp \
-     | jq 'add // [] | map({severity: .security_advisory.severity, package: .dependency.package.name, ghsa: .security_advisory.ghsa_id})'
-   gh api 'repos/<r>/secret-scanning/alerts?state=open&per_page=100' --paginate --slurp | jq 'add // [] | length'
+   if out=$(gh api 'repos/<r>/dependabot/alerts?state=open&per_page=100' --paginate --slurp 2>/dev/null); then
+     printf '%s' "$out" | jq 'add // [] | map({severity: .security_advisory.severity, package: .dependency.package.name, ghsa: .security_advisory.ghsa_id})'
+   else echo "dependabot alerts: off or not visible"; fi
+   if out=$(gh api 'repos/<r>/secret-scanning/alerts?state=open&per_page=100' --paginate --slurp 2>/dev/null); then
+     printf '%s' "$out" | jq 'add // [] | length'
+   else echo "secret scanning: off or not visible"; fi
    ```
-   (`gh api` doesn't allow `--slurp` together with `--jq`, hence the pipe to `jq`.) A 403 or 404 means the feature is off or not visible; report that and go on. Any other error: report it as "security status unknown" for that repository, never as "no alerts".
+   Check `gh`'s exit status before parsing: on a 403 or 404 it still prints the error JSON, which `jq` would otherwise count as alerts. (`gh api` doesn't allow `--slurp` together with `--jq`, hence the separate `jq`.) A failed call means the feature is off or not visible; report that and go on, never as "no alerts".
 4. **Remote branches:** `gh api repos/<r>/branches --paginate --jq '.[] | {name, sha: .commit.sha, protected}'`. Match each to its PRs from step 2 by `headRefName`, keeping only same-repository PRs (`isCrossRepository == false`).
 5. **Local clones.** Only for repositories with a local clone the session knows: the current directory, or a path the user or the project memory names. In each, `git fetch --prune`, then `git worktree list --porcelain` and `git branch -vv`. Don't search the disk for clones.
 
