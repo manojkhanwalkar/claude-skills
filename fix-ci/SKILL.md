@@ -33,7 +33,7 @@ These are legitimate: running the project's formatter, regenerating a lockfile f
 
 **Workflow files** (`.github/workflows/*`) change only when the workflow itself is the bug (a wrong path, an action version that no longer exists), within the rules above, and the report says so.
 
-**Reruns** are only for idempotent workflows (build, test, lint, analysis). A workflow that publishes, releases or deploys is never rerun without asking: a rerun can publish twice or finish a half-done release (the user's rule 6: retry only what is safe to repeat).
+**Reruns and manual dispatches** are only for idempotent workflows (build, test, lint, analysis). A workflow that publishes, releases or deploys is never rerun or dispatched (`workflow_dispatch`, from any branch) without asking: a rerun can publish twice or finish a half-done release (the user's rule 6: retry only what is safe to repeat).
 
 **Name the repository** in every `gh` call (`-R <owner>/<repo>`), so a PR or run number never resolves against the wrong repository.
 
@@ -87,7 +87,7 @@ With `--report-only`, go to the report.
 ## Phase 4 – Watch
 
 1. **A PR:** `gh pr checks <n> -R <r> --watch` on the new head.
-2. **`--default-branch`:** open the fix PR first, then watch its checks. Check that each workflow that failed on the default branch actually ran on the PR. A workflow that runs only on push, on a schedule, on tags or from `workflow_run` won't: say the fix is unverified until it merges, run it by `workflow_dispatch` on the branch if the workflow allows that, and after the merge re-check the default branch's run. Take the PR through `pr-review` (the user's rule 3).
+2. **`--default-branch`:** open the fix PR first, then watch its checks. Check that each workflow that failed on the default branch actually ran on the PR. A workflow that runs only on push, on a schedule, on tags or from `workflow_run` won't: say the fix is unverified until it merges, run it by `workflow_dispatch` on the branch only if the workflow allows that and is idempotent (never a publishing, release or deploy workflow without asking), and after the merge re-check the default branch's run. Take the PR through `pr-review` (the user's rule 3).
 3. Green → done. Red again → back to Phase 2 with the new logs. Stop after `--max-attempts` cycles (reruns included) and report what is known.
 
 ## Final report
