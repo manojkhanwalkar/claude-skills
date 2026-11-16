@@ -126,4 +126,4 @@ Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is
 - The findings table, condensed.
 - Test counts, coverage, and CI status.
 - Anything left open that needs the user's decision.
-- Follow-ups the user usually wants after a merge (for example, updating design docs). Don't do them unless they're part of the request.
+- Follow-ups after a merge: suggest `/post-merge-sync <n>`, which updates the design doc and diagram, the merged-PR counter and linked-repo backlog, and cleans up the branch. Don't run it unless it's part of the request.
