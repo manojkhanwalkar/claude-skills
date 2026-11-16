@@ -21,7 +21,7 @@ Coverage is a proxy. A test that runs a line without checking what it did raises
 | Stack | Coverage tool | Branches | Run and report |
 |---|---|---|---|
 | Java, Maven | JaCoCo | yes | Usually `mvn verify` (the `report` goal is often bound to `verify`, not `test`); `target/site/jacoco/jacoco.xml` per module; an aggregate needs the `report-aggregate` goal and lands in `target/site/jacoco-aggregate/jacoco.xml` |
-| Java or Kotlin, Gradle | JaCoCo or Kover | yes | `gradle test jacocoTestReport`; `build/reports/jacoco/test/jacocoTestReport.xml` (Kover: `koverXmlReport`) |
+| Java or Kotlin, Gradle | JaCoCo or Kover | yes | `gradle test jacocoTestReport` (XML only with `reports.xml.required = true`); `build/reports/jacoco/test/jacocoTestReport.xml` (Kover: `koverXmlReport`) |
 | Python | coverage.py (with the pytest-cov plugin for `pytest --cov`) | only with `--cov-branch` or `branch = true` | `coverage.xml`, `coverage json` |
 | JavaScript or TypeScript | c8, istanbul/nyc, Vitest or Jest `--coverage` | yes | `coverage/coverage-final.json`, `coverage/lcov.info` |
 | Go | `go test -coverprofile=cover.out ./...` | **no**, statements only | `go tool cover -func=cover.out` |
@@ -40,7 +40,7 @@ Coverage is a proxy. A test that runs a line without checking what it did raises
 1. Run the full suite with coverage, using the project's real gate command where it has one (`mvn verify`, `pytest` with `fail_under`, …). If tests fail, get the report anyway (for example `-Dmaven.test.failure.ignore=true`) and note the failures as pre-existing; they aren't yours to fix here.
 2. Record coverage overall and **at the gate's scope**: a per-module or per-package gate (JaCoCo `BUNDLE` per module, per-package thresholds) can fail in one module while the overall number passes. The target is met only when every gated scope meets it.
 3. Note what the coverage configuration excludes and whether each exclusion is justified (generated code, `main()` glue). Don't add exclusions to reach the target; see Phase 6.
-4. **`--diff` mode.** Measure coverage of the changed lines with `diff-cover <report> --compare-branch=origin/<base> --fail-under=<target>`; it reads Cobertura, JaCoCo XML and lcov reports. It counts lines only, so check the branches in the changed code by reading the report for those lines.
+4. **`--diff` mode.** Measure coverage of the changed lines with `diff-cover <report> --compare-branch=origin/<base> --fail-under=<target>`; it reads Cobertura, JaCoCo XML and lcov reports. JaCoCo XML holds package-relative paths, so in a multi-module project pass `--src-roots <module>/src/main/java …` or run it per module. It counts lines only, so check the branches in the changed code by reading the report for those lines.
 5. **Code coverage can't see.** Code that runs only in a subprocess (a server launched by an end-to-end test) usually isn't counted. First try to measure it where it runs: coverage.py's `[tool.coverage.run] patch = ["subprocess"]` (or `COVERAGE_PROCESS_START`), the JaCoCo agent attached to the launched JVM, Go's `go build -cover` with `GOCOVERDIR`. If that isn't practical, cover the logic with in-process unit tests.
 
 ## Phase 3 – Rank the gaps
@@ -84,11 +84,11 @@ Skip with `--no-mutation`.
    - run the tests that cover it and confirm at least one fails;
    - restore with `git checkout -- <file>`, never by hand, and check `git diff --exit-code` passes before the next mutation.
 4. A mutation no test catches means the tests are too weak there. Strengthen them, commit, and check again.
-5. **Flakiness and order:** run the new tests three times in random order (`pytest -p randomly` or `-p random_order`, `go test -count=3 -shuffle=on`, JUnit 5's random `MethodOrderer`, Jest `--randomize`), and once inside the full suite. A test that fails even once is fixed or removed, never retried into passing.
+5. **Flakiness and order:** run the new tests three times in random order, and once inside the full suite. Use the stack's shuffle, adding the plugin as a test dependency if needed: pytest with pytest-randomly (on by default once installed) or pytest-random-order (`--random-order`), repeated with a shell loop or pytest-repeat's `--count=3`; `go test -count=3 -shuffle=on`; JUnit 5 with `MethodOrderer.Random` and `junit.jupiter.testclass.order.default=org.junit.jupiter.api.ClassOrderer$Random`; Jest `--randomize` (29.2+); Vitest `--sequence.shuffle`. A test that fails even once is fixed or removed, never retried into passing.
 
 ## Phase 6 – Verify and report
 
-1. Check `git diff --exit-code` against the last commit: no mutation may be left behind.
+1. Commit any tests not yet committed (with `--no-mutation` none were; flakiness fixes may not be). Then check `git diff --exit-code -- <production source dirs>`: no mutation may be left behind.
 2. Run the full suite with coverage again, with the gate command. Compare with the baseline: no previously passing test may fail.
 3. **Never lower a gate**, add coverage exclusions, or mark code as ignored to reach the target. The exception is code that isn't the project's own logic (generated sources, `main()` entry glue that only wires the application together), and only with a comment saying why, listed in the report.
 4. If the target isn't reached, say what is still uncovered and why: unreachable defensive branches, code needing a real external system, or behaviour you couldn't determine. Give a recommendation for each (a test with a fake, removing dead code, an integration test, a question for the user).
