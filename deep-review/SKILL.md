@@ -1,11 +1,11 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase (never a PR or diff) that optimizes performance, removes duplication, improves readability and maintainability, rechecks security, and hardens the code against failures (timeouts, retries, resource limits, graceful degradation), then applies the changes in small verified steps using the project's own build and tests. Use only when the user asks to look at the whole code base, e.g. "deep review the project", "go over the entire codebase", "make the whole project faster/more robust/cleaner". Do NOT use for reviewing a pull request, a branch, the current diff or a few files; use pr-review (review, fix and merge), code-review or security-review for those. Args - optional path/module to limit scope, optional --report-only (no edits), optional --focus <list> of perf,dup,readability,security,resilience (default all), optional --out <file> to also write the report as markdown.
+description: Deep review of an ENTIRE codebase (never a PR or diff) that fixes correctness bugs, optimizes performance, removes duplication, improves readability and maintainability, rechecks security, and hardens the code against failures (timeouts, retries, resource limits, graceful degradation), then applies the changes in small verified steps using the project's own build and tests. Use only when the user asks to look at the whole code base, e.g. "deep review the project", "go over the entire codebase", "review and clean up the codebase", "fix bugs across the project", "refactor for maintainability", "remove duplication", "make the whole project faster/more robust/cleaner". Do NOT use for reviewing a pull request, a branch, the current diff or a few files; use pr-review (review, fix and merge), code-review or security-review for those. Args - optional path/module to limit scope, optional --report-only (no edits), optional --focus <list> of correctness,perf,dup,readability,security,resilience (default all), optional --out <file> to also write the report as markdown.
 ---
 
 # Deep Review
 
-A whole-codebase pass across five areas: **performance, duplication, readability/maintenance, security, resilience**. It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
+A whole-codebase pass across six areas: **security, correctness, resilience, performance, duplication, readability/maintenance**. It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
 
 This skill looks at everything in scope, not at what changed recently. If the user is asking about a PR, a branch, a diff or "my changes", stop. Tell them to use `/pr-review` to review, fix and merge it (or `/code-review` / `/security-review` to only report) instead.
 
@@ -15,7 +15,7 @@ The value comes from verified, behaviour-preserving improvements. A finding is w
 
 - A path or module name → limit the review to that scope.
 - `--report-only` → do Phases 1–4 and report. Make no edits.
-- `--focus perf,dup,readability,security,resilience` → only those areas. The default is all five.
+- `--focus correctness,perf,dup,readability,security,resilience` → only those areas. The default is all six.
 - `--out <file>` → also write the report as markdown, for example `docs/DEEP-REVIEW.md`. In a public repo, ask before writing security findings inside the working tree.
 - No args → the whole repository, all areas, with fixes.
 
@@ -52,7 +52,15 @@ Read every source file in scope fully; don't skim. On a large codebase (roughly 
 The areas, in the order they get fixed:
 
 1. **Security recheck.** Re-verify the security properties the project depends on: authentication and authorization on every entry point, input validation at trust boundaries, injection sinks, secrets, crypto, deserialization, upload and parser limits, PII in logs and errors, and dependency versions. Compare against the project's own security docs. A documented control that the code no longer enforces is a finding. This is a recheck, not a full audit. If it turns up systemic problems, recommend `/owasp-top10` in the report. If the project handles personal, payment or financial data, or serves EU (or other regulated-region) users, also recheck the compliance controls its design doc relies on and recommend `/compliance-check` and `/digital-regulation-check` for a full pass. If it has a user interface, run the `ada-compatibility` lead finder over the UI and recommend `/ada-compatibility` when it finds issues.
-2. **Resilience.** What happens when each outbound dependency is slow, down, or returns garbage:
+2. **Correctness.** Bugs that make the code do the wrong thing on a normal path:
+   - null, None or undefined dereferences;
+   - off-by-one errors, wrong comparisons (`==` vs `.equals`, `is` vs `==`), integer overflow, float equality;
+   - swallowed exceptions, wrong exception types, and error paths that leave state inconsistent;
+   - shared mutable state without synchronization;
+   - logic that contradicts its name, its comments or its tests.
+
+   Failing tests from the baseline are bug candidates here.
+3. **Resilience.** What happens when each outbound dependency is slow, down, or returns garbage:
    - timeouts on every network call;
    - bounded retries with backoff, only for idempotent operations;
    - circuit breaking or fail-fast;
@@ -63,7 +71,7 @@ The areas, in the order they get fixed:
    - health and readiness checks;
    - start-up when dependencies aren't ready yet;
    - safe shutdown.
-3. **Performance.** Hot-path costs:
+4. **Performance.** Hot-path costs:
    - N+1 or chatty remote calls;
    - work repeated per request that could be computed once;
    - wrong data structures or algorithms;
@@ -72,8 +80,8 @@ The areas, in the order they get fixed:
    - missing connection reuse;
    - excessive logging or serialization;
    - slow start-up.
-4. **Duplication.** Copy-pasted logic across files or modules, near-identical classes, repeated constants and config, and parallel code paths that drifted apart. Extract only when the shared version is clearly simpler than the copies.
-5. **Readability and maintenance:**
+5. **Duplication.** Copy-pasted logic across files or modules, near-identical classes, repeated constants and config, and parallel code paths that drifted apart. Extract only when the shared version is clearly simpler than the copies.
+6. **Readability and maintenance:**
    - dead code;
    - misleading names or comments;
    - long functions and deep nesting;
@@ -85,7 +93,7 @@ The areas, in the order they get fixed:
 For each finding record:
 - `file:line`;
 - area;
-- severity (Critical, High, Medium or Low for security and resilience; Impact High, Medium or Low for the others);
+- severity (Critical, High, Medium or Low for security, correctness and resilience; Impact High, Medium or Low for the others);
 - what is wrong and its concrete cost or failure scenario;
 - the intended fix;
 - how you will verify it.
@@ -96,12 +104,12 @@ With `--report-only`, go to Phase 5.
 
 ## Phase 4 – Fix, in small verified steps
 
-Fix in the order above: security, then resilience, performance, duplication and readability. Within an area, fix the highest severity first.
+Fix in the order above: security, then correctness, resilience, performance, duplication and readability. Within an area, fix the highest severity first.
 
 1. Make one logical change at a time.
 2. After each change, re-run the build and the affected tests (subject to **Trust**; if builds were declined, mark the change unverified). For a performance change, re-run its measurement.
 3. If something breaks, fix it or revert that change. Never leave the project worse than the baseline.
-4. Add or adjust tests for every bug, security or resilience fix. A resilience fix needs a test that simulates the failure: a timeout, a 5xx, a dropped connection, a full queue.
+4. Add or adjust tests for every correctness, security or resilience fix. A resilience fix needs a test that simulates the failure: a timeout, a 5xx, a dropped connection, a full queue.
 5. Match the surrounding style. Don't reformat code you didn't otherwise change.
 6. Commit per area with clear messages, only if the user asked for commits or you are on the review branch. Never push or open a PR unless asked.
 
@@ -118,6 +126,7 @@ Subject to **Trust**, run the full build and tests again and compare them with t
 
 - **Baseline vs. final.** Build and test status, with output for anything that fails.
 - **Security.** Findings with severity and `file:line`, and whether each is fixed or open.
+- **Correctness.** Each bug with `file:line`, what was wrong, the fix, and the test that covers it.
 - **Resilience.** Each failure mode found, how it is now handled, and the test that proves it.
 - **Performance.** Each change with its before and after measurement, or its complexity argument.
 - **Duplication removed.** What was consolidated, and where it lives now.
