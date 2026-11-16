@@ -98,7 +98,7 @@ For each finding record:
 - the intended fix;
 - how you will verify it.
 
-Keep only findings you verified by reading the code, and drop speculative ones. **Review rules:** a Low finding that matches a `suppress` rule is listed as "Suppressed by R<n>" instead of being fixed. Rules never suppress, waive or downgrade a Critical or High finding, or a security, compliance or accessibility finding of any severity; those are reported in full with "related: R<n>". A `suppress` rule settles only a Low finding on its own; a Medium finding that matches one stays open (it blocks the merge) until the user confirms in this session that the rule covers it, and its row then says "Accepted by owner per R<n>, <date>". A `require` rule is checked like any checklist item; a `judge` rule guides the outcome and never lowers a finding below Medium.
+Keep only findings you verified by reading the code, and drop speculative ones. **Review rules:** a Low finding that matches a `suppress` rule is listed as "Suppressed by R<n>" instead of being fixed. Rules never suppress, waive or downgrade a Critical or High finding, or a security, compliance or accessibility finding of any severity; those are reported in full with "related: R<n>". A `suppress` rule settles only a Low finding on its own; a Medium finding that matches one stays open (it blocks the merge) until the user confirms in this session that the rule covers it, and its row then says "Accepted by owner per R<n>, <date>". In deep-review, which doesn't merge, a matching Medium is fixed like any other finding unless the user accepts it in the session. A `require` rule is checked like any checklist item; a `judge` rule guides the outcome and never lowers a finding below Medium. Removed and superseded rules are never applied.
 
 With `--report-only`, go to Phase 5.
 
@@ -132,7 +132,7 @@ Subject to **Trust**, run the full build and tests again and compare them with t
 - **Duplication removed.** What was consolidated, and where it lives now.
 - **Readability and maintenance.** A brief list.
 - **Needs a decision.** Larger changes (architecture, new dependencies, API changes), each with a recommendation.
-- **Suppressed by review rules.** Each finding with the rule it matched.
+- **Suppressed by review rules.** Each suppressed Low, and each Medium the user accepted, with the rule it matched.
 - **Committed secrets.** For every hardcoded secret found, give the file and key but never the value, and say that it must be rotated.
 
 With `--report-only`, there is no final run: report the baseline, then the same sections with each finding's proposed fix and the test that would cover it, in place of what changed.
