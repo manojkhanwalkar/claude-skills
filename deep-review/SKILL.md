@@ -1,6 +1,6 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase (never a PR or diff) that fixes correctness bugs, optimizes performance, removes duplication, improves readability and maintainability, rechecks security, and hardens the code against failures (timeouts, retries, resource limits, graceful degradation), then applies the changes in small verified steps using the project's own build and tests. Use only when the user asks to look at the whole code base, e.g. "deep review the project", "go over the entire codebase", "review and clean up the codebase", "fix bugs across the project", "refactor for maintainability", "remove duplication", "make the whole project faster/more robust/cleaner". Do NOT use for reviewing a pull request, a branch, the current diff or a few files; use pr-review (review, fix and merge), code-review or security-review for those. Args - optional path/module to limit scope, optional --report-only (no edits), optional --focus <list> of correctness,perf,dup,readability,security,resilience (default all), optional --out <file> to also write the report as markdown.
+description: Deep review of an ENTIRE codebase (never a PR or diff) that fixes correctness bugs, optimizes performance, removes duplication, improves readability, rechecks security, and hardens the code against failures (timeouts, retries, limits, graceful degradation), applied in small verified steps with the project's own build and tests. Use only for the whole code base, e.g. "deep review the project", "review and clean up the codebase", "fix bugs across the project", "refactor the whole project for maintainability", "remove duplication across the codebase", "make the whole project faster/more robust". Do NOT use for a pull request, a branch, the current diff or a few files; use pr-review, code-review, security-review or simplify for those. Args - optional path/module scope, optional --report-only (no edits), optional --focus <list> of correctness,perf,dup,readability,security,resilience (default all), optional --out <file> for a markdown report.
 ---
 
 # Deep Review
@@ -14,7 +14,7 @@ The value comes from verified, behaviour-preserving improvements. A finding is w
 ## Arguments
 
 - A path or module name → limit the review to that scope.
-- `--report-only` → do Phases 1–4 and report. Make no edits.
+- `--report-only` → do Phases 1–3 and report (Phase 5). Make no edits.
 - `--focus correctness,perf,dup,readability,security,resilience` → only those areas. The default is all six.
 - `--out <file>` → also write the report as markdown, for example `docs/DEEP-REVIEW.md`. In a public repo, ask before writing security findings inside the working tree.
 - No args → the whole repository, all areas, with fixes.
@@ -52,7 +52,7 @@ Read every source file in scope fully; don't skim. On a large codebase (roughly 
 The areas, in the order they get fixed:
 
 1. **Security recheck.** Re-verify the security properties the project depends on: authentication and authorization on every entry point, input validation at trust boundaries, injection sinks, secrets, crypto, deserialization, upload and parser limits, PII in logs and errors, and dependency versions. Compare against the project's own security docs. A documented control that the code no longer enforces is a finding. This is a recheck, not a full audit. If it turns up systemic problems, recommend `/owasp-top10` in the report. If the project handles personal, payment or financial data, or serves EU (or other regulated-region) users, also recheck the compliance controls its design doc relies on and recommend `/compliance-check` and `/digital-regulation-check` for a full pass. If it has a user interface, run the `ada-compatibility` lead finder over the UI and recommend `/ada-compatibility` when it finds issues.
-2. **Correctness.** Bugs that make the code do the wrong thing on a normal path:
+2. **Correctness.** Bugs that make the code do the wrong thing, on normal paths and on its own error paths:
    - null, None or undefined dereferences;
    - off-by-one errors, wrong comparisons (`==` vs `.equals`, `is` vs `==`), integer overflow, float equality;
    - swallowed exceptions, wrong exception types, and error paths that leave state inconsistent;
@@ -133,5 +133,7 @@ Subject to **Trust**, run the full build and tests again and compare them with t
 - **Readability and maintenance.** A brief list.
 - **Needs a decision.** Larger changes (architecture, new dependencies, API changes), each with a recommendation.
 - **Committed secrets.** For every hardcoded secret found, give the file and key but never the value, and say that it must be rotated.
+
+With `--report-only`, there is no final run: report the baseline, then the same sections with each finding's proposed fix and the test that would cover it, in place of what changed.
 
 With `--out`, write the same report to the file, with the date and commit at the top.

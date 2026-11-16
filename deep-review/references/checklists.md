@@ -22,7 +22,7 @@ Leads to check, not findings. Confirm each one by reading the code and tracing t
 - **Null and missing values.** Dereferences of values that can be null, None or undefined: map lookups, optional fields, the result of a find, parsed input.
 - **Comparisons and arithmetic.** Off-by-one bounds, `==` vs `.equals` (Java), `is` vs `==` (Python), integer overflow and truncating division, float equality, and locale- or case-sensitive string comparisons that should not be.
 - **Error handling.** Swallowed exceptions, catch blocks that are too broad, the wrong exception type for the caller's contract, and error paths that leave half-updated state.
-- **Shared state.** Mutable fields shared across threads or requests without synchronization, and static mutable caches. Races between in-flight work and deletes are under Resilience.
+- **Shared state.** Mutable fields shared across threads or requests without synchronization, and static mutable caches. Check-then-act races, lazy initialization and in-flight-vs-delete races are under Resilience "Concurrency"; file each race under one area only.
 - **Intent drift.** Code that contradicts its name, its comments, its docs or its tests. Decide which side is right before fixing either.
 - Usually fine: defensive null checks the type system already rules out (remove them only as readability, not as a bug); behaviour that looks odd but is pinned by a test or a documented compatibility rule (for example, matching another implementation byte for byte).
 
