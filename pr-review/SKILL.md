@@ -12,7 +12,7 @@ Take one pull request from "opened" to "merged on its base branch" (`main`, `mas
 3. Report the findings on the PR.
 4. Merge only when it is green.
 
-The bar for merging is that every confirmed Critical, High or Medium finding is fixed — from the review and from the security checks — or, for a Medium matching a review rule, a change to the review rules, or an unmet criterion of a linked issue, accepted or approved by the owner in this session, the full build and tests pass locally and in CI, and the PR description and docs still match the code.
+The bar for merging is that every confirmed Critical, High or Medium finding is fixed — from the review and from the security checks — or, for a Medium matching a review rule, a change to the review rules, or an unmet or partial "must" criterion of a linked issue, accepted or approved by the owner in this session, the full build and tests pass locally and in CI, and the PR description and docs still match the code.
 
 ## Arguments
 
@@ -119,7 +119,7 @@ Below the table, give one line with the test results (counts before and after) a
 
 ## Phase 5 – Merge
 
-Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is still open (a Medium matching a review rule, a review-rules change, or an unmet linked-issue criterion counts as open until the owner accepts or approves it in this session); in that case report and stop.
+Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is still open (a Medium matching a review rule, a review-rules change, or an unmet or partial linked-issue "must" criterion counts as open until the owner accepts or approves it in this session); in that case report and stop.
 
 1. Wait for CI on the pushed head (`gh pr checks <n> --watch`). If the repository has no checks at all ("no checks reported"), say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting. If a check fails, read its log, fix the problem on the branch (back to Phase 3), and wait again. Never merge on red, and never bypass required checks.
 2. Check that `gh pr view <n> --json mergeStateStatus` is `CLEAN`.
