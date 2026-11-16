@@ -59,7 +59,7 @@ A change is "intended" when its PR or commit says it changes behaviour on purpos
    - **Unexplained** → stop and ask. Never update golden files to output nobody can explain.
 5. Run the target's test suite against the re-captured golden files. Each failure should map to a difference you classified above; anything else is a finding.
 
-With `--report-only`, remove both worktrees (`git worktree remove`), delete the local parity branch (`git -C <target> branch -D parity/<…>`), and go to the report.
+With `--report-only`, remove both worktrees (`git -C <target> worktree remove <parity wt>` and `git -C <source> worktree remove <source wt>`), delete the local parity branch (`git -C <target> branch -D parity/<…>`), and go to the report.
 
 ## Phase 4 – Port
 
@@ -69,7 +69,7 @@ On the parity branch in the target worktree:
 2. Update everything in the target that described the old behaviour: README, docstrings and comments, the design doc's contract section, and test names.
 3. Add or adjust tests so each ported change has one that fails without it. The golden comparison usually covers this; add a focused unit test where the golden set doesn't exercise the case.
 4. Keep the re-captured golden files and any capture-script fix in the same PR, so the contract and the code that meets it land together.
-5. Run the target's full checks (build, lint, type-check, tests, coverage gate), after installing its dependencies in the fresh worktree (for example `uv sync`). Run the cross-language tests against the source build when the target has them. Then remove the source worktree; it is no longer needed and its build output is large.
+5. Run the target's full checks (build, lint, type-check, tests, coverage gate), after installing its dependencies in the fresh worktree (for example `uv sync`). Run the cross-language tests against the source build when the target has them. Keep the source worktree until the PR merges, in case review fixes need the cross-language tests run again; Phase 5 removes it.
 6. Commit, push, open the PR in the target. The PR body lists:
    - the source range (`<baseline>..<new sha>`) and the source PRs it covers;
    - each difference with its classification and outcome (ported, accepted, reported as a source regression, needs a decision);
@@ -83,7 +83,7 @@ After the PR merges:
 
 1. Record the new parity baseline (the source SHA you captured from) in both projects' memory.
 2. Remove the ported items from the parity backlog. Keep the ones you didn't port, with the reason and the decision they need.
-3. Run `post-merge-sync <n>` in the target. It updates the target's design doc and diagram, its merged-PR and deep-review counters, and removes the parity worktree and branch.
+3. Remove the source worktree (`git -C <source> worktree remove <source wt>`). Then run `post-merge-sync <n>` from the target's main checkout, not from the parity worktree it is about to remove. It updates the target's design doc and diagram, its merged-PR and deep-review counters, and removes the parity worktree and branch.
 4. Update the source's design doc note on where its port stands (the new baseline and any differences still open).
 
 ## Final report
