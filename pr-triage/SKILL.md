@@ -25,9 +25,11 @@ For each repository:
 1. **Default branch and its CI:** `gh repo view <r> --json defaultBranchRef`, then the latest completed run of **each** workflow on it (recent runs mix workflows, and housekeeping runs can push a failure out of a short window):
    ```bash
    gh run list -R <r> --branch <default> --limit 100 --json workflowName,conclusion,status,event,createdAt \
-     --jq 'map(select(.status == "completed")) | group_by(.workflowName) | map(max_by(.createdAt)) | .[] | select(.conclusion != "success" and .conclusion != "skipped")'
+     --jq 'map(select(.status == "completed" and .conclusion != "cancelled" and .conclusion != "skipped"))
+           | group_by(.workflowName) | map(max_by(.createdAt))
+           | .[] | select(.conclusion == "failure" or .conclusion == "timed_out" or .conclusion == "startup_failure" or .conclusion == "action_required")'
    ```
-   Any workflow whose latest run failed means red CI on the default branch, which blocks everything else.
+   Any workflow whose latest finished run failed means red CI on the default branch, which blocks everything else. Cancelled runs are skipped: they are usually superseded by a newer run (concurrency settings cancel older ones).
 2. **PRs**, in one query per repository (one call per branch would burn the API rate limit with `--all`):
    ```bash
    gh pr list -R <r> --state all --limit 500 --json number,title,body,author,state,isDraft,createdAt,updatedAt,mergedAt,mergeable,mergeStateStatus,reviewDecision,statusCheckRollup,labels,headRefName,headRefOid,baseRefName,isCrossRepository
@@ -36,10 +38,10 @@ For each repository:
 3. **Security:** open Dependabot alerts and secret-scanning alerts, with every page counted:
    ```bash
    gh api 'repos/<r>/dependabot/alerts?state=open&per_page=100' --paginate --slurp \
-     --jq 'add // [] | map({severity: .security_advisory.severity, package: .dependency.package.name, ghsa: .security_advisory.ghsa_id})'
-   gh api 'repos/<r>/secret-scanning/alerts?state=open&per_page=100' --paginate --slurp --jq 'add // [] | length'
+     | jq 'add // [] | map({severity: .security_advisory.severity, package: .dependency.package.name, ghsa: .security_advisory.ghsa_id})'
+   gh api 'repos/<r>/secret-scanning/alerts?state=open&per_page=100' --paginate --slurp | jq 'add // [] | length'
    ```
-   A 403 or 404 means the feature is off or not visible; report that, don't fail.
+   (`gh api` doesn't allow `--slurp` together with `--jq`, hence the pipe to `jq`.) A 403 or 404 means the feature is off or not visible; report that and go on. Any other error: report it as "security status unknown" for that repository, never as "no alerts".
 4. **Remote branches:** `gh api repos/<r>/branches --paginate --jq '.[] | {name, sha: .commit.sha, protected}'`. Match each to its PRs from step 2 by `headRefName`, keeping only same-repository PRs (`isCrossRepository == false`).
 5. **Local clones.** Only for repositories with a local clone the session knows: the current directory, or a path the user or the project memory names. In each, `git fetch --prune`, then `git worktree list --porcelain` and `git branch -vv`. Don't search the disk for clones.
 
@@ -78,10 +80,10 @@ Without `--apply`, stop here.
 With `--apply`, ask the user which numbered actions to carry out (all, a list, or none). Then, in this order:
 
 1. **Merges go through `pr-review` only**, one PR at a time, P0 then P1. Never merge directly or with admin rights. After each merge, the remaining Dependabot PRs in that repository usually need rebasing: comment `@dependabot rebase` on the next one (Dependabot's own command; it notifies nobody else) and wait for its checks before reviewing it.
-   After the last merge in a repository, run `post-merge-sync` there (with no PR number, it syncs every merge since its last sync), so the merged-PR counter, a due deep review and the design doc stay correct (the user's rules 2 and 5).
+   After the merges in a repository, keep the merged-PR counter, a due deep review and the design doc correct (the user's rules 2 and 5): in that repository's local clone, run `post-merge-sync <n>` for each PR merged in this run, oldest first. For a repository without a known local clone, list those PRs in the final report as pending `post-merge-sync`.
 2. **Failing checks and conflicts** go to `fix-ci` and `resolve-conflicts` where installed; otherwise list them for the user.
 3. **Closing a PR** happens only after the user confirms that specific PR. Leave a short comment saying why (superseded by #n, duplicate of #n, no activity since <date>), then `gh pr close <n> -R <r>`. Never delete a fork's branch.
-4. **Deleting branches**: just before each delete, re-check that no open PR uses the branch as head or base. Then delete atomically, so a push since the plan makes it fail instead of losing work: `git push --force-with-lease=<b>:<recorded sha> origin --delete <b>` in a clone. Without a clone, re-read the branch's SHA (`gh api repos/<r>/branches/<b> --jq .commit.sha`), compare it with the recorded one, then `gh api -X DELETE repos/<r>/git/refs/heads/<b>`. Branches marked "needs a decision" are deleted only after a per-branch confirmation, with their extra commits saved first (`git format-patch` into the scratchpad).
+4. **Deleting branches**: just before each delete, re-check that no open PR uses the branch as head or base. Then delete atomically, so a push since the plan makes it fail instead of losing work: `git push --force-with-lease=<b>:<recorded sha> origin --delete <b>` in a clone. Without a clone, re-read the branch's SHA (`gh api repos/<r>/branches/<b> --jq .commit.sha`), compare it with the recorded one, then `gh api -X DELETE repos/<r>/git/refs/heads/<b>`; a small window remains between the check and the delete, so prefer the clone path when one exists. Branches marked "needs a decision" are deleted only after a per-branch confirmation, with their extra commits saved first (`git format-patch` into the scratchpad).
 5. **Worktrees and local branches**, in local clones only: first `cd` to the main worktree. Archive uncommitted work exactly as `post-merge-sync` Phase 5 step 3 does (patches and a tar of untracked files in the session's scratchpad, names listed, contents never printed), ask before removing work that looks unfinished, then `git worktree remove` and `git worktree prune`. Delete local branches with `git branch -d`, or `-D` only under `post-merge-sync`'s ancestry check.
 6. If an action fails or the state changed since the plan (new commits, new reviews), skip it and report; don't improvise a different action.
 
@@ -91,3 +93,4 @@ With `--apply`, ask the user which numbered actions to carry out (all, a list, o
 - Default-branch CI and security alert status.
 - Close candidates and branches that need the user's decision.
 - Where archives were saved.
+- Merged PRs still pending `post-merge-sync` (repositories without a local clone).
