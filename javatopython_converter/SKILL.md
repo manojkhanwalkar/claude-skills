@@ -94,7 +94,7 @@ Update both whenever a later PR changes behaviour, APIs, data or architecture.
    ```
    Use `--public` instead of `--private` when the user passed `--public` or chose a public repo.
 5. **Repository settings** — see `references/github-setup.md` §Settings: secret scanning + push protection, Dependabot alerts and security updates, private vulnerability reporting (public repos), auto-delete head branches, squash-merge only. Branch protection on `main` is set **after PR 1's CI has run once**, so the required check names exist.
-6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the path with `/` replaced by `-`): a project memory with the Java origin (repo + SHA), the design doc and diagram links, and a **merged-PR counter** (starts at 0) for rule 5. Add the pointers to `MEMORY.md`.
+6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the absolute path with every character other than `A–Z`, `a–z` and `0–9` replaced by `-`): a project memory with the Java origin (repo + SHA), the design doc and diagram links, and a **merged-PR counter** (starts at 0) for rule 5. Add the pointers to `MEMORY.md`.
 
 ## Phase 4 – Convert through PRs
 
