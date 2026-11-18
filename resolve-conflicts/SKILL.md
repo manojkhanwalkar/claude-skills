@@ -22,13 +22,14 @@ A conflict means both sides changed the same thing for their own reasons. A good
 
 ## Phase 1 – Look at the PR
 
-1. `gh pr view <n> -R <r> --json number,title,baseRefName,headRefName,headRefOid,isCrossRepository,maintainerCanModify,mergeable,mergeStateStatus,author`. `mergeStateStatus` is computed lazily; re-query once if it says `UNKNOWN`.
-2. **How far behind:** `mergeStateStatus` can say `BLOCKED` (reviews missing) even when the branch is also behind, so check directly: `gh api repos/<r>/compare/<base>...<head-sha> --jq .behind_by`.
-3. **Behind only (no conflicts):** the branch just needs the base. For the user's own same-repository PR, `gh pr update-branch <n> -R <r>` (a merge commit, made by GitHub), then go to Phase 4. For other authors, follow **Whose branch**.
-4. **`DIRTY` (conflicts):** go on. If more than about 20 files conflict, report the list and ask before resolving.
-5. **`--report-only`:** never touch the user's checkout. Work in a scratch worktree, which also works for fork PRs:
+1. **`--report-only` changes nothing, in any state:** it skips every action below (no `update-branch`, no checkout of the PR branch, no push) and only reports.
+2. `gh pr view <n> -R <r> --json number,title,baseRefName,headRefName,headRefOid,isCrossRepository,maintainerCanModify,mergeable,mergeStateStatus,author`. `mergeStateStatus` is computed lazily; re-query once if it says `UNKNOWN`.
+3. **How far behind:** `mergeStateStatus` can say `BLOCKED` (reviews missing) even when the branch is also behind, so check directly: `gh api repos/<r>/compare/<base>...<head-sha> --jq .behind_by`.
+4. **Behind only (no conflicts):** the branch just needs the base. With `--report-only`, report it and stop. For the user's own same-repository PR, `gh pr update-branch <n> -R <r>` (a merge commit, made by GitHub), then go to Phase 4. For other authors, follow **Whose branch**.
+5. **`DIRTY` (conflicts):** go on. If more than about 20 files conflict, report the list and ask before resolving.
+6. **`--report-only` with conflicts:** never touch the user's checkout. Work in a scratch worktree, which also works for fork PRs:
    ```bash
-   git fetch origin pull/<n>/head
+   git fetch origin <base> pull/<n>/head
    git worktree add --detach <scratchpad>/conflicts-<n> FETCH_HEAD
    git -C <scratchpad>/conflicts-<n> merge origin/<base>
    ```
