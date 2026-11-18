@@ -128,7 +128,7 @@ class ScanHistoryTest(unittest.TestCase):
         fixture = next(f for f in findings if f["paths"] == ["test/fixture.pem"])
         remaining = self.scan(allowed=frozenset({fixture["fingerprint"]}))
         self.assertEqual([f["paths"] for f in remaining], [["deploy/prod.pem"]])
-        self.assertTrue(fixture["masked"].startswith("[BEGIN RSA PRIVATE KEY"))
+        self.assertTrue(fixture["masked"].startswith("[RSA PRIVATE KEY block, "))
 
     def test_pgp_private_key_block(self):
         self.commit("k.asc", f"{PGP_BEGIN}\nlQOYBF\n-----END PGP PRIVATE KEY BLOCK-----\n", "pgp")
@@ -197,6 +197,42 @@ class ScanHistoryTest(unittest.TestCase):
         self.commit("last.pem", f"{BEGIN}\nMIIEowZqZqZq\n", "key cut short at the end")
         self.assertEqual(sorted(self.rules()), ["aws-access-key-id", "private-key", "private-key"])
 
+    def test_one_line_key_is_masked_and_other_secrets_on_the_hunk_still_found(self):
+        body = "MIIEow" + "Kq7Zp3" * 10
+        one_line = BEGIN + "\\n" + body + "\\n" + END
+        token = "Zt9qL2vXw8rP4kM7" + "aQ"
+        self.commit("sa.json", '{\n  "private_key": "' + one_line + '",\n  "token": "' + token + '"\n}\n', "gcp")
+        findings = self.scan()
+        self.assertEqual(sorted(f["rule"] for f in findings), ["generic-secret-assignment", "private-key"])
+        dumped = json.dumps(findings)
+        self.assertNotIn(body, dumped)
+        self.assertNotIn(token, dumped)
+
+    def test_a_key_header_in_prose_does_not_swallow_the_hunk(self):
+        self.commit("README.md", f"Never commit a {BEGIN} file.\nExample: see docs.\nkey {FAKE_AWS}\n", "docs")
+        self.assertIn("aws-access-key-id", self.rules())
+
+    def test_non_ascii_names_with_quotes(self):
+        self.commit('é"x.txt', f"{FAKE_AWS}\n", "latin")
+        self.commit('日"x.txt', f"{FAKE_GH}\n", "cjk")
+        found = {f["paths"][0]: f["in_head"] for f in self.scan()}
+        self.assertEqual(found, {'é"x.txt': True, '日"x.txt': True})
+
+    def test_a_malformed_quoted_path_is_kept_rather_than_aborting(self):
+        self.assertEqual(scan_history.unquote_path('"b/bad\\x"'), "bad\\x")
+        self.assertEqual(scan_history.unquote_path("b/x y.txt\t"), "x y.txt")
+
+    def test_code_is_not_reported_as_a_secret(self):
+        lines = ["token = self._extract_bearer_token(request)",
+                 "password_hash = hashlib.sha256(raw).hexdigest()",
+                 "apiKey: process.env.ANTHROPIC_API_KEY_VALUE",
+                 "tokenizer = AutoTokenizer.from_pretrained(name_or_path)",
+                 "max_tokens=self.config.maxTokensValue",
+                 "pwd = Path.cwd().resolve().parent",
+                 "self._tokens = min(self._capacity, refill)"]
+        self.commit("code.py", "\n".join(lines) + "\n", "code")
+        self.assertEqual(self.scan(), [])
+
     def test_short_values_show_no_prefix(self):
         self.assertEqual(scan_history.mask("slack-token", "xoxb-12345678"), "…(13 chars)")
 
@@ -210,6 +246,15 @@ class ScanHistoryTest(unittest.TestCase):
         self.assertNotIn("MIIEow", out)
         self.assertIn("AKIA…(20 chars)", out)
         self.assertIn("[private key material]", out)
+
+    def test_context_masks_what_the_scanner_does_not_report(self):
+        weak, url_pw = "hunter2hunter2", "s3cr3tP4ss"
+        sha = self.commit("db.py", f'password = "{weak}"\nurl = "postgres://app:{url_pw}@db/main"\nname = "service"\n', "db")
+        code, out, _ = self.run_main(str(self.repo), "--context", f"{sha}:db.py:2")
+        self.assertEqual(code, 0)
+        self.assertNotIn(weak, out)
+        self.assertNotIn(url_pw, out)
+        self.assertIn("service", out)
 
     def test_context_errors(self):
         self.commit("a.txt", "x\n", "init")

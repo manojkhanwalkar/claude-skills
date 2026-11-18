@@ -17,6 +17,7 @@ Exit status: 0 no findings, 1 findings, 2 usage, I/O or git error.
 """
 
 import argparse
+import codecs
 import hashlib
 import hmac
 import json
@@ -47,9 +48,14 @@ KEY_MAX_LINES = 200
 
 # "<something>password<something> = value" in code, JSON, YAML or .env form.
 GENERIC = re.compile(
-    r"(?i)[\w.-]*(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token)[\w.-]*"
-    r"[\"']?\s*[:=]\s*[\"']?([^'\"\s,;]{12,})"
+    r"(?i)([\w.-]*(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token)[\w.-]*)"
+    r"[\"']?\s*[:=]\s*([\"']?)([^'\"\s,;]{12,})"
 )
+NOT_A_SECRET_NAME = re.compile(r"(?i)tokens|tokenizer|token_?(?:type|count|limit|url|endpoint|file|path)")
+CODE_LIKE = re.compile(r"\(|^[A-Za-z_]\w*\.[A-Za-z_]")  # a call, or self.x / os.environ / process.env
+URL_PASSWORD = re.compile(r"(://[^:/\s@]+:)([^@\s/]+)(@)")
+RANDOM_LOOKING = re.compile(r"[A-Za-z0-9_+/=\-]{12,}")
+BASE64_BODY = re.compile(r"^\s*(?:[A-Za-z0-9+/=]+|[A-Za-z-]+: .*)?\s*$")  # key body or a PEM header field
 GENERIC_MIN_ENTROPY = 3.5
 PLACEHOLDER = re.compile(r"(?i)(example|placeholder|changeme|dummy|xxxx|your[_-]|<|\$\{|\{\{|\$\(|%\()")
 SHORT = 20  # values shorter than this get no visible prefix
@@ -72,7 +78,8 @@ def fingerprint(value: str, key: bytes) -> str:
 
 def mask(rule: str, value: str) -> str:
     if rule == "private-key":
-        return f"[{value.splitlines()[0].strip('-')} block, {len(value)} chars]"
+        label = KEY_BEGIN.search(value)
+        return f"[{label.group(1) if label else 'PRIVATE KEY'} block, {len(value)} chars]"
     if rule == "generic-secret-assignment" or len(value) < SHORT:
         return f"…({len(value)} chars)"
     return f"{value[:4]}…({len(value)} chars)"
@@ -88,8 +95,10 @@ def find_in_line(line: str):
                 seen.add(value)
                 yield rule, value
     for match in GENERIC.finditer(line):
-        value = match.group(1)
+        name, quote, value = match.group(1), match.group(2), match.group(3)
         if value in seen or PLACEHOLDER.search(value) or entropy(value) < GENERIC_MIN_ENTROPY:
+            continue
+        if NOT_A_SECRET_NAME.search(name) or (not quote and CODE_LIKE.search(value)):
             continue
         if any(pattern.search(value) for _, pattern in RULES):
             continue
@@ -101,8 +110,10 @@ def unquote_path(raw: str) -> str:
     """Path from a '+++ ' header: strip git's trailing tab, C-unquote, drop the 'b/' prefix."""
     raw = raw[:-1] if raw.endswith("\t") else raw
     if raw.startswith('"') and raw.endswith('"'):
-        body = raw[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape")
-        raw = body.encode("latin-1").decode("utf-8", "replace")
+        try:
+            raw = codecs.escape_decode(raw[1:-1].encode("utf-8"))[0].decode("utf-8", "replace")
+        except (ValueError, UnicodeError):
+            raw = raw[1:-1]  # keep scanning; the path is only a label here
     return raw[2:] if raw.startswith("b/") else raw
 
 
@@ -185,23 +196,34 @@ def scan(repo: Path, key: bytes, reflog: bool = False, allowed: frozenset = froz
             entry["paths"].append(path)
 
     key_block = None  # (hunk, commit, date, path, start line, lines)
+
+    def close_block():
+        nonlocal key_block
+        record("private-key", "\n".join(key_block[5]), *key_block[1:5])
+        key_block = None
+
     for commit, date, path, lineno, hunk, text in added_lines(repo, reflog):
-        if key_block and key_block[0] != hunk:  # the hunk ended before an END line
-            record("private-key", "\n".join(key_block[5]), *key_block[1:5])
-            key_block = None
+        if key_block and (key_block[0] != hunk or not (KEY_END.search(text) or BASE64_BODY.match(text))):
+            close_block()  # the hunk ended, or this line isn't key material: scan it normally
         if key_block:
             key_block[5].append(text)
             if KEY_END.search(text) or len(key_block[5]) >= KEY_MAX_LINES:
-                record("private-key", "\n".join(key_block[5]), *key_block[1:5])
-                key_block = None
+                close_block()
             continue
-        if KEY_BEGIN.search(text):
-            key_block = (hunk, commit, date, path, lineno, [text])
-            continue
-        for rule, value in find_in_line(text):
+        rest = text
+        begin = KEY_BEGIN.search(text)
+        if begin:
+            end = KEY_END.search(text, begin.end())
+            if end:  # the whole key on one line (for example JSON with escaped newlines)
+                record("private-key", text[begin.start():end.end()], commit, date, path, lineno)
+                rest = text[:begin.start()] + " " + text[end.end():]
+            else:
+                key_block = (hunk, commit, date, path, lineno, [text[begin.start():]])
+                rest = text[:begin.start()]
+        for rule, value in find_in_line(rest):
             record(rule, value, commit, date, path, lineno)
     if key_block:
-        record("private-key", "\n".join(key_block[5]), *key_block[1:5])
+        close_block()
 
     result = []
     for entry in findings.values():
@@ -228,13 +250,20 @@ def context(repo: Path, spec: str, radius: int) -> str:
         in_key = is_key_line and not KEY_END.search(text)
         if abs(number - center) > radius:
             continue
-        if is_key_line:
-            text = "[private key material]"
-        else:
-            for rule, value in find_in_line(text):
-                text = text.replace(value, mask(rule, value))
-        out.append(f"{number:6} | {text}")
+        out.append(f"{number:6} | {'[private key material]' if is_key_line else mask_line(text)}")
     return "\n".join(out)
+
+
+def mask_line(text: str) -> str:
+    """Mask everything on a line that could be a secret, recognised or not."""
+    for rule, value in find_in_line(text):
+        text = text.replace(value, mask(rule, value))
+    text = GENERIC.sub(lambda m: m.group(0)[: m.start(3) - m.start(0)] + f"…({len(m.group(3))} chars)", text)
+    text = URL_PASSWORD.sub(lambda m: f"{m.group(1)}…{m.group(3)}", text)
+    return RANDOM_LOOKING.sub(
+        lambda m: m.group(0) if entropy(m.group(0)) < 3.0 or m.group(0).isalpha() else f"…({len(m.group(0))} chars)",
+        text,
+    )
 
 
 def load_key(path: Path) -> bytes:
