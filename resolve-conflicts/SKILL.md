@@ -29,11 +29,11 @@ A conflict means both sides changed the same thing for their own reasons. A good
 5. **`DIRTY` (conflicts):** go on. If more than about 20 files conflict, report the list and ask before resolving.
 6. **`--report-only` with conflicts:** never touch the user's checkout. Work in a scratch worktree, which also works for fork PRs:
    ```bash
-   git fetch origin <base> pull/<n>/head
-   git worktree add --detach <scratchpad>/conflicts-<n> FETCH_HEAD
+   git fetch origin <base> +pull/<n>/head:refs/remotes/origin/pr-<n>
+   git worktree add --detach <scratchpad>/conflicts-<n> origin/pr-<n>
    git -C <scratchpad>/conflicts-<n> merge origin/<base>
    ```
-   Do Phase 2's analysis there, report, then `git -C <scratchpad>/conflicts-<n> merge --abort` and `git worktree remove <scratchpad>/conflicts-<n>`.
+   (Pin the PR head to its own ref: with two refs fetched, `FETCH_HEAD` points at the first one, the base.) Do Phase 2's analysis there, report, then clean up: `git -C <scratchpad>/conflicts-<n> merge --abort`, `git worktree remove <scratchpad>/conflicts-<n>`, and `git update-ref -d refs/remotes/origin/pr-<n>`.
 
 ## Phase 2 – Merge and understand each conflict
 
