@@ -60,7 +60,7 @@ RANDOM_LOOKING = re.compile(r"[A-Za-z0-9_+/=\-]{12,}")
 BASE64_BODY = re.compile(r"^\s*(?:[A-Za-z0-9+/=]+|(?:Proc-Type|DEK-Info|Version|Comment): .*)?\s*$")
 # For the --context view: any assignment to a secret-ish name, whatever the value's length.
 CONTEXT_ASSIGN = re.compile(
-    r"(?i)([\w.-]*(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token)[\w.-]*"
+    r"(?i)([\w.-]*(?:pass|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token|credential|pin)[\w.-]*"
     r"[\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s,;]+)"
 )
 QUOTED = re.compile(r"(\"[^\"]{6,}\"|'[^']{6,}')")
@@ -209,7 +209,8 @@ def scan(repo: Path, key: bytes, reflog: bool = False, allowed: frozenset = froz
         nonlocal key_block
         _, commit, date, path, lineno, lines = key_block
         value = "\n".join(lines)
-        if len(lines) == 1:  # a header with no key body: make it unique to its place
+        if not any(re.search(r"[A-Za-z0-9+/=]{16,}", line) for line in lines[1:]):
+            # no real key body (a stray header, or a header plus blank lines): unique to its place
             value += f"\n@{commit}:{path}:{lineno}"
         record("private-key", value, commit, date, path, lineno)
         key_block = None

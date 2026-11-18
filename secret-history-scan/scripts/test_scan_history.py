@@ -130,6 +130,11 @@ class ScanHistoryTest(unittest.TestCase):
         self.assertEqual([f["paths"] for f in remaining], [["deploy/prod.pem"]])
         self.assertTrue(fixture["masked"].startswith("[RSA PRIVATE KEY block, "))
 
+    def test_header_plus_blank_line_blocks_do_not_share_a_fingerprint(self):
+        self.commit("a.pem", f"{BEGIN}\n\n", "header and blank")
+        self.commit("b.pem", f"{BEGIN}\n\n", "another")
+        self.assertEqual(self.rules(), ["private-key", "private-key"])
+
     def test_pgp_private_key_block(self):
         self.commit("k.asc", f"{PGP_BEGIN}\nlQOYBF\n-----END PGP PRIVATE KEY BLOCK-----\n", "pgp")
         self.assertEqual(self.rules(), ["private-key"])
@@ -265,11 +270,13 @@ class ScanHistoryTest(unittest.TestCase):
     def test_context_masks_short_and_spaced_passwords(self):
         lines = ['password = "hunter2"', 'DB_PASSWORD: "Summer2024"', '"password": "letmein!"',
                  'secret: "my secret phrase"', 'conn = connect("db", "admin", "P@ss!w0rd#123")',
+                 'passphrase = "correct horse battery"', 'pass: hunter2', 'pin: 1234',
                  'label = "service"']
         sha = self.commit("c.py", "\n".join(lines) + "\n", "short")
-        code, out, _ = self.run_main(str(self.repo), "--context", f"{sha}:c.py:3", "--radius", "5")
+        code, out, _ = self.run_main(str(self.repo), "--context", f"{sha}:c.py:3", "--radius", "8")
         self.assertEqual(code, 0)
-        for value in ["hunter2", "Summer2024", "letmein!", "my secret phrase", "P@ss!w0rd#123"]:
+        for value in ["hunter2", "Summer2024", "letmein!", "my secret phrase", "P@ss!w0rd#123",
+                      "correct horse battery", "1234"]:
             self.assertNotIn(value, out)
         self.assertIn('"service"', out)
 
