@@ -26,11 +26,11 @@ GitHub push protection stops new secrets at the door. It does nothing for a key 
 ## Phase 1 – Prepare
 
 1. Find the repository (`git rev-parse --show-toplevel`), its GitHub `owner/repo` if any, and whether it is public (`gh repo view <r> --json visibility,isFork`).
-2. `git fetch --all --tags --prune`. With `--include-pr-refs` (or a public repository), also `git fetch origin '+refs/pull/*/head:refs/remotes/origin/pr/*'`. These refs are read-only copies; remove them after the scan (`git for-each-ref --format='%(refname)' refs/remotes/origin/pr/ | xargs -r -n1 git update-ref -d`).
+2. `git fetch --all --tags` (no `--prune`: a stale remote-tracking ref may be the only local pointer to commits that carry a secret). With `--include-pr-refs` (or a public repository), also fetch the PR refs into a private namespace that can't collide with real branches: `git fetch origin '+refs/pull/*/head:refs/secret-scan/pr/*'`. Keep them until the report is written (triage needs them); remove them at the end (Final report).
 3. **Choose the scanner**, in this order:
    - `gitleaks` if installed: `gitleaks git --log-opts="--all" --redact --report-format json --report-path <scratchpad>/gitleaks.json <repo>`;
-   - `trufflehog` if installed: `trufflehog git file://<repo> --json --no-verification` (verification comes later, with approval). Its JSON includes raw values, so keep the file in the scratchpad, read it with a script that drops the value fields, and delete it after the scan;
-   - otherwise the bundled scanner: `python3 -I <this skill>/scripts/scan_history.py <repo> [--reflog] [--allow <file>] --out <scratchpad>/findings.json`. It needs only Python and git, prints values masked, and exits 1 when it finds something.
+   - `trufflehog` if installed. Its JSON carries raw values (`Raw`, `RawV2`), so never let it reach the terminal: `trufflehog git file://<repo> --json --no-verification > <scratchpad>/trufflehog.json 2>/dev/null`, then keep only non-value fields (`jq -c 'del(.Raw, .RawV2, .Redacted)' <scratchpad>/trufflehog.json > <scratchpad>/trufflehog-safe.json`), and delete the raw file as soon as that is done. Verification comes later, with approval;
+   - otherwise the bundled scanner: `python3 -I <this skill>/scripts/scan_history.py <repo> [--reflog] [--allow <file>] --out <scratchpad>/findings.json > /dev/null`. It needs only Python and git 2.31+, never emits values (masked form plus a keyed fingerprint), reports the introducing commit and line, and exits 1 when it finds something, 2 on error. Its fingerprints are HMACs with a local key (`~/.claude/secret-history-scan.key`, created owner-only on first use), so they mean nothing to anyone without that key and are comparable only on machines that share it. It doesn't scan binary files.
 
    Installing gitleaks or trufflehog is a new tool on the user's machine: offer it, don't do it unasked. The bundled scanner knows the common token formats and random-looking password assignments; a dedicated tool knows hundreds more, so say which one ran.
 4. **GitHub's own view**, if the repository is on GitHub. Check the exit status before parsing, because a disabled feature returns an error body:
@@ -49,8 +49,8 @@ Run the chosen scanner over all refs. Merge its findings with GitHub's alerts (t
 
 For each finding:
 
-1. **Real or not.** Read the surrounding lines at the introducing commit (`git show <commit>:<path>`, looking only at the context, never echoing the value). False positives: documented example keys, test fixtures with obviously fake values, placeholders, hashes and IDs that only look random. Say why for each one dismissed.
-2. **Still present?** In HEAD, on other branches, in tags: `git branch -a --contains <commit>` and `git tag --contains <commit>`. Removed from HEAD is not removed from history.
+1. **Real or not.** Look at the surrounding lines at the introducing commit with every secret masked: `python3 -I <this skill>/scripts/scan_history.py <repo> --context <commit>:<path>:<line>`. Never use `git show <commit>:<path>` or `cat` for this; they print the value. False positives: documented example keys, test fixtures with obviously fake values, placeholders, hashes and IDs that only look random. Say why for each one dismissed.
+2. **Still present?** In HEAD, on other branches, in tags and PR refs: `git branch -a --contains <commit>`, `git tag --contains <commit>`, and `git for-each-ref --contains <commit> refs/secret-scan/pr/`. Removed from HEAD is not removed from history.
 3. **Exposure.** A public repository, a public fork, or a PR ref means the secret is public and should be assumed compromised, however briefly it was there. For a private repository, note who has access (collaborators, forks, CI logs, mirrors).
 4. **Severity.** Critical: a live-or-unknown credential with write or admin power (cloud keys, deploy keys, tokens with write scopes, private keys) in a public place. High: any other real credential in a public place, or a powerful one in a private one. Medium: a real but low-power or test-environment credential. Low: likely revoked or expired, with evidence.
 
@@ -80,7 +80,9 @@ Recommend, in this order, and do none of it unasked:
 
 ## Final report
 
-- Scanner used, refs scanned (branches, tags, PR refs, reflog), and the report's path.
+- Scanner used (and what it can't see, such as binary files for the bundled one), refs scanned (branches, tags, PR refs, reflog), and the report's path.
 - Counts by severity; for each Critical and High: rule, masked value, where, exposure, liveness.
 - GitHub secret-scanning and push-protection status.
 - The recommended next steps, rotation first, and anything waiting on the user's decision.
+
+Then clean up: delete the fetched PR refs (`git for-each-ref --format='%(refname)' refs/secret-scan/ | xargs -r -n1 git update-ref -d`) and every scanner output in the scratchpad that isn't the report.

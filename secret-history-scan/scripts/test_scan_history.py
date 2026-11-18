@@ -1,10 +1,13 @@
 """Tests for scan_history.py. Run: python3 -I -m unittest discover -s secret-history-scan/scripts -p 'test_*.py'
 
 Fake secrets are assembled at run time, so this file itself holds nothing a secret scanner
-(or GitHub push protection) would flag.
+(or GitHub push protection) would flag. Scanner output is captured, never shown.
 """
 
+import contextlib
+import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -14,134 +17,273 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import scan_history  # noqa: E402
 
+KEY = b"k" * 32
 FAKE_AWS = "AKIA" + "Q7XK2M4PZ8RT1VWB"  # 20 chars, AWS access key id shape
+FAKE_AWS_2 = "AKIA" + "M3NB8VC2XZ5LK9JH"
 FAKE_GH = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
 FAKE_GENERIC = "Zt9#qL2v" + "Xw8!rP4kM7"  # random-looking, 18 chars
-KEY_HEADER = "-----BEGIN " + "RSA PRIVATE KEY-----"
+BEGIN = "-----BEGIN " + "RSA PRIVATE KEY-----"
+END = "-----END " + "RSA PRIVATE KEY-----"
+PGP_BEGIN = "-----BEGIN " + "PGP PRIVATE KEY BLOCK-----"
 
 
-def git(repo, *args):
-    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)
+def git(repo, *args, env=None):
+    subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True,
+                   env={**os.environ, **(env or {})})
+
+
+def key_file(body_seed: str) -> str:
+    return "\n".join([BEGIN, "MIIEow" + body_seed * 8, "q9" + body_seed * 6, END, ""])
 
 
 class ScanHistoryTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
-        self.repo = Path(self.tmp.name)
+        self.repo = Path(self.tmp.name) / "repo"
+        self.repo.mkdir()
         git(self.repo, "init", "-q", "-b", "main")
         git(self.repo, "config", "user.email", "t@example.invalid")
         git(self.repo, "config", "user.name", "Test")
+        self.key_path = Path(self.tmp.name) / "scan.key"
 
     def tearDown(self):
         self.tmp.cleanup()
 
-    def commit(self, path, text, message):
+    def commit(self, path, text, message, env=None):
         (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
         (self.repo / path).write_text(text)
         git(self.repo, "add", "-A")
-        git(self.repo, "commit", "-q", "-m", message)
+        git(self.repo, "commit", "-q", "-m", message, env=env)
+        return subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+
+    def scan(self, **kw):
+        return scan_history.scan(self.repo, KEY, **kw)
+
+    def rules(self, **kw):
+        return [f["rule"] for f in self.scan(**kw)]
+
+    def run_main(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = scan_history.main([*args, "--key-file", str(self.key_path)])
+        return code, out.getvalue(), err.getvalue()
+
+    # --- basic detection -------------------------------------------------------------
 
     def test_finds_a_secret_that_was_deleted_later_and_never_prints_it(self):
         self.commit("config.py", f'AWS_KEY = "{FAKE_AWS}"\n', "add config")
         self.commit("config.py", "AWS_KEY = os.environ['AWS_KEY']\n", "remove key")
-        findings = scan_history.scan(self.repo)
-        self.assertEqual([f["rule"] for f in findings], ["aws-access-key-id"])
-        finding = findings[0]
+        (finding,) = self.scan()
+        self.assertEqual(finding["rule"], "aws-access-key-id")
         self.assertFalse(finding["in_head"])
         self.assertEqual(finding["paths"], ["config.py"])
+        self.assertEqual(finding["line"], 1)
         self.assertEqual(finding["masked"], "AKIA…(20 chars)")
-        self.assertNotIn(FAKE_AWS, json.dumps(findings))
+        self.assertNotIn(FAKE_AWS, json.dumps(finding))
 
     def test_reports_the_commit_that_introduced_the_secret(self):
-        self.commit("a.txt", f"token {FAKE_GH}\n", "first")
-        first = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"],
-                               capture_output=True, text=True, check=True).stdout.strip()
+        first = self.commit("a.txt", f"token {FAKE_GH}\n", "first")
         self.commit("b.txt", f"again {FAKE_GH}\n", "second")
-        (finding,) = scan_history.scan(self.repo)
+        (finding,) = self.scan()
         self.assertEqual(finding["first_commit"], first)
         self.assertEqual(sorted(finding["paths"]), ["a.txt", "b.txt"])
         self.assertTrue(finding["in_head"])
 
+    def test_introducer_found_even_when_a_descendant_has_an_earlier_date(self):
+        self.commit("readme.md", "hello\n", "init")
+        introducer = self.commit("a.txt", f"{FAKE_AWS}\n", "introduce",
+                                 env={"GIT_COMMITTER_DATE": "2030-01-01T00:00:00Z"})
+        self.commit("b.txt", f"{FAKE_AWS}\n", "copy, clock behind",
+                    env={"GIT_COMMITTER_DATE": "2001-01-01T00:00:00Z"})
+        (finding,) = self.scan()
+        self.assertEqual(finding["first_commit"], introducer)
+
     def test_scans_other_branches(self):
         self.commit("readme.md", "hello\n", "init")
         git(self.repo, "checkout", "-q", "-b", "feature")
-        self.commit("key.pem", KEY_HEADER + "\nabc\n", "add key")
+        self.commit("key.pem", key_file("Ab"), "add key")
         git(self.repo, "checkout", "-q", "main")
-        rules = [f["rule"] for f in scan_history.scan(self.repo)]
-        self.assertEqual(rules, ["private-key"])
-
-    def test_generic_assignment_needs_a_random_looking_value(self):
-        self.commit("s.py", f'password = "{FAKE_GENERIC}"\npassword = "changeme-please-123"\n'
-                    'api_key = "aaaaaaaaaaaaaaaa"\n', "secrets")
-        findings = scan_history.scan(self.repo)
-        self.assertEqual([f["rule"] for f in findings], ["generic-secret-assignment"])
-
-    def test_allow_list_skips_fingerprints(self):
-        self.commit("a.txt", f"{FAKE_AWS}\n", "add")
-        allowed = frozenset({scan_history.fingerprint(FAKE_AWS)})
-        self.assertEqual(scan_history.scan(self.repo, allowed=allowed), [])
-
-    def test_cli_exit_codes_and_output(self):
-        script = Path(scan_history.__file__)
-        clean = subprocess.run([sys.executable, "-I", str(script), str(self.repo)],
-                               capture_output=True, text=True)
-        self.assertEqual(clean.returncode, 0)  # empty repo: no commits, no findings
-        self.commit("a.txt", f"{FAKE_AWS}\n", "add")
-        found = subprocess.run([sys.executable, "-I", str(script), str(self.repo)],
-                               capture_output=True, text=True)
-        self.assertEqual(found.returncode, 1)
-        self.assertNotIn(FAKE_AWS, found.stdout + found.stderr)
-        bad = subprocess.run([sys.executable, "-I", str(script), self.tmp.name + "/nope"],
-                             capture_output=True, text=True)
-        self.assertEqual(bad.returncode, 2)
-
-    def test_main_in_process_writes_json_and_reads_an_allow_file(self):
-        self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_GH}\n", "add")
-        out = self.repo / "out.json"
-        allow = self.repo / "allow.txt"
-        allow.write_text(f"# a reviewed false positive\n{scan_history.fingerprint(FAKE_GH)}  # test key\n\n")
-        code = scan_history.main([str(self.repo), "--allow", str(allow), "--out", str(out)])
-        self.assertEqual(code, 1)
-        findings = json.loads(out.read_text())
-        self.assertEqual([f["rule"] for f in findings], ["aws-access-key-id"])
-        self.assertNotIn(FAKE_AWS, out.read_text())
-
-    def test_main_without_out_on_a_clean_history_returns_zero(self):
-        self.commit("a.txt", "nothing secret here\n", "init")
-        self.assertEqual(scan_history.main([str(self.repo)]), 0)
-
-    def test_main_rejects_a_directory_that_is_not_a_repository(self):
-        with tempfile.TemporaryDirectory() as other:
-            self.assertEqual(scan_history.main([other]), 2)
+        self.assertEqual(self.rules(), ["private-key"])
 
     def test_reflog_finds_a_commit_no_ref_reaches(self):
         self.commit("readme.md", "hello\n", "init")
         self.commit("k.txt", f"{FAKE_AWS}\n", "oops")
         git(self.repo, "reset", "-q", "--hard", "HEAD~1")
-        self.assertEqual(scan_history.scan(self.repo), [])
-        rules = [f["rule"] for f in scan_history.scan(self.repo, reflog=True)]
-        self.assertEqual(rules, ["aws-access-key-id"])
+        self.assertEqual(self.scan(), [])
+        self.assertEqual(self.rules(reflog=True), ["aws-access-key-id"])
 
     def test_same_secret_twice_in_one_file_is_listed_once(self):
         self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_AWS}\n", "twice")
-        (finding,) = scan_history.scan(self.repo)
+        (finding,) = self.scan()
         self.assertEqual(finding["paths"], ["a.txt"])
+
+    # --- review regressions -----------------------------------------------------------
+
+    def test_distinct_private_keys_get_distinct_fingerprints(self):
+        self.commit("test/fixture.pem", key_file("Ab"), "fixture")
+        self.commit("deploy/prod.pem", key_file("Zq"), "prod")
+        findings = self.scan()
+        self.assertEqual(len(findings), 2)
+        fixture = next(f for f in findings if f["paths"] == ["test/fixture.pem"])
+        remaining = self.scan(allowed=frozenset({fixture["fingerprint"]}))
+        self.assertEqual([f["paths"] for f in remaining], [["deploy/prod.pem"]])
+        self.assertTrue(fixture["masked"].startswith("[BEGIN RSA PRIVATE KEY"))
+
+    def test_pgp_private_key_block(self):
+        self.commit("k.asc", f"{PGP_BEGIN}\nlQOYBF\n-----END PGP PRIVATE KEY BLOCK-----\n", "pgp")
+        self.assertEqual(self.rules(), ["private-key"])
+
+    def test_secret_added_in_a_merge_resolution(self):
+        self.commit("a.txt", "base\n", "base")
+        git(self.repo, "checkout", "-q", "-b", "side")
+        self.commit("a.txt", "side\n", "side")
+        git(self.repo, "checkout", "-q", "main")
+        self.commit("a.txt", "main\n", "main")
+        subprocess.run(["git", "-C", str(self.repo), "merge", "-q", "side"], capture_output=True)
+        (self.repo / "a.txt").write_text("resolved\n")
+        (self.repo / "creds.txt").write_text(f"{FAKE_AWS}\n")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "--no-edit")
+        self.assertEqual(self.rules(), ["aws-access-key-id"])
+
+    def test_quoted_and_spaced_paths(self):
+        self.commit("café.txt", f"{FAKE_AWS}\n", "accent")
+        self.commit('q"x.txt', f"{FAKE_GH}\n", "quote")
+        self.commit("x y.txt", f"{FAKE_AWS_2}\n", "space")
+        found = {f["paths"][0]: f for f in self.scan()}
+        self.assertEqual(set(found), {"café.txt", 'q"x.txt', "x y.txt"})
+        self.assertTrue(all(f["in_head"] for f in found.values()))
+
+    def test_an_added_line_that_looks_like_a_header_cannot_hide_a_secret(self):
+        self.commit("a.txt", f"++ b/evil\n{FAKE_AWS}\n", "sneaky")
+        (finding,) = self.scan()
+        self.assertEqual(finding["paths"], ["a.txt"])
+        self.assertEqual(finding["line"], 2)
+
+    def test_generic_assignment_forms(self):
+        lines = [f'db_password = "{FAKE_GENERIC}"', f'CLIENT_SECRET="{FAKE_GENERIC}x"',
+                 f'"password": "{FAKE_GENERIC}y"', f"password: {FAKE_GENERIC}z",
+                 f"aws_secret_access_key = {FAKE_GENERIC}w"]
+        self.commit("s.txt", "\n".join(lines) + "\n", "forms")
+        findings = self.scan()
+        self.assertEqual([f["rule"] for f in findings], ["generic-secret-assignment"] * 5)
+        self.assertTrue(all(f["masked"].startswith("…(") for f in findings))
+
+    def test_generic_assignment_ignores_placeholders_and_low_entropy(self):
+        self.commit("s.py", 'password = "changeme-please-123"\napi_key = "aaaaaaaaaaaaaaaa"\n'
+                    'token = "${GITHUB_TOKEN_VALUE}"\n', "placeholders")
+        self.assertEqual(self.scan(), [])
+
+    def test_a_key_matching_two_rules_is_reported_once(self):
+        anthropic = "sk-ant-" + "api03-" + "Q9x" * 14
+        self.commit("a.txt", f"key {anthropic}\n", "anthropic")
+        self.assertEqual(self.rules(), ["anthropic-api-key"])
+
+    def test_a_token_inside_a_generic_value_is_reported_as_the_token_only(self):
+        self.commit("a.env", f"secret=xx-{FAKE_GH}\n", "embedded")
+        self.assertEqual(self.rules(), ["github-token"])
+
+    def test_file_without_a_trailing_newline(self):
+        self.commit("a.txt", f"{FAKE_AWS}", "no newline")
+        self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_AWS_2}", "still no newline")
+        self.assertEqual(self.rules(), ["aws-access-key-id", "aws-access-key-id"])
+
+    def test_unterminated_key_blocks_are_still_reported(self):
+        (self.repo / "half.pem").write_text(f"{BEGIN}\nMIIEowAbAbAb\n")
+        (self.repo / "z.txt").write_text(f"{FAKE_AWS}\n")
+        git(self.repo, "add", "-A")
+        git(self.repo, "commit", "-q", "-m", "key cut short, then another file")
+        self.commit("last.pem", f"{BEGIN}\nMIIEowZqZqZq\n", "key cut short at the end")
+        self.assertEqual(sorted(self.rules()), ["aws-access-key-id", "private-key", "private-key"])
+
+    def test_short_values_show_no_prefix(self):
+        self.assertEqual(scan_history.mask("slack-token", "xoxb-12345678"), "…(13 chars)")
+
+    # --- context ----------------------------------------------------------------------
+
+    def test_context_masks_secrets_and_key_material(self):
+        sha = self.commit("a.txt", f"one\nkey = {FAKE_AWS}\n{key_file('Ab')}after\n", "ctx")
+        code, out, _ = self.run_main(str(self.repo), "--context", f"{sha}:a.txt:2", "--radius", "4")
+        self.assertEqual(code, 0)
+        self.assertNotIn(FAKE_AWS, out)
+        self.assertNotIn("MIIEow", out)
+        self.assertIn("AKIA…(20 chars)", out)
+        self.assertIn("[private key material]", out)
+
+    def test_context_errors(self):
+        self.commit("a.txt", "x\n", "init")
+        self.assertEqual(self.run_main(str(self.repo), "--context", "nonsense")[0], 2)
+        self.assertEqual(self.run_main(str(self.repo), "--context", "HEAD:missing.txt:1")[0], 2)
+
+    # --- CLI and errors -----------------------------------------------------------------
+
+    def test_main_writes_json_reads_an_allow_file_and_creates_a_private_key_file(self):
+        self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_GH}\n", "add")
+        out = Path(self.tmp.name) / "out.json"
+        code, _, _ = self.run_main(str(self.repo), "--out", str(out))
+        self.assertEqual(code, 1)
+        self.assertEqual(self.key_path.stat().st_mode & 0o777, 0o600)
+        gh = next(f for f in json.loads(out.read_text()) if f["rule"] == "github-token")
+        allow = Path(self.tmp.name) / "allow.txt"
+        allow.write_text(f"# reviewed\n{gh['fingerprint']}  # test token\n\n")
+        code, _, _ = self.run_main(str(self.repo), "--allow", str(allow), "--out", str(out))
+        self.assertEqual([f["rule"] for f in json.loads(out.read_text())], ["aws-access-key-id"])
+        self.assertNotIn(FAKE_AWS, out.read_text())
+
+    def test_main_on_a_clean_history_returns_zero(self):
+        self.commit("a.txt", "nothing secret here\n", "init")
+        self.assertEqual(self.run_main(str(self.repo))[0], 0)
+
+    def test_errors_exit_2(self):
+        with tempfile.TemporaryDirectory() as other:
+            self.assertEqual(self.run_main(other)[0], 2)
+        self.commit("a.txt", "x\n", "init")
+        self.assertEqual(self.run_main(str(self.repo), "--allow", "/no/such/file")[0], 2)
 
     def test_a_failing_git_log_is_an_error_not_a_clean_result(self):
         self.commit("a.txt", "x\n", "init")
-        with self.assertRaises(RuntimeError):
-            list(scan_history.history(self.repo / "missing-subdir", reflog=False))
-        real_history = scan_history.history
+        with self.assertRaises(scan_history.ScanError):
+            list(scan_history.added_lines(self.repo / "missing-subdir", reflog=False))
+        real = scan_history.added_lines
 
         def failing(repo, reflog):
-            raise RuntimeError("git log failed")
+            raise scan_history.ScanError("git log failed")
             yield  # pragma: no cover
 
-        scan_history.history = failing
+        scan_history.added_lines = failing
         try:
-            self.assertEqual(scan_history.main([str(self.repo)]), 2)
+            self.assertEqual(self.run_main(str(self.repo))[0], 2)
         finally:
-            scan_history.history = real_history
+            scan_history.added_lines = real
+
+    def test_git_missing_is_an_error(self):
+        real = scan_history.subprocess.run
+
+        def no_git(*a, **k):
+            raise FileNotFoundError("git")
+
+        scan_history.subprocess.run = no_git
+        try:
+            self.assertEqual(self.run_main(str(self.repo))[0], 2)
+        finally:
+            scan_history.subprocess.run = real
+        real_popen = scan_history.subprocess.Popen
+        scan_history.subprocess.Popen = no_git
+        try:
+            with self.assertRaises(scan_history.ScanError):
+                list(scan_history.added_lines(self.repo, reflog=False))
+        finally:
+            scan_history.subprocess.Popen = real_popen
+
+    def test_cli_exit_codes_and_output(self):
+        script = Path(scan_history.__file__)
+        cmd = [sys.executable, "-I", str(script), str(self.repo), "--key-file", str(self.key_path)]
+        self.assertEqual(subprocess.run(cmd, capture_output=True).returncode, 0)
+        self.commit("a.txt", f"{FAKE_AWS}\n", "add")
+        found = subprocess.run(cmd, capture_output=True, text=True)
+        self.assertEqual(found.returncode, 1)
+        self.assertNotIn(FAKE_AWS, found.stdout + found.stderr)
 
 
 if __name__ == "__main__":
