@@ -55,7 +55,15 @@ NOT_A_SECRET_NAME = re.compile(r"(?i)tokens|tokenizer|token_?(?:type|count|limit
 CODE_LIKE = re.compile(r"\(|^[A-Za-z_]\w*\.[A-Za-z_]")  # a call, or self.x / os.environ / process.env
 URL_PASSWORD = re.compile(r"(://[^:/\s@]+:)([^@\s/]+)(@)")
 RANDOM_LOOKING = re.compile(r"[A-Za-z0-9_+/=\-]{12,}")
-BASE64_BODY = re.compile(r"^\s*(?:[A-Za-z0-9+/=]+|[A-Za-z-]+: .*)?\s*$")  # key body or a PEM header field
+# Key material: a base64 line, a PEM header field, or a blank line inside the block. Lines kept
+# in a block are still scanned for other secrets, so a bare token after a stray header is found.
+BASE64_BODY = re.compile(r"^\s*(?:[A-Za-z0-9+/=]+|(?:Proc-Type|DEK-Info|Version|Comment): .*)?\s*$")
+# For the --context view: any assignment to a secret-ish name, whatever the value's length.
+CONTEXT_ASSIGN = re.compile(
+    r"(?i)([\w.-]*(?:password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token)[\w.-]*"
+    r"[\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|[^\s,;]+)"
+)
+QUOTED = re.compile(r"(\"[^\"]{6,}\"|'[^']{6,}')")
 GENERIC_MIN_ENTROPY = 3.5
 PLACEHOLDER = re.compile(r"(?i)(example|placeholder|changeme|dummy|xxxx|your[_-]|<|\$\{|\{\{|\$\(|%\()")
 SHORT = 20  # values shorter than this get no visible prefix
@@ -199,7 +207,11 @@ def scan(repo: Path, key: bytes, reflog: bool = False, allowed: frozenset = froz
 
     def close_block():
         nonlocal key_block
-        record("private-key", "\n".join(key_block[5]), *key_block[1:5])
+        _, commit, date, path, lineno, lines = key_block
+        value = "\n".join(lines)
+        if len(lines) == 1:  # a header with no key body: make it unique to its place
+            value += f"\n@{commit}:{path}:{lineno}"
+        record("private-key", value, commit, date, path, lineno)
         key_block = None
 
     for commit, date, path, lineno, hunk, text in added_lines(repo, reflog):
@@ -207,6 +219,8 @@ def scan(repo: Path, key: bytes, reflog: bool = False, allowed: frozenset = froz
             close_block()  # the hunk ended, or this line isn't key material: scan it normally
         if key_block:
             key_block[5].append(text)
+            for rule, value in find_in_line(text):  # key lines are scanned too, in case
+                record(rule, value, commit, date, path, lineno)
             if KEY_END.search(text) or len(key_block[5]) >= KEY_MAX_LINES:
                 close_block()
             continue
@@ -250,16 +264,23 @@ def context(repo: Path, spec: str, radius: int) -> str:
         in_key = is_key_line and not KEY_END.search(text)
         if abs(number - center) > radius:
             continue
-        out.append(f"{number:6} | {'[private key material]' if is_key_line else mask_line(text)}")
+        shown_text = "[private key material]" if is_key_line else mask_line(text, number == center)
+        out.append(f"{number:6} | {shown_text}")
     return "\n".join(out)
 
 
-def mask_line(text: str) -> str:
+def mask_line(text: str, finding_line: bool = False) -> str:
     """Mask everything on a line that could be a secret, recognised or not."""
     for rule, value in find_in_line(text):
         text = text.replace(value, mask(rule, value))
-    text = GENERIC.sub(lambda m: m.group(0)[: m.start(3) - m.start(0)] + f"…({len(m.group(3))} chars)", text)
+    text = CONTEXT_ASSIGN.sub(lambda m: f"{m.group(1)}…({len(m.group(2))} chars)", text)
     text = URL_PASSWORD.sub(lambda m: f"{m.group(1)}…{m.group(3)}", text)
+    # Quoted strings: all of them on the finding's own line, elsewhere any that hold a digit or symbol.
+    text = QUOTED.sub(
+        lambda m: m.group(0) if not finding_line and re.fullmatch(r"[\"'][a-z ]*[\"']", m.group(0))
+        else f"…({len(m.group(0)) - 2} chars)",
+        text,
+    )
     return RANDOM_LOOKING.sub(
         lambda m: m.group(0) if entropy(m.group(0)) < 3.0 or m.group(0).isalpha() else f"…({len(m.group(0))} chars)",
         text,

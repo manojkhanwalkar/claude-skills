@@ -212,6 +212,12 @@ class ScanHistoryTest(unittest.TestCase):
         self.commit("README.md", f"Never commit a {BEGIN} file.\nExample: see docs.\nkey {FAKE_AWS}\n", "docs")
         self.assertIn("aws-access-key-id", self.rules())
 
+    def test_lines_after_a_stray_key_header_are_still_scanned(self):
+        self.commit("notes.txt", f"Format: {BEGIN}\n{FAKE_AWS}\n", "bare key after header")
+        self.commit("c.yml", f"note: {BEGIN}\npassword: {FAKE_GENERIC}\n", "yaml after header")
+        self.assertEqual(sorted(self.rules()), ["aws-access-key-id", "generic-secret-assignment",
+                                                "private-key", "private-key"])
+
     def test_non_ascii_names_with_quotes(self):
         self.commit('é"x.txt', f"{FAKE_AWS}\n", "latin")
         self.commit('日"x.txt', f"{FAKE_GH}\n", "cjk")
@@ -255,6 +261,17 @@ class ScanHistoryTest(unittest.TestCase):
         self.assertNotIn(weak, out)
         self.assertNotIn(url_pw, out)
         self.assertIn("service", out)
+
+    def test_context_masks_short_and_spaced_passwords(self):
+        lines = ['password = "hunter2"', 'DB_PASSWORD: "Summer2024"', '"password": "letmein!"',
+                 'secret: "my secret phrase"', 'conn = connect("db", "admin", "P@ss!w0rd#123")',
+                 'label = "service"']
+        sha = self.commit("c.py", "\n".join(lines) + "\n", "short")
+        code, out, _ = self.run_main(str(self.repo), "--context", f"{sha}:c.py:3", "--radius", "5")
+        self.assertEqual(code, 0)
+        for value in ["hunter2", "Summer2024", "letmein!", "my secret phrase", "P@ss!w0rd#123"]:
+            self.assertNotIn(value, out)
+        self.assertIn('"service"', out)
 
     def test_context_errors(self):
         self.commit("a.txt", "x\n", "init")
