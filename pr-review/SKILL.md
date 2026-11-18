@@ -124,7 +124,7 @@ Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is
 1. Wait for CI on the pushed head (`gh pr checks <n> --watch`). If the repository has no checks at all ("no checks reported"), say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting. If a check fails, fix it the way the `fix-ci` skill does (read the failed job's log, find the real cause, fix it on the branch with a test, never weaken a check), going back to Phase 3, and wait again. Never merge on red, and never bypass required checks.
 2. Check that `gh pr view <n> --json mergeStateStatus` is `CLEAN`.
    - **Behind the base branch:** update the branch (`git merge origin/<base>`, or `gh pr update-branch`), re-run the tests and wait for CI.
-   - **Conflicts:** resolve them on the branch, keeping both sides' intent. Ask the user if the intent is unclear.
+   - **Conflicts:** resolve them on the branch the way the `resolve-conflicts` skill does (merge the base, keep both sides' intent, regenerate lockfiles and generated files, build and test). Ask the user if the intent is unclear. Then wait for CI on the new head, as for a branch that was only behind. If the resolution changed reviewed code beyond taking one side, give the resolution itself (`git show --remerge-diff HEAD`, git 2.36 or later) to the independent reviewer before merging (the user's rule 3), and fix its confirmed Critical, High and Medium findings first.
 3. Squash-merge and delete the branch: `gh pr merge <n> --squash --delete-branch`. Then update the local base branch (`git checkout <base> && git pull`).
 
 ## Final report to the user
