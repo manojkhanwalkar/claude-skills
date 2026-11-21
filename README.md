@@ -30,3 +30,15 @@ Run one in Claude Code with `/<skill-name>`, e.g. `/owasp-top10 --fix`.
 `templates/` holds files the rules in `~/.claude/CLAUDE.md` tell every project to copy, such as `artifact-cleanup.yml`.
 
 Skills with helper scripts keep their tests next to them; run them with `python3 -I -m unittest discover -s <skill>/scripts -p 'test_*.py'`.
+
+## Checks
+
+Every pull request runs:
+
+| Workflow | What it checks |
+|---|---|
+| **CI** | `tools/validate_skills.py`: each skill's frontmatter is strict YAML, its `name` equals its folder (lowercase, digits, hyphens), its description is at most 1024 characters with no `<`/`>`, relative links resolve, and the README has its row. Then `tools/run_tests.sh`: every bundled script's unit tests under coverage, failing below 95% or when any Python file has no tests beside it. |
+| **CodeQL** | Static analysis of the Python scripts and the workflows |
+| **Security** | Dependency review, and Gitleaks on each PR's and push's new commits, plus the whole history weekly and on demand (only two scanners' fake test fixtures are allowlisted in `.gitleaks.toml`) |
+
+Run them locally: `python3 -m pip install -r tools/requirements.txt && python3 tools/validate_skills.py . && tools/run_tests.sh`.
