@@ -1,10 +1,14 @@
-# Supply-chain and secret checks: dependency review on pull requests, Gitleaks on every push.
+# Supply-chain and secret checks. Gitleaks scans the new commits of each pull request and push, and
+# the whole history weekly and on demand (Actions > Security > Run workflow).
 name: Security
 
 on:
   pull_request:
   push:
     branches: [master]
+  schedule:
+    - cron: "29 5 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -16,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
@@ -28,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false

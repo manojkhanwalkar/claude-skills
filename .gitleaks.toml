@@ -5,6 +5,9 @@ useDefault = true
 
 [allowlist]
 description = "Test fixtures of the bundled scanners (fake values by design)"
+# Only the two test files whose fixtures are fake secrets and fake card numbers; any other file,
+# including the other scanners' tests, is scanned as normal.
 paths = [
-  '''(^|/)scripts/test_scan_[a-z0-9_]+\.py$''',
+  '''^secret-history-scan/scripts/test_scan_history\.py$''',
+  '''^compliance-check/scripts/test_scan_sensitive\.py$''',
 ]

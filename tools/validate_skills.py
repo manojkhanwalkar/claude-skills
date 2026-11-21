@@ -3,9 +3,11 @@
 
 For each top-level directory that holds a SKILL.md:
   - the frontmatter (between the first two `---` lines) is valid YAML (strict: yaml.safe_load);
-  - `name` is lowercase letters, digits and hyphens, at most 64 characters, and equals the directory;
+  - only the keys uploads accept (name, description, license, allowed-tools, metadata, compatibility);
+  - `name` is lowercase letters, digits and hyphens, at most 64 characters, equals the directory, and
+    doesn't contain the reserved words "anthropic" or "claude";
   - `description` is present, at most 1024 characters, and has no `<` or `>` (read as XML tags);
-  - every relative Markdown link in the skill's .md files points at a file that exists.
+  - every relative Markdown link in the skill's .md files points at a file inside the repository.
 And for the README: every skill has a row linking to its SKILL.md, and every skill link resolves.
 
 Usage: python3 tools/validate_skills.py [REPO_ROOT]   (exit 1 and one line per problem if any fail)
@@ -16,25 +18,33 @@ from __future__ import annotations
 import re
 import sys
 from pathlib import Path
+from urllib.parse import unquote
 
 import yaml
 
 NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 MAX_NAME = 64
 MAX_DESCRIPTION = 1024
-# [text](target) where target is not a URL, an anchor or a mail link; the title part is dropped.
-LINK = re.compile(r"\]\(\s*(?!https?:|mailto:|#)([^)\s]+)(?:\s+\"[^\"]*\")?\s*\)")
-# Fenced code blocks (``` or ~~~, any length of three or more): links inside them are examples.
-FENCE = re.compile(r"^(`{3,}|~{3,})")
+RESERVED = ("anthropic", "claude")
+ALLOWED_KEYS = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
+# [text](target "title"), with the target optionally in <...>; titles in "", '' or ().
+LINK = re.compile(r"\]\(\s*(<[^>]*>|[^\s()]*(?:\([^\s()]*\)[^\s()]*)*)(?:\s+(?:\"[^\"]*\"|'[^']*'|\([^)]*\)))?\s*\)")
+# Reference-style definitions: [label]: target
+REFERENCE = re.compile(r"^\s{0,3}\[[^\]]+\]:\s*(<[^>]*>|\S+)")
+INLINE_CODE = re.compile(r"(`+)(?:(?!\1).)+?\1")
+EXTERNAL = re.compile(r"^(?:[A-Za-z][A-Za-z0-9+.-]*:|//|#|~)")
+# Fenced code blocks (``` or ~~~, three or more): links inside them are examples. A backtick fence's
+# info string can't contain backticks, so ```code``` on one line is inline code, not a fence.
+FENCE = re.compile(r"^ {0,3}(`{3,}(?!.*`)|~{3,})")
 
 
 def frontmatter(text: str) -> str | None:
     """The YAML between a leading `---` line and the next `---` line, or None."""
-    lines = text.splitlines()
-    if not lines or lines[0].strip() != "---":
+    lines = text.lstrip("\ufeff").splitlines()          # a UTF-8 byte-order mark is not content
+    if not lines or lines[0].rstrip() != "---":
         return None
     for i, line in enumerate(lines[1:], start=1):
-        if line.strip() == "---":
+        if line.rstrip() == "---":                       # an indented --- belongs to a block scalar
             return "\n".join(lines[1:i])
     return None
 
@@ -53,10 +63,16 @@ def check_skill(directory: Path) -> list[str]:
         return [f"{where}: frontmatter is not a mapping"]
 
     problems = []
+    unknown = sorted(set(map(str, meta)) - ALLOWED_KEYS)
+    if unknown:
+        problems.append(f"{where}: frontmatter keys {unknown} are not accepted on upload "
+                        f"(allowed: {sorted(ALLOWED_KEYS)})")
     name = meta.get("name")
-    if not isinstance(name, str) or not NAME.match(name) or len(name) > MAX_NAME:
+    if not isinstance(name, str) or not NAME.fullmatch(name) or len(name) > MAX_NAME:
         problems.append(f"{where}: name {name!r} must be lowercase letters, digits and single hyphens, "
                         f"at most {MAX_NAME} characters")
+    elif any(word in name for word in RESERVED):
+        problems.append(f"{where}: name {name!r} contains a reserved word ({', '.join(RESERVED)})")
     elif name != directory.name:
         problems.append(f"{where}: name {name!r} differs from its directory {directory.name!r}")
 
@@ -75,7 +91,7 @@ def links(text: str) -> list[str]:
     """Relative link targets in Markdown text, outside fenced code blocks."""
     targets, fence = [], None
     for line in text.splitlines():
-        marker = FENCE.match(line.strip())
+        marker = FENCE.match(line)
         if marker:
             token = marker.group(1)
             if fence is None:
@@ -83,17 +99,26 @@ def links(text: str) -> list[str]:
             elif token[0] == fence[0] and len(token) >= len(fence) and line.strip() == token:
                 fence = None
             continue
-        if fence is None:
-            targets.extend(LINK.findall(line))
-    return targets
+        if fence is not None or line.startswith(("    ", "\t")):
+            continue                                     # fenced or indented code: examples
+        line = INLINE_CODE.sub("", line)
+        targets.extend(t.strip("<>") for t in LINK.findall(line))
+        targets.extend(t.strip("<>") for t in REFERENCE.findall(line))
+    # A target with a space can only come from <...>: a template placeholder such as <repo url>.
+    return [t for t in targets if t and " " not in t and not EXTERNAL.match(t)]
 
 
 def check_links(md: Path, root: Path) -> list[str]:
     """Relative links in one Markdown file that point at nothing."""
     problems = []
     for target in links(md.read_text(encoding="utf-8")):
-        path = target.split("#", 1)[0]
-        if path and not (md.parent / path).exists():
+        path = unquote(re.split(r"[#?]", target, maxsplit=1)[0])
+        if not path:
+            continue
+        resolved = (md.parent / path).resolve()
+        if path.startswith("/") or not resolved.is_relative_to(root):
+            problems.append(f"{md.relative_to(root)}: link to {target} leaves the repository")
+        elif not resolved.exists():
             problems.append(f"{md.relative_to(root)}: link to {target} points at nothing")
     return problems
 

@@ -37,8 +37,8 @@ Every pull request runs:
 
 | Workflow | What it checks |
 |---|---|
-| **CI** | `tools/validate_skills.py`: each skill's frontmatter is strict YAML, its `name` equals its folder (lowercase, digits, hyphens), its description is at most 1024 characters with no `<`/`>`, relative links resolve, and the README has its row. Then `tools/run_tests.sh`: every bundled script's unit tests under coverage, failing below 95%. |
+| **CI** | `tools/validate_skills.py`: each skill's frontmatter is strict YAML, its `name` equals its folder (lowercase, digits, hyphens), its description is at most 1024 characters with no `<`/`>`, relative links resolve, and the README has its row. Then `tools/run_tests.sh`: every bundled script's unit tests under coverage, failing below 95% or when any Python file has no tests beside it. |
 | **CodeQL** | Static analysis of the Python scripts and the workflows |
-| **Security** | Dependency review, and a Gitleaks scan (the scanners' fake test fixtures are allowlisted in `.gitleaks.toml`) |
+| **Security** | Dependency review, and Gitleaks on each PR's and push's new commits, plus the whole history weekly and on demand (only two scanners' fake test fixtures are allowlisted in `.gitleaks.toml`) |
 
 Run them locally: `python3 -m pip install -r tools/requirements.txt && python3 tools/validate_skills.py . && tools/run_tests.sh`.

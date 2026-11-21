@@ -124,6 +124,75 @@ class ValidateSkillsTest(unittest.TestCase):
         self.repo.readme("real")
         self.assertEqual([], self.problems())
 
+    def test_name_pattern_rejects_leading_trailing_and_double_hyphens_and_a_trailing_newline(self):
+        for i, bad in enumerate(["-lead", "trail-", "dou--ble"]):
+            self.repo.skill(f"dir{i}", GOOD.format(name=bad))
+        self.repo.skill("nl", "---\nname: \"nl\\n\"\ndescription: x\n---\n")
+        self.repo.readme("dir0", "dir1", "dir2", "nl")
+        text = "\n".join(self.problems())
+        for bad in ["'-lead'", "'trail-'", "'dou--ble'", "'nl\\n'"]:
+            self.assertIn(f"name {bad} must be", text)
+
+    def test_names_of_exactly_64_characters_are_allowed(self):
+        name = "a" * 64
+        self.repo.skill(name)
+        self.repo.readme(name)
+        self.assertEqual([], self.problems())
+
+    def test_reserved_words_are_refused_in_names(self):
+        self.repo.skill("claude-helper")
+        self.repo.skill("my-anthropic-tool")
+        self.repo.readme("claude-helper", "my-anthropic-tool")
+        text = "\n".join(self.problems())
+        self.assertIn("name 'claude-helper' contains a reserved word", text)
+        self.assertIn("name 'my-anthropic-tool' contains a reserved word", text)
+
+    def test_only_keys_accepted_on_upload_are_allowed(self):
+        self.repo.skill("extra", "---\nname: extra\ndescription: x\nversion: 2\n---\n")
+        self.repo.skill("ok-keys", "---\nname: ok-keys\ndescription: x\nlicense: MIT\nallowed-tools: Read\n"
+                                   "metadata: {a: b}\ncompatibility: any\n---\n")
+        self.repo.readme("extra", "ok-keys")
+        self.assertEqual(["extra/SKILL.md: frontmatter keys ['version'] are not accepted on upload "
+                          "(allowed: ['allowed-tools', 'compatibility', 'description', 'license', 'metadata', 'name'])"],
+                         self.problems())
+
+    def test_unsafe_yaml_tags_are_refused(self):
+        self.repo.skill("tagged", "---\nname: tagged\ndescription: !!python/object/apply:os.getcwd []\n---\n")
+        self.repo.readme("tagged")
+        self.assertIn("tagged/SKILL.md: frontmatter is not valid YAML", "\n".join(self.problems()))
+
+    def test_a_byte_order_mark_and_crlf_line_endings_are_fine(self):
+        self.repo.skill("bom", "\ufeff---\r\nname: bom\r\ndescription: x\r\n---\r\n")
+        self.repo.readme("bom")
+        self.assertEqual([], self.problems())
+
+    def test_an_indented_dashes_line_inside_a_block_scalar_does_not_end_the_frontmatter(self):
+        body = "---\nname: block\ndescription: |\n  first\n  ---\n  " + "y" * 1030 + "\n---\n"
+        self.repo.skill("block", body)
+        self.repo.readme("block")
+        self.assertIn("block/SKILL.md: description is", "\n".join(self.problems()))
+
+    def test_link_forms_and_code_are_handled(self):
+        d = self.repo.skill("forms", GOOD.format(name="forms") + (
+            "[t1](ok.md 'single') [t2](ok.md (paren)) [t3](<ok.md>) [t4](file(1).md) [t5](ok%20two.md)\n"
+            "[t6](ok.md?raw=1) [t7](HTTPS://x) [t8](//cdn.example.com/a) [t9](ftp://x) [t10](~/x.md)\n"
+            "`[code](nope.md)` and ```[inline](nope.md)``` stay examples; [t11](<repo url>) is a placeholder\n"
+            "    [indented](nope.md)\n"
+            "[ref]: missing-ref.md\n"
+            "[bad1](gone.md 'title') [bad2](<gone2.md>) [bad3](/etc/hostname) [bad4](../../outside.md)\n"
+            "```text\n[fenced](nope.md)\n~~~\n[still fenced](nope.md)\n```\n[after](gone3.md)\n"))
+        for f in ["ok.md", "file(1).md", "ok two.md"]:
+            (d / f).write_text("x\n", encoding="utf-8")
+        self.repo.readme("forms")
+        self.assertEqual(sorted([
+            "forms/SKILL.md: link to missing-ref.md points at nothing",
+            "forms/SKILL.md: link to gone.md points at nothing",
+            "forms/SKILL.md: link to gone2.md points at nothing",
+            "forms/SKILL.md: link to /etc/hostname leaves the repository",
+            "forms/SKILL.md: link to ../../outside.md leaves the repository",
+            "forms/SKILL.md: link to gone3.md points at nothing",
+        ]), sorted(self.problems()))
+
     def test_main_prints_problems_and_exits_non_zero(self):
         self.repo.skill("bad_one", GOOD.format(name="bad_one"))
         self.repo.readme("bad_one")
