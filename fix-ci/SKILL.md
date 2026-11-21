@@ -16,6 +16,8 @@ A red check is information. The job is to find out what it says and fix that, no
 
 ## Rules that always apply
 
+- **Delegated fixes run on a smaller model:** an agent started to watch CI or fix a failure starts with `model: sonnet`, one agent per PR.
+
 **Never weaken a check.** None of these is a fix unless the user agrees to it for a stated reason:
 - skipping, deleting, disabling or marking as expected-failure a test that fails for a real reason;
 - re-recording snapshots or golden files just to match new output (a golden or snapshot change is a behaviour change: it needs a stated reason, and where the project has a linked port, a note for `port-parity`);
