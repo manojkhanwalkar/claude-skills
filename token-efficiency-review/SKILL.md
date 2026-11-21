@@ -9,13 +9,13 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 
 ## Arguments
 
-- **`--since YYYY-MM-DD`**: the start of the period. Default: the date in `~/.claude/token-efficiency/last-run`, or 10 days ago when there is none.
+- **`--since TIME`**: the start of the period, an ISO date or time. Default: the timestamp in `~/.claude/token-efficiency/last-run`, or 10 days ago when there is none.
 - **`--report-only`**: Phases 1–3 only: write the report and the proposals, change nothing. The scheduled run uses this.
 
 ## Rules that always apply
 
-- **Transcripts are private.** They hold prompts, code, keys and personal data. Read them only through `scripts/usage_report.py`, which prints numbers, tool and skill names, agent descriptions and at most two safe words of a command. Never open, quote or summarise a transcript's content, and never put it in a report, PR, issue or doc.
-- **The report stays local.** It goes to `~/.claude/token-efficiency/reports/<date>.md`. It names projects and agents, so it is never committed or published. What reaches the public repo is only the resulting rule text, with rounded numbers ("about 30% of tokens went to background agents"), never project names.
+- **Transcripts are private.** They hold prompts, code, keys and personal data. Read them only through `scripts/usage_report.py`, which prints numbers, tool, skill and model names, a command's program name (plus a short subcommand for a few known programs), and agent descriptions (written by the model when it started each agent). Never open, quote or summarise a transcript's content, and never put it in a report, PR, issue or doc.
+- **The report stays local.** It goes to `~/.claude/token-efficiency/reports/<date>.md`. It names agents by their model-written descriptions, so it is never committed or published. What reaches the public repo is only the resulting rule text, with rounded numbers ("about 30% of tokens went to background agents"), never project names.
 - **Never relax a gate.** A proposal may cut the work spent reaching a gate, never the gate: no fewer PRs, no skipped security checks where they apply, no merging on red CI, no lower coverage gate. Proposals that would are dropped.
 - **Changes go through a PR.** Skill and `efficiency.md` changes go to the claude-skills repo through `pr-review`. Edits to `~/.claude/CLAUDE.md` need the user's yes in this session; the scheduled run never edits it.
 
@@ -23,31 +23,31 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 
 1. Work out the period (Arguments). Then run the script:
    ```bash
-   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <date> --top 10
-   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <date> --top 10 --json
+   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <time> --top 10
+   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <time> --top 10 --json
    ```
-2. Note the headline numbers: total tokens, the share spent by background agents, the share that was cache reads (re-reading a long conversation), output tokens, compactions, polling commands, and the tools whose results took the most characters.
+2. Note the headline numbers: total tokens, the share spent by background agents, the share that was cache reads (re-reading a long conversation), output tokens, compactions, polling commands (sleeps and checks calls that don't wait by themselves; one background `--watch` is the recommended pattern and isn't counted), and the tools whose results took the most characters.
 3. Read the previous report, if there is one (`~/.claude/token-efficiency/reports/`), to see the trend.
 
 ## Phase 2 – Compare with the rules
 
-Read `efficiency.md`, rule 9 and the efficiency lines in rules 3–8 of `~/.claude/CLAUDE.md`, and check what the numbers show against each rule:
+Read `efficiency.md`, rule 9 and the efficiency lines in rules 3–8 of `~/.claude/CLAUDE.md`, and check what the numbers show against each rule. Below, **E***n* is row *n* of `efficiency.md`'s table and **C***n* is rule *n* of `CLAUDE.md`:
 
 | Signal in the report | Points at |
 |---|---|
-| Cache reads are most of the tokens; compactions above 0 | Long sessions: rule 12 (fresh sessions), and reading less per turn (rule 11) |
-| Background agents take a large share; the top agents are reviews of small or version-only PRs | Rule 3's small-PR self-review and rule 4's Dependabot path not being used; rule 9's smaller model for mechanical agents |
-| A top agent ran on the strongest model for mechanical work | Rule 9 (smaller models) |
-| Many polling commands | Rule 8 (one background wait) |
-| Bash results dominate; the largest results are builds or test runs | Rule 1 (targeted tests), and trimming output (rule 11) |
-| Read, docs or web results dominate | Rule 11 (read by range, outline or delta) |
+| Cache reads are most of the tokens; compactions above 0 | Long sessions: E12 (fresh sessions), and reading less per turn (E11) |
+| Background agents take a large share; the top agents are reviews of small or version-only PRs | C3's small-PR self-review and E4 / C8's Dependabot path not being used; E9's smaller model for mechanical agents |
+| A top agent ran on the strongest model for mechanical work | E9 (smaller models) |
+| Many polling commands | E8 (one background wait) |
+| Bash results dominate; the largest results are builds or test runs | E1 (targeted tests), and trimming output (E11) |
+| Read, docs or web results dominate | E11 (read by range, outline or delta) |
 | A skill appears often and its runs are costly | That skill's own steps: where does it read or run more than it needs? |
 
 For each finding, say whether an existing rule covers it (and is being ignored, or needs sharper wording) or whether a new rule is needed. Look up the skill text before proposing a change to it.
 
 ## Phase 3 – Report
 
-Write `~/.claude/token-efficiency/reports/<YYYY-MM-DD>.md`, and copy it to `~/.claude/token-efficiency/reports/latest.md`:
+Write `~/.claude/token-efficiency/reports/<YYYY-MM-DD>.md`, and write the same text to `~/.claude/token-efficiency/reports/latest.md` (Write creates the folder):
 - the period and the headline numbers, with the change since the previous report;
 - the top findings, each with its evidence (numbers only);
 - the proposals, as a table: rule or skill, the change in one line, the evidence, the expected saving (rough), and whether it relaxes any gate (it must not).
@@ -63,15 +63,17 @@ With `--report-only`, stop here and tell the user where the report is, in one li
 
 ## Phase 5 – Record
 
-Write today's date to `~/.claude/token-efficiency/last-run` (also after `--report-only`), so the next run starts from here.
+Write the current time as an ISO timestamp with its zone (for example `2026-12-01T10:00:00-05:00`, from the context) to `~/.claude/token-efficiency/last-run`, also after `--report-only`, so the next run starts exactly where this one ended.
 
 ## Scheduling
 
 The review is meant to run about every 10 days. It reads local files, so it runs on the user's machine, not as a cloud routine: a systemd user timer (Linux) or launchd agent (macOS) runs it headless in report-only mode, for example on the 1st, 11th and 21st of each month:
 
 ```bash
-claude -p "/token-efficiency-review --report-only" \
-  --allowedTools "Skill,Read,Glob,Grep,Bash(python3 -I *),Bash(mkdir -p *),Bash(cp *),Bash(date *),Bash(notify-send *),Write"
+claude -p "/token-efficiency-review --report-only" --allowedTools \
+  "Skill" "Read(~/.claude/skills/**)" "Read(~/.claude/token-efficiency/**)" "Read(~/.claude/CLAUDE.md)" \
+  "Bash(python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py *)" \
+  "Write(~/.claude/token-efficiency/**)" "Bash(notify-send *)"
 ```
 
-The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.
+These permissions let it run only the report script, read the skills and its own reports, and write inside `~/.claude/token-efficiency/`; it cannot read transcripts directly, run other code or touch the user's rules. The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.

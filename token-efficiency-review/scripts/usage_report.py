@@ -2,16 +2,17 @@
 """Summarise where Claude Code spent tokens, from the local session transcripts.
 
 Reads ~/.claude/projects/<project>/<session>.jsonl (the main conversation) and
-<session>/subagents/agent-<id>.jsonl (background agents), keeps the messages since a date, and
+<session>/subagents/agent-<id>.jsonl (background agents), keeps the messages since a time, and
 prints a Markdown report (or JSON with --json): token totals, the agents that used the most, the
-tools whose results took the most context, the largest single results, CI/status polling, context
+tools whose results took the most context, the largest single results, CI polling, context
 compactions and the skills used.
 
-Privacy: it prints numbers, tool and skill names, agent descriptions and at most the first two
-words of a shell command (letters, digits and ./_- only). It never prints prompts, file contents,
-command output or anything else from a transcript.
+Privacy: it prints numbers, tool, skill and model names, a command's program name (plus a short
+lowercase subcommand for a few known programs), and each agent's description, which the parent
+model wrote when it started the agent (local-only text, never published). It never prints prompts,
+file contents, command arguments or output, or any other transcript text, including in errors.
 
-Usage: usage_report.py [--projects DIR] [--since YYYY-MM-DD] [--days N] [--top N] [--json]
+Usage: usage_report.py [--projects DIR] [--since TIME] [--days N] [--top N] [--json]
 Standard library only.
 """
 
@@ -25,42 +26,67 @@ from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-POLL = re.compile(r"\bsleep\b|gh (pr|run) (checks|watch|view)|--watch\b")
-SAFE_WORD = re.compile(r"^[A-Za-z0-9._/-]{1,40}$")
+# Polling the anti-pattern way: a sleep, or a checks call that doesn't wait by itself. A single
+# `gh pr checks --watch` in the background is the recommended pattern and is not counted.
+SLEEP = re.compile(r"\bsleep\b")
+CHECKS = re.compile(r"\bgh (pr|run) (checks|watch)\b")
+PROGRAM = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,19}$")
+SUBCOMMAND = re.compile(r"^[a-z][a-z-]{0,14}$")
+KNOWN = {"gh", "git", "mvn", "mvnw", "npm", "npx", "pip", "python", "python3", "docker", "podman",
+         "aws", "kubectl", "gradle", "gradlew", "cargo", "go", "make", "systemctl"}
+
+
+def number(value) -> int:
+    """A token count, or 0 for anything that isn't a plain number (never echoes the value)."""
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
 def tokens_in(usage: dict) -> int:
     """Input tokens of one API call, cached or not."""
-    return sum(int(usage.get(k) or 0) for k in
+    return sum(number(usage.get(k)) for k in
                ("input_tokens", "cache_creation_input_tokens", "cache_read_input_tokens"))
 
 
-def cache_reads(usage: dict) -> int:
-    """The part of the input read from the prompt cache (much cheaper than fresh input)."""
-    return int(usage.get("cache_read_input_tokens") or 0)
-
-
 def command_head(command: str) -> str:
-    """At most the first two words of a shell command, and only safe-looking words."""
-    words = [w for w in command.split()[:2] if SAFE_WORD.match(w)]
-    return " ".join(words) or "(command)"
+    """A command's program name, plus a short lowercase subcommand for a few known programs."""
+    words = command.split()
+    if not words:
+        return "(command)"
+    program = words[0].rsplit("/", 1)[-1]
+    if not PROGRAM.match(program):
+        return "(command)"
+    if program in KNOWN and len(words) > 1 and SUBCOMMAND.match(words[1]):
+        return f"{program} {words[1]}"
+    return program
+
+
+def is_poll(command: str) -> bool:
+    return bool(SLEEP.search(command)) or (bool(CHECKS.search(command)) and "--watch" not in command)
+
+
+def clean(text: str) -> str:
+    """Agent descriptions go into a table: one line, no pipes, at most 60 characters."""
+    return re.sub(r"\s+", " ", re.sub(r"[|\r\n\t]", " ", text)).strip()[:60]
 
 
 def result_chars(content) -> int:
     if isinstance(content, str):
         return len(content)
     if isinstance(content, list):
-        return sum(len(c.get("text", "")) for c in content if isinstance(c, dict))
+        return sum(len(c.get("text", "")) for c in content
+                   if isinstance(c, dict) and isinstance(c.get("text", ""), str))
     return 0
 
 
-def parse_time(value: str | None) -> datetime | None:
-    if not value:
+def parse_time(value) -> datetime | None:
+    """An aware datetime; a time without a zone is taken as UTC."""
+    if not isinstance(value, str):
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        when = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return when if when.tzinfo else when.replace(tzinfo=timezone.utc)
 
 
 class Stats:
@@ -78,17 +104,19 @@ class Stats:
 
 
 def read_transcript(path: Path, since: datetime, stats: Stats, agent: dict | None) -> None:
-    names: dict[str, tuple[str, str]] = {}
     with path.open(encoding="utf-8", errors="replace") as lines:
-        _read_lines(lines, since, stats, agent, path, names)
+        _read_lines(lines, since, stats, agent, path)
 
 
-def _read_lines(lines, since: datetime, stats: Stats, agent: dict | None, path: Path,
-                names: dict[str, tuple[str, str]]) -> None:
+def _read_lines(lines, since: datetime, stats: Stats, agent: dict | None, path: Path) -> None:
+    names: dict[str, tuple[str, str]] = {}
+    counted: set[str] = set()      # one API response is split over several lines that repeat its usage
     for line in lines:
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
+            continue
+        if not isinstance(entry, dict):
             continue
         when = parse_time(entry.get("timestamp"))
         if when is None or when < since:
@@ -98,41 +126,46 @@ def _read_lines(lines, since: datetime, stats: Stats, agent: dict | None, path: 
         message = entry.get("message")
         if not isinstance(message, dict):
             continue
+        content = message.get("content")
+        blocks = [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
         if entry.get("type") == "assistant":
-            usage = message.get("usage") or {}
-            model = message.get("model") or "unknown"
-            if agent is None:
-                stats.sessions.add(path.stem)
-                stats.main_in += tokens_in(usage)
-                stats.main_cached += cache_reads(usage)
-                stats.main_out += int(usage.get("output_tokens") or 0)
-                stats.models[model] += 1
-            else:
-                agent["in"] += tokens_in(usage)
-                agent["cached"] += cache_reads(usage)
-                agent["out"] += int(usage.get("output_tokens") or 0)
-                if not model.startswith("<"):           # skip placeholders such as <synthetic>
-                    agent["model"] = model
-            for block in message.get("content") or []:
-                if not isinstance(block, dict) or block.get("type") != "tool_use":
+            response = message.get("id") or entry.get("requestId") or entry.get("uuid")
+            usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
+            if response not in counted:
+                counted.add(response)
+                model = message.get("model") if isinstance(message.get("model"), str) else "unknown"
+                if agent is None:
+                    stats.sessions.add(path.stem)
+                    stats.main_in += tokens_in(usage)
+                    stats.main_cached += number(usage.get("cache_read_input_tokens"))
+                    stats.main_out += number(usage.get("output_tokens"))
+                    stats.models[model] += 1
+                else:
+                    agent["in"] += tokens_in(usage)
+                    agent["cached"] += number(usage.get("cache_read_input_tokens"))
+                    agent["out"] += number(usage.get("output_tokens"))
+                    if not model.startswith("<"):           # skip placeholders such as <synthetic>
+                        agent["model"] = model
+            for block in blocks:
+                if block.get("type") != "tool_use":
                     continue
-                name = block.get("name", "?")
-                tool_input = block.get("input") or {}
+                name = block.get("name") if isinstance(block.get("name"), str) else "?"
+                tool_input = block.get("input") if isinstance(block.get("input"), dict) else {}
                 head = ""
-                if name == "Bash":
-                    command = str(tool_input.get("command", ""))
+                if name == "Bash" and isinstance(tool_input.get("command"), str):
+                    command = tool_input["command"]
                     head = command_head(command)
-                    if POLL.search(command):
+                    if is_poll(command):
                         stats.polls += 1
-                if name == "Skill":
-                    stats.skills[str(tool_input.get("skill", "?"))] += 1
+                if name == "Skill" and isinstance(tool_input.get("skill"), str):
+                    stats.skills[tool_input["skill"]] += 1
                 stats.tool_calls[name] += 1
-                names[block.get("id", "")] = (name, head)
+                names[str(block.get("id", ""))] = (name, head)
         elif entry.get("type") == "user":
-            for block in message.get("content") or [] if isinstance(message.get("content"), list) else []:
-                if not isinstance(block, dict) or block.get("type") != "tool_result":
+            for block in blocks:
+                if block.get("type") != "tool_result":
                     continue
-                name, head = names.get(block.get("tool_use_id", ""), ("?", ""))
+                name, head = names.get(str(block.get("tool_use_id", "")), ("?", ""))
                 size = result_chars(block.get("content"))
                 stats.tool_chars[name] += size
                 stats.big.append((size, name, head))
@@ -148,8 +181,10 @@ def collect(projects: Path, since: datetime) -> Stats:
                 description = ""
                 if meta_path.exists():
                     try:
-                        description = str(json.loads(meta_path.read_text()).get("description", ""))[:60]
-                    except (json.JSONDecodeError, OSError):
+                        meta = json.loads(meta_path.read_text())
+                        if isinstance(meta, dict) and isinstance(meta.get("description"), str):
+                            description = clean(meta["description"])
+                    except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                         pass
                 agent = {"in": 0, "out": 0, "cached": 0, "model": "", "description": description or sub.stem}
                 read_transcript(sub, since, stats, agent)
@@ -162,15 +197,16 @@ def report(stats: Stats, since: datetime, top: int) -> dict:
     agents = sorted(stats.agents.values(), key=lambda a: a["in"] + a["out"], reverse=True)
     agent_total = sum(a["in"] + a["out"] for a in agents)
     main_total = stats.main_in + stats.main_out
+    everything = main_total + agent_total
     return {
-        "since": since.date().isoformat(),
+        "since": since.isoformat(timespec="minutes"),
         "sessions": len(stats.sessions),
         "main_tokens": main_total,
         "agent_tokens": agent_total,
         "agents": len(agents),
+        "agent_share": round(agent_total / everything, 3) if everything else 0,
         "cache_reads": stats.main_cached + sum(a["cached"] for a in agents),
         "output_tokens": stats.main_out + sum(a["out"] for a in agents),
-        "agent_share": round(agent_total / (main_total + agent_total), 3) if main_total + agent_total else 0,
         "top_agents": [{"description": a["description"], "tokens": a["in"] + a["out"], "model": a["model"]}
                        for a in agents[:top]],
         "models": dict(stats.models.most_common()),
@@ -190,7 +226,7 @@ def markdown(r: dict) -> str:
            f"- Main conversation: {r['main_tokens']:,} tokens; background agents: {r['agent_tokens']:,} "
            f"in {r['agents']} agents ({r['agent_share']:.0%} of all)",
            f"- Of all tokens: {r['cache_reads']:,} were cache reads (cheaper) and {r['output_tokens']:,} output",
-           f"- Polling commands (sleep, gh pr checks, --watch): {r['polling_commands']}", "",
+           f"- Polling commands (sleeps, checks calls without --watch): {r['polling_commands']}", "",
            "## Agents that used the most", "", "| Agent | Tokens | Model |", "|---|---|---|"]
     out += [f"| {a['description']} | {a['tokens']:,} | {a['model']} |" for a in r["top_agents"]]
     out += ["", "## Tools by result size", "", "| Tool | Calls | Result characters |", "|---|---|---|"]
@@ -202,22 +238,30 @@ def markdown(r: dict) -> str:
     return "\n".join(out) + "\n"
 
 
+def since_from(args) -> datetime:
+    if args.since:
+        when = parse_time(args.since)
+        if when is None:
+            raise SystemExit("--since must be an ISO date or time, for example 2026-11-11 or 2026-11-11T10:00+00:00")
+        return when
+    return datetime.now(timezone.utc) - timedelta(days=args.days)
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--projects", default=str(Path.home() / ".claude" / "projects"))
-    parser.add_argument("--since", help="YYYY-MM-DD (default: --days ago)")
+    parser.add_argument("--since", help="ISO date or time (a time without a zone is UTC); default --days ago")
     parser.add_argument("--days", type=int, default=10)
     parser.add_argument("--top", type=int, default=10)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
-    since = (datetime.fromisoformat(args.since).replace(tzinfo=timezone.utc) if args.since
-             else datetime.now(timezone.utc) - timedelta(days=args.days))
+    since = since_from(args)
     projects = Path(args.projects)
     if not projects.is_dir():
         print(f"No transcripts folder at {projects}", file=sys.stderr)
         return 1
     r = report(collect(projects, since), since, args.top)
-    print(json.dumps(r, indent=2) if args.json else markdown(r), end="" if not args.json else "\n")
+    print(json.dumps(r, indent=2) if args.json else markdown(r), end="\n" if args.json else "")
     return 0
 
 
