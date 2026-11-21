@@ -28,12 +28,20 @@ from pathlib import Path
 
 # Polling the anti-pattern way: a sleep, or a checks call that doesn't wait by itself. A single
 # `gh pr checks --watch` in the background is the recommended pattern and is not counted.
-SLEEP = re.compile(r"\bsleep\b")
-CHECKS = re.compile(r"\bgh (pr|run) (checks|watch)\b")
+SLEEP = re.compile(r"(^|[;&|]\s*)sleep\b")          # sleep as a command, not `grep sleep`
+CHECKS = re.compile(r"\bgh (pr|run) checks\b")        # `gh run watch` waits by itself
 PROGRAM = re.compile(r"^[A-Za-z][A-Za-z0-9._-]{0,19}$")
-SUBCOMMAND = re.compile(r"^[a-z][a-z-]{0,14}$")
-KNOWN = {"gh", "git", "mvn", "mvnw", "npm", "npx", "pip", "python", "python3", "docker", "podman",
-         "aws", "kubectl", "gradle", "gradlew", "cargo", "go", "make", "systemctl"}
+# The second word is printed only when it is one of these well-known subcommands.
+KNOWN = {
+    "gh": {"pr", "run", "issue", "api", "repo", "release", "workflow", "search", "auth"},
+    "git": {"status", "log", "diff", "show", "commit", "push", "pull", "fetch", "merge", "checkout",
+            "switch", "branch", "worktree", "add", "rebase", "stash", "grep", "ls-files", "rev-parse"},
+    "mvn": {"verify", "test", "install", "compile", "package", "clean"},
+    "npm": {"test", "ci", "install", "run"},
+    "docker": {"build", "run", "ps", "images", "compose", "logs"},
+    "podman": {"build", "run", "ps", "images", "logs"},
+    "systemctl": {"status", "start", "stop", "restart", "enable", "disable"},
+}
 
 
 def number(value) -> int:
@@ -55,7 +63,7 @@ def command_head(command: str) -> str:
     program = words[0].rsplit("/", 1)[-1]
     if not PROGRAM.match(program):
         return "(command)"
-    if program in KNOWN and len(words) > 1 and SUBCOMMAND.match(words[1]):
+    if len(words) > 1 and words[1] in KNOWN.get(program, ()):
         return f"{program} {words[1]}"
     return program
 

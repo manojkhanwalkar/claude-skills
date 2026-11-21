@@ -73,7 +73,7 @@ The review is meant to run about every 10 days. It reads local files, so it runs
 claude -p "/token-efficiency-review --report-only" --allowedTools \
   "Skill" "Read(~/.claude/skills/**)" "Read(~/.claude/token-efficiency/**)" "Read(~/.claude/CLAUDE.md)" \
   "Bash(python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py *)" \
-  "Write(~/.claude/token-efficiency/**)" "Bash(notify-send *)"
+  "Edit(~/.claude/token-efficiency/**)" "Bash(notify-send *)"
 ```
 
-These permissions let it run only the report script, read the skills and its own reports, and write inside `~/.claude/token-efficiency/`; it cannot read transcripts directly, run other code or touch the user's rules. The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.
+`Edit(...)` rules also cover Write. These permissions let it run only the report script (typed with the `~` path exactly as in Phase 1), read the skills and its own reports, and write inside `~/.claude/token-efficiency/`; it cannot read transcripts directly, run other code or touch the user's rules. The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.

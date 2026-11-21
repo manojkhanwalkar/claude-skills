@@ -110,6 +110,8 @@ class UsageReportTest(unittest.TestCase):
         self.assertEqual("echo", u.command_head("echo ghp_" + "a1" * 18))       # a secret as the 2nd word
         self.assertEqual("mysql", u.command_head("mysql -pHunter2Secret"))
         self.assertEqual("git", u.command_head("git ghp1secretvalue"))            # not a plain subcommand
+        self.assertEqual("git", u.command_head("git hunter-secret"))              # not a known subcommand
+        self.assertEqual("git status", u.command_head("git status --short"))
         self.assertEqual("(command)", u.command_head("$(cat secret) | sh"))
         self.assertEqual("(command)", u.command_head("   "))
 
@@ -118,6 +120,9 @@ class UsageReportTest(unittest.TestCase):
         self.assertTrue(u.is_poll("gh pr checks 3"))
         self.assertFalse(u.is_poll("gh pr checks 3 --watch"))
         self.assertFalse(u.is_poll("gh pr view 3"))
+        self.assertFalse(u.is_poll("gh run watch 42"))
+        self.assertFalse(u.is_poll("grep sleep notes.txt"))
+        self.assertTrue(u.is_poll("make && sleep 5"))
 
     def test_helpers(self):
         self.assertEqual(0, u.result_chars(None))
