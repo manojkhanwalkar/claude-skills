@@ -1,6 +1,6 @@
 ---
 name: document
-description: Analyze a project's source code and write documentation that lets a newcomer understand it quickly - one doc per source file covering its purpose and every function/method, plus an overall summary file that is also merged into the existing README (or a new README if none exists). Use when the user asks to document a codebase, explain every file/function, generate code docs, or write/update a project summary or README. Args - optional path/module to limit scope, optional --inline to also add doc comments in the source files, optional --out <dir> for the docs directory (default docs/).
+description: Analyze a project's source code and write documentation that lets a newcomer understand it quickly - one doc per source file covering its purpose and every function/method, plus an overall summary file that is also merged into the existing README (or a new README if none exists). Use when the user asks to document a codebase, explain every file/function, generate code docs, or write/update a project summary or README. Args - optional path/module to limit scope, optional --inline to also add doc comments in the source files, optional --out DIR for the docs directory (default docs/).
 ---
 
 # Document
