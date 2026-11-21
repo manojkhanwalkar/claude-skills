@@ -1,6 +1,6 @@
 # Claude Code skills
 
-21 [Claude Code](https://claude.com/claude-code) skills that take code from pull request to merge, check it for security, compliance and accessibility, and build, port or test software along the way. They are checked out at `~/.claude/skills`, so Claude Code loads them in every project.
+22 [Claude Code](https://claude.com/claude-code) skills that take code from pull request to merge, check it for security, compliance and accessibility, and build, port or test software along the way. They are checked out at `~/.claude/skills`, so Claude Code loads them in every project.
 
 - **Invoke** a skill by name as a slash command (`/pr-review 30`, `/owasp-top10 --fix`), or let Claude pick it when a request matches its description.
 - **Change** a skill through a pull request: a separate agent reviews it, [CI](#checks) validates every skill, and it is squash-merged to `master`.
@@ -31,6 +31,7 @@
 | [`mcp-builder`](mcp-builder/SKILL.md) | Builds MCP servers and clients with an end-to-end test | Exposing a tool to Claude over MCP | what to wrap, `--lang`, `--plain-sdk`, `--http`, `--server-only`, `--client-only` |
 | [`javatopython-converter`](javatopython-converter/SKILL.md) | Ports a Java project to idiomatic Python in a new repo, with the full process | Converting Java to Python | path, `--name`, `--dir`, `--public`, `--module`, `--no-merge` |
 | [`port-parity`](port-parity/SKILL.md) | Keeps a port in step with its source through golden files and a reviewed PR | Syncing a project and its port | `--source`, `--target`, `--since`, `--report-only` |
+| [`token-efficiency-review`](token-efficiency-review/SKILL.md) | Measures where tokens went since the last review (main session, agents, tools, polling, compactions) from local transcripts, printing only numbers and names, and proposes rule and skill changes through a reviewed PR | About every 10 days (scheduled, report-only), or when reviewing token use | `--since`, `--report-only` |
 | [`emulator-fidelity`](emulator-fidelity/SKILL.md) | Finds where AWS Emulator differs from AWS and files one issue per confirmed difference | Finding or reporting emulator gaps | services, `--cap N`, `--report-only`, `--version V` |
 
 ## Pull request lifecycle
@@ -120,7 +121,8 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
-| 2026-11-21 | this PR | Token-efficiency rules (`efficiency.md`) in pr-review, fix-ci, pr-triage, test-gen, post-merge-sync; grouped Dependabot updates |
+| 2026-11-21 | this PR | Add token-efficiency-review: a 10-day review of token use that proposes rule and skill updates |
+| 2026-11-21 | [#28](https://github.com/manojkhanwalkar/claude-skills/pull/28) | Token-efficiency rules (`efficiency.md`) in pr-review, fix-ci, pr-triage, test-gen, post-merge-sync; grouped Dependabot updates |
 | 2026-11-21 | [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27) | pr-review: PRs under 250 changed lines get a self-review |
 | 2026-11-21 | [#23](https://github.com/manojkhanwalkar/claude-skills/pull/23) | coverage 7.17.3 for CI (Dependabot) |
 | 2026-11-21 | [#22](https://github.com/manojkhanwalkar/claude-skills/pull/22) | PyYAML 6.0.3 for CI (Dependabot) |
