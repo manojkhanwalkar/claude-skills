@@ -1,6 +1,6 @@
 # Token efficiency
 
-Twelve rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8 and 9), in the skills below, and in each repo's `.github/dependabot.yml`.
+Thirteen rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8 and 9), in the skills below, and in each repo's `.github/dependabot.yml`.
 
 ## The rules
 
@@ -14,16 +14,23 @@ Twelve rules cut the tokens spent on each change without relaxing any safety gat
 | 6 | No pr-walkthrough for small (under 250 changed lines), Dependabot or docs-only PRs | pr-review | It reads the whole diff and writes a long comment nobody needs on a version bump |
 | 7 | One progress signal per background job: the agent's report or a watcher, not both; milestones only (filed, merged, failed) | Rule 9 | Duplicate notifications each cost a reply |
 | 8 | Wait for CI with one background command that reports once, not repeated status checks | Rule 9; pr-review, fix-ci | Polling and logs added up across a dozen PRs |
-| 9 | Mechanical agents (Dependabot reviews, CI fixes, watchers) run on a smaller model; code and security reviews keep the strongest | Rule 9; pr-review, pr-triage | Mechanical work doesn't need the strongest model |
+| 9 | Mechanical agents (Dependabot reviews, CI fixes, cleanup, watchers) start with `model: sonnet` by default; only code and security reviews use the strongest | Rule 9; pr-review, pr-triage | Mechanical work doesn't need the strongest model |
 | 10 | Batch small housekeeping (docs and wording fixes) into one PR per repo | Rule 9 | Every PR has a fixed cost: CI, a findings table, a merge |
-| 11 | Read only what's needed: files by line range, command output trimmed to its tail, docs by outline or changes since the last read | Rule 9 | Keeps large dumps out of context |
+| 11 | Read only what's needed: files over about 300 lines by range or after a grep; a long reference (a connector's guide, a skill's references) loaded once per session; command output trimmed to its tail, docs by outline or changes since the last read | Rule 9 | Keeps large dumps out of context |
 | 12 | Start a fresh session for each major task; memory, PRs and docs carry the state | Rule 9 | A long session is compacted, and every later step re-reads a bigger context |
+| 13 | One background agent per PR or task, with a scoped brief; never one agent working through a batch of PRs | Rule 9; pr-review, pr-triage, fix-ci | A batch agent re-reads every earlier PR's context; the largest one used about 110M tokens |
 
 Already in place before these: PRs under 250 changed lines get a self-review instead of a separate review agent (rule 3, [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27)).
 
 ## Keeping the rules current
 
 [`token-efficiency-review`](token-efficiency-review/SKILL.md) measures token use from the local transcripts about every 10 days (a scheduled, report-only run) and proposes changes to these rules and the skills, backed by the numbers. Changes still go through a reviewed PR.
+
+## Review history
+
+| Date | Changes |
+|---|---|
+| 2026-11-21 | First `token-efficiency-review` run: about 31% of tokens went to background agents, all on the strongest model; about 97% of input was cache re-reads. Rows 9 and 11 sharpened, row 13 added |
 
 ## What stays the same
 
