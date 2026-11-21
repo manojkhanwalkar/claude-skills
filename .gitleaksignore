@@ -1,0 +1,4 @@
+# Known false positives, by Gitleaks fingerprint (commit:file:rule:line). Each entry says why.
+# owasp-top10's reference lists grep patterns for finding secrets (password = "...", apiKey, ...);
+# the generic-api-key rule reads one of those search hints as a key. It is documentation, not a secret.
+1e150fd80b18467f2209de5ce2120955e2d388c1:owasp-top10/references/owasp-2025.md:generic-api-key:191
