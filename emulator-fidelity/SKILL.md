@@ -40,15 +40,15 @@ Bugs are reported against the newest release, and the installed one may be older
    curl -fsSLo key.asc https://downloads.aws.com/keys/gpg/current.asc
    export GNUPGHOME="$PWD/gnupg"; mkdir -m 700 "$GNUPGHOME"; gpg -q --import key.asc
    gpg --status-file status --verify pkg.rpm.sig pkg.rpm
-   grep -aq '^\[GNUPG:\] VALIDSIG 98BCF336A3BE53B734E967C52E5BF49BD940F624 ' status \
-     || { echo "BAD signature: stop and tell the user"; exit 1; }      # AWS's signing key
+   ok=; grep -aq '^\[GNUPG:\] VALIDSIG 98BCF336A3BE53B734E967C52E5BF49BD940F624 ' status && ok=1   # AWS's signing key
    gpgconf --kill all
+   [ -n "$ok" ] || { echo "BAD signature: stop and tell the user"; exit 1; }
    ```
    Write the status to a file and grep that (`gpg --status-fd 1 | grep -q` can fail on a closed pipe), and keep `-a`: the status file holds binary notation data, and some greps (ugrep) then treat it as binary and find nothing. A failed check means stop, never skip the check.
 3. Extract without installing, into `x/`, then delete the package:
    ```bash
    mkdir x && rpm2cpio pkg.rpm | (cd x && cpio -idm)     # or: dpkg -x pkg.deb x
-   rm -f pkg.rpm pkg.rpm.sig
+   rm -f pkg.*
    x/opt/aws-emulator/bin/aws-emulator -v               # must print the newest version
    ```
    Run `x/opt/aws-emulator/bin/aws-emulator`. **Not** `x/usr/bin/aws-emulator`: in the rpm it is an absolute symlink to `/opt/aws-emulator/bin/aws-emulator`, the *installed* binary, so it silently runs the old version.
@@ -57,11 +57,13 @@ Bugs are reported against the newest release, and the installed one may be older
    EMU=x/opt/aws-emulator/bin/aws-emulator; PORT=9340
    "$EMU" -p $PORT -t off --idle-timeout 600 > emu$PORT.log 2>&1 & echo $! > emu$PORT.pid
    D=~/.aws/emulator/$PORT
+   ready=
    for i in $(seq 60); do
-     curl -sf --cacert $D/ca.pem https://127.0.0.1:$PORT/__admin/health >/dev/null 2>&1 && break
-     kill -0 "$(cat emu$PORT.pid)" 2>/dev/null || { echo "emulator exited:"; tail emu$PORT.log; break; }
+     curl -sf --cacert $D/ca.pem https://127.0.0.1:$PORT/__admin/health >/dev/null 2>&1 && { ready=1; break; }
+     kill -0 "$(cat emu$PORT.pid)" 2>/dev/null || break      # it exited
      sleep 1
    done
+   [ -n "$ready" ] || { echo "emulator on $PORT did not start:"; tail emu$PORT.log; kill "$(cat emu$PORT.pid)" 2>/dev/null; exit 1; }
    unset AWS_PROFILE AWS_SESSION_TOKEN
    export AWS_CA_BUNDLE=$D/ca.pem AWS_ENDPOINT_URL=https://127.0.0.1:$PORT AWS_DEFAULT_REGION=us-east-1 AWS_PAGER=""
    export AWS_CONFIG_FILE=$D/config AWS_SHARED_CREDENTIALS_FILE=$D/emulator_credentials
@@ -75,11 +77,13 @@ Bugs are reported against the newest release, and the installed one may be older
 
 Read these before probing, so you don't report what the vendor already documents or tracks:
 
-- **Documented limitations:** the user guide's supported-services, limitations, fidelity and Security pages. A documented limitation is not a bug (for example: AWS Emulator does not evaluate IAM the way AWS does, and runs Lambda code unisolated with the user's permissions).
+- **Documented limitations:** the user guide's [fidelity](https://docs.aws.amazon.com/emulator/latest/userguide/fidelity.html), [Security](https://docs.aws.amazon.com/emulator/latest/userguide/security.html) and [check-project](https://docs.aws.amazon.com/emulator/latest/userguide/check-project.html) pages, and its service list. A documented limitation is not a bug (for example: AWS Emulator does not evaluate IAM the way AWS does, and runs Lambda code unisolated with the user's permissions).
 - **The vendor's known-gaps list.** AWS Emulator tracks thousands of known differences as files in its repository, not as GitHub issues: `issues/things-that-do-not-work/` (and `issues/things-that-now-work/` once fixed). Its README's "Known issues" section points there. Search the file names by service and operation before filing anything:
   ```bash
-  gh api "repos/aws/aws-emulator/git/trees/main?recursive=1" --jq '.tree[].path' > tree.txt
-  grep -iE 'things-that-do-not-work/.*(puttargets|inputpath)' tree.txt          # then read the matching files
+  # List the folder itself: the whole-repository tree is too big and comes back truncated.
+  gh api "repos/aws/aws-emulator/git/trees/main:issues/things-that-do-not-work" --jq '.truncated, (.tree[].path)' > known.txt
+  head -1 known.txt                                   # must be false; if true, the list is incomplete
+  grep -iE '(puttargets|inputpath)' known.txt         # then read the matching files
   ```
   A match means the gap is known: don't file it (you may add a comment to an existing GitHub issue if your case adds something new). Missing this step is how duplicates get filed.
 - **Release notes:** each release lists the gaps it fixed; check them when the installed and newest versions differ.
