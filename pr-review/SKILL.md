@@ -37,6 +37,8 @@ The review is better done by someone who did not write the code:
 - If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below, and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**.
 - If you can't, run the `code-review` skill on the PR, or review it yourself, rereading it as a demanding outsider would.
 
+**Small PRs skip the subagent.** A PR with fewer than 250 changed lines (additions plus deletions, as `gh pr view <n> --json additions,deletions` counts them, generated files included) gets no independent subagent review and no re-check rounds: review it yourself against the checklist below, rereading it as a demanding outsider would, and mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the security checks, the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. Count the lines again after your fixes: a PR that grew to 250 or more gets the subagent review.
+
 Checklist: read every changed file in full, not only the hunks.
 - **Correctness:**
   - logic errors, off-by-ones, null handling;
