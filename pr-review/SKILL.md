@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review <number>", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings <n>.
+description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
 ---
 
 # PR Review
