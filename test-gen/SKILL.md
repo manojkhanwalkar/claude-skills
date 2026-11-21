@@ -37,7 +37,7 @@ Coverage is a proxy. A test that runs a line without checking what it did raises
 
 ## Phase 2 – Baseline
 
-1. Run the full suite with coverage, using the project's real gate command where it has one (`mvn verify`, `pytest` with `fail_under`, …). If tests fail, get the report anyway (for example `-Dmaven.test.failure.ignore=true`) and note the failures as pre-existing; they aren't yours to fix here.
+1. Run the suite with coverage for the scope (with a path or `--diff`, only the modules in scope and their tests; the whole suite only for a whole-project run), using the project's real gate command where it has one (`mvn verify`, `pytest` with `fail_under`, …). If tests fail, get the report anyway (for example `-Dmaven.test.failure.ignore=true`) and note the failures as pre-existing; they aren't yours to fix here.
 2. Record coverage overall and **at the gate's scope**: a per-module or per-package gate (JaCoCo `BUNDLE` per module, per-package thresholds) can fail in one module while the overall number passes. The target is met only when every gated scope meets it.
 3. Note what the coverage configuration excludes and whether each exclusion is justified (generated code, `main()` glue). Don't add exclusions to reach the target; see Phase 6.
 4. **`--diff` mode.** Measure coverage of the changed lines with `diff-cover <report> --compare-branch=origin/<base> --fail-under=<target>`; it reads Cobertura, JaCoCo XML and lcov reports. JaCoCo XML holds package-relative paths, so in a multi-module project pass `--src-roots <module>/src/main/java …` or run it per module. It counts lines only, so check the branches in the changed code by reading the report for those lines.

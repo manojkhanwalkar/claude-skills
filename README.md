@@ -5,6 +5,7 @@
 - **Invoke** a skill by name as a slash command (`/pr-review 30`, `/owasp-top10 --fix`), or let Claude pick it when a request matches its description.
 - **Change** a skill through a pull request: a separate agent reviews it, [CI](#checks) validates every skill, and it is squash-merged to `master`.
 - **Catalogue:** the owner keeps the same content in a private Claude doc, updated whenever a skill is added or changed.
+- **Efficiency:** [efficiency.md](efficiency.md) lists the rules that keep token use down without relaxing any gate.
 
 ## Skills at a glance
 
@@ -119,6 +120,11 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-21 | this PR | Token-efficiency rules (`efficiency.md`) in pr-review, fix-ci, pr-triage, test-gen, post-merge-sync; grouped Dependabot updates |
+| 2026-11-21 | [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27) | pr-review: PRs under 250 changed lines get a self-review |
+| 2026-11-21 | [#23](https://github.com/manojkhanwalkar/claude-skills/pull/23) | coverage 7.17.3 for CI (Dependabot) |
+| 2026-11-21 | [#22](https://github.com/manojkhanwalkar/claude-skills/pull/22) | PyYAML 6.0.3 for CI (Dependabot) |
+| 2026-11-21 | [#26](https://github.com/manojkhanwalkar/claude-skills/pull/26) | README rebuilt from the Claude Skills catalogue doc |
 | 2026-11-21 | [#20](https://github.com/manojkhanwalkar/claude-skills/pull/20) | Add emulator-fidelity: find and report AWS Emulator differences from AWS |
 | 2026-11-21 | [#25](https://github.com/manojkhanwalkar/claude-skills/pull/25) | Secret scan ignores one false positive (a sentence in owasp-top10's reference) |
 | 2026-11-21 | [#21](https://github.com/manojkhanwalkar/claude-skills/pull/21) | CI, skill validator, coverage gate, CodeQL, dependency review, secret scanning, after the repo was made public; `master` branch protection turned on after it merged |

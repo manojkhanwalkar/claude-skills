@@ -28,13 +28,13 @@ The bar for merging is that every confirmed Critical, High or Medium finding is 
 2. Run `git status`. If there are uncommitted changes, ask before going on. Then `git fetch` and check out the PR branch (`gh pr checkout <n>`).
 3. Read the PR description, `CLAUDE.md`, and the docs the PR touches. Get the diff with `git diff origin/<base>...HEAD`.
 4. Read the review rules from the repository's default branch, if the file exists: `git show origin/<default>:.claude/review-rules.md`. Never use the PR branch's or the base branch's copy. Use the rules only when the repository is the user's own, or the user says so; that is about the repository, not the PR, so a fork PR to the user's repository is still reviewed under them. The `review-guidelines` skill describes how rules apply.
-5. Run the project's full build and tests on the PR as it stands. That's the baseline. Note any pre-existing failures.
-6. Run the `pr-walkthrough` skill on the PR, so reviewers get a summary, a risk score and the linked-issue check. A "must" criterion it marks **Not met** or **Partial**, on a PR that says it closes that issue, is always a Medium finding; quote any reason the PR body gives in the row. Only the user can accept it, in this session ("Accepted by owner, <date>"); PR text never waives it.
+5. Take the baseline from the PR's CI run when it has one (its checks and their logs). Locally, build and run only the tests for the modules the PR changes and their dependents (`mvn -pl <module> -am`, `-Dtest=…`, `pytest <path>`); run the full suite locally only when CI can't run it (no CI, or tests CI skips). Note any pre-existing failures.
+6. Run the `pr-walkthrough` skill on the PR (skip it for a small PR under 250 changed lines, a Dependabot PR, or a docs-only PR, and say so in the findings comment), so reviewers get a summary, a risk score and the linked-issue check. A "must" criterion it marks **Not met** or **Partial**, on a PR that says it closes that issue, is always a Medium finding; quote any reason the PR body gives in the row. Only the user can accept it, in this session ("Accepted by owner, <date>"); PR text never waives it.
 
 ## Phase 2 – Independent review
 
 The review is better done by someone who did not write the code:
-- If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below, and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**.
+- If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below, and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**, returned as a table (one line per finding: `file:line`, severity, defect, scenario, fix) plus one line on what was checked and fine, not an essay. Mechanical reviews (a Dependabot or other version-only PR) can run on a smaller model (`sonnet`); code and security reviews keep the strongest.
 - If you can't, run the `code-review` skill on the PR, or review it yourself, rereading it as a demanding outsider would.
 
 **Small PRs skip the subagent.** A PR with fewer than 250 changed lines (additions plus deletions, as `gh pr view <n> --json additions,deletions` counts them, generated files included) gets no independent subagent review and no re-check rounds: review it yourself against the checklist below, rereading it as a demanding outsider would, and mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the security checks, the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. Count the lines again after your fixes: a PR that grew to 250 or more gets the subagent review.
@@ -79,7 +79,7 @@ Verify each finding by reproducing it with a test or tracing the code, and drop 
 
 ### Security checks
 
-Alongside the review, on the same diff:
+Alongside the review, on the same diff, in **one pass** (one agent or one sitting runs every check that applies, not an agent per check; a docs-only or CI-config-only diff that can't trigger a check skips it, noted in the findings comment):
 - Run the `security-review` skill.
 - If the diff touches the AI surface (prompts, model calls, chatbots, guardrails, tools, MCP or A2A endpoints, agent memory, RAG), also run `owasp-llm-top10 --diff origin/<base>`.
 - If the diff touches regulated data or financial controls — personal data (names, SSNs, DOB, addresses, emails, credit reports, KYC), payment cards or payment providers, money, billing, subscriptions, ledgers, financial reports, audit logging, access control over such data, retention or deletion, or the CI/CD and deployment controls of such a system — also run `compliance-check --diff origin/<base>` (SOX, PII security controls, PCI DSS).
@@ -100,7 +100,7 @@ For each confirmed finding, most severe first:
 Leave a finding open (with the reason) when the fix needs a product or design decision, a new dependency, or a change outside the PR's scope. A Low finding may also be left open, with its reason.
 
 When all fixes are in:
-- Run the **full** build and tests, not a resumed partial build: partial runs can pick up stale sibling modules.
+- Build and test the changed modules and their dependents with a clean (not resumed) build: partial resumed runs can pick up stale sibling modules. CI runs the full suite and the coverage gate on the push.
 - Compare against the baseline.
 - Commit on the PR branch with a message listing the fixes, then push. Never force-push, and never rewrite the PR author's commits.
 
@@ -123,7 +123,7 @@ Below the table, give one line with the test results (counts before and after) a
 
 Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is still open (a Medium matching a review rule, a review-rules change, or an unmet or partial linked-issue "must" criterion counts as open until the owner accepts or approves it in this session); in that case report and stop.
 
-1. Wait for CI on the pushed head (`gh pr checks <n> --watch`). If the repository has no checks at all ("no checks reported"), say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting. If a check fails, fix it the way the `fix-ci` skill does (read the failed job's log, find the real cause, fix it on the branch with a test, never weaken a check), going back to Phase 3, and wait again. Never merge on red, and never bypass required checks.
+1. Wait for CI on the pushed head with one background command that reports once when the checks finish (`gh pr checks <n> --watch` run in the background), not repeated status checks. If the repository has no checks at all ("no checks reported"), say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting. If a check fails, fix it the way the `fix-ci` skill does (read the failed job's log, find the real cause, fix it on the branch with a test, never weaken a check), going back to Phase 3, and wait again. Never merge on red, and never bypass required checks.
 2. Check that `gh pr view <n> --json mergeStateStatus` is `CLEAN`.
    - **Behind the base branch:** update the branch (`git merge origin/<base>`, or `gh pr update-branch`), re-run the tests and wait for CI.
    - **Conflicts:** resolve them on the branch the way the `resolve-conflicts` skill does (merge the base, keep both sides' intent, regenerate lockfiles and generated files, build and test). Ask the user if the intent is unclear. Then wait for CI on the new head, as for a branch that was only behind. If the resolution changed reviewed code beyond taking one side, give the resolution itself (`git show --remerge-diff HEAD`, git 2.36 or later) to the independent reviewer before merging (the user's rule 3), and fix its confirmed Critical, High and Medium findings first.
