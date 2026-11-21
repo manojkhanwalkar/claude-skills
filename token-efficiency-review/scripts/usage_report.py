@@ -79,7 +79,13 @@ class Stats:
 
 def read_transcript(path: Path, since: datetime, stats: Stats, agent: dict | None) -> None:
     names: dict[str, tuple[str, str]] = {}
-    for line in path.open(encoding="utf-8", errors="replace"):
+    with path.open(encoding="utf-8", errors="replace") as lines:
+        _read_lines(lines, since, stats, agent, path, names)
+
+
+def _read_lines(lines, since: datetime, stats: Stats, agent: dict | None, path: Path,
+                names: dict[str, tuple[str, str]]) -> None:
+    for line in lines:
         try:
             entry = json.loads(line)
         except json.JSONDecodeError:
