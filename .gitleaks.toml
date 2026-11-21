@@ -1,0 +1,10 @@
+# Gitleaks configuration: the default rules, plus one allowlist for the secret and sensitive-data
+# scanners' unit tests, whose fixtures are fake keys and numbers made to look real on purpose.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures of the bundled scanners (fake values by design)"
+paths = [
+  '''(^|/)scripts/test_scan_[a-z0-9_]+\.py$''',
+]

@@ -1,0 +1,72 @@
+# Checks every skill (frontmatter, names, links, README rows) and runs the skill scripts' tests
+# with a coverage gate. Actions are pinned to commit SHAs (tag in the comment); Dependabot updates them.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
+
+jobs:
+  validate:
+    name: Validate skills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - run: python3 -m pip install -r tools/requirements.txt
+      - name: Frontmatter, names, descriptions, links and README rows
+        run: python3 tools/validate_skills.py .
+
+  tests:
+    name: Script tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # secret-history-scan's tests build git repositories; full history is not needed.
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: tools/requirements.txt
+      - run: python3 -m pip install -r tools/requirements.txt
+      - name: Configure git for the tests that make commits
+        run: |
+          git config --global user.name "CI"
+          git config --global user.email "ci@example.invalid"
+          git config --global init.defaultBranch main
+      - name: Tests and coverage gate (95%)
+        run: tools/run_tests.sh
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f .coverage ]; then
+            { echo '```'; python3 -m coverage report --data-file=.coverage; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            python3 -m coverage html --data-file=.coverage -d htmlcov
+          fi
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: coverage
+          path: htmlcov/
+          retention-days: 7
+          if-no-files-found: ignore
