@@ -3,7 +3,9 @@
 
 For each top-level directory that holds a SKILL.md:
   - the frontmatter (between the first two `---` lines) is valid YAML (strict: yaml.safe_load);
-  - only the keys uploads accept (name, description, license, allowed-tools, metadata, compatibility);
+  - only the keys uploads to claude.ai and the API accept (name, description, license, allowed-tools,
+    metadata, compatibility), so every skill here can also be uploaded there; Claude Code-only keys
+    such as argument-hint are refused on purpose (add them to ALLOWED_KEYS if that changes);
   - `name` is lowercase letters, digits and hyphens, at most 64 characters, equals the directory, and
     doesn't contain the reserved words "anthropic" or "claude";
   - `description` is present, at most 1024 characters, and has no `<` or `>` (read as XML tags);
@@ -99,8 +101,10 @@ def links(text: str) -> list[str]:
             elif token[0] == fence[0] and len(token) >= len(fence) and line.strip() == token:
                 fence = None
             continue
-        if fence is not None or line.startswith(("    ", "\t")):
-            continue                                     # fenced or indented code: examples
+        if fence is not None:
+            continue                                     # fenced code: examples
+        # Indented lines are checked too: they are usually nested list items. Put code examples
+        # with links in fences.
         line = INLINE_CODE.sub("", line)
         targets.extend(t.strip("<>") for t in LINK.findall(line))
         targets.extend(t.strip("<>") for t in REFERENCE.findall(line))
@@ -116,7 +120,7 @@ def check_links(md: Path, root: Path) -> list[str]:
         if not path:
             continue
         resolved = (md.parent / path).resolve()
-        if path.startswith("/") or not resolved.is_relative_to(root):
+        if not resolved.is_relative_to(root):
             problems.append(f"{md.relative_to(root)}: link to {target} leaves the repository")
         elif not resolved.exists():
             problems.append(f"{md.relative_to(root)}: link to {target} points at nothing")

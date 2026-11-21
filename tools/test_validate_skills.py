@@ -177,7 +177,7 @@ class ValidateSkillsTest(unittest.TestCase):
             "[t1](ok.md 'single') [t2](ok.md (paren)) [t3](<ok.md>) [t4](file(1).md) [t5](ok%20two.md)\n"
             "[t6](ok.md?raw=1) [t7](HTTPS://x) [t8](//cdn.example.com/a) [t9](ftp://x) [t10](~/x.md)\n"
             "`[code](nope.md)` and ```[inline](nope.md)``` stay examples; [t11](<repo url>) is a placeholder\n"
-            "    [indented](nope.md)\n"
+            "- item\n    - [nested](gone4.md)\n"
             "[ref]: missing-ref.md\n"
             "[bad1](gone.md 'title') [bad2](<gone2.md>) [bad3](/etc/hostname) [bad4](../../outside.md)\n"
             "```text\n[fenced](nope.md)\n~~~\n[still fenced](nope.md)\n```\n[after](gone3.md)\n"))
@@ -191,7 +191,25 @@ class ValidateSkillsTest(unittest.TestCase):
             "forms/SKILL.md: link to /etc/hostname leaves the repository",
             "forms/SKILL.md: link to ../../outside.md leaves the repository",
             "forms/SKILL.md: link to gone3.md points at nothing",
+            "forms/SKILL.md: link to gone4.md points at nothing",
         ]), sorted(self.problems()))
+
+    def test_fence_rules(self):
+        self.repo.skill("fences", GOOD.format(name="fences") + (
+            "````text\n```\n[inside long fence](nope1.md)\n````\n"      # a shorter fence doesn't close a longer one
+            "```text\n```python\n[inside, info-string line](nope2.md)\n```\n"   # a fence with an info string doesn't close
+            "```one-line code```\n[after one-line](gone1.md)\n"          # not a fence: links after it are checked
+            "[paren](gone(1).md)\n"))
+        self.repo.readme("fences")
+        self.assertEqual(sorted([
+            "fences/SKILL.md: link to gone1.md points at nothing",
+            "fences/SKILL.md: link to gone(1).md points at nothing",
+        ]), sorted(self.problems()))
+
+    def test_an_indented_opening_line_is_not_frontmatter(self):
+        self.repo.skill("indented", " ---\nname: indented\ndescription: x\n---\n")
+        self.repo.readme("indented")
+        self.assertEqual(["indented/SKILL.md: no frontmatter (a `---` line, YAML, then a `---` line)"], self.problems())
 
     def test_main_prints_problems_and_exits_non_zero(self):
         self.repo.skill("bad_one", GOOD.format(name="bad_one"))

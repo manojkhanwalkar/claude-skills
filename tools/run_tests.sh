@@ -10,15 +10,15 @@ rm -f "$ROOT"/.coverage "$ROOT"/.coverage.*
 # Combine whatever was measured, even when a test fails, so CI can still show the report.
 trap 'python3 -m coverage combine --quiet --data-file="$ROOT/.coverage" >/dev/null 2>&1 || true' EXIT
 
-# Every folder holding Python code (outside .git and .github) must have tests beside it.
+# Every folder holding tracked Python code must have tests beside it (git ls-files: ignored folders
+# such as a local venv or synced/ don't count).
 untested=0
 while IFS= read -r dir; do
   if ! compgen -G "$dir/test_*.py" >/dev/null; then
     echo "No tests for the Python code in $dir (add test_*.py next to it)" >&2
     untested=1
   fi
-done < <(find . -name '*.py' ! -name 'test_*.py' -not -path './.git/*' -not -path './.github/*' \
-           -not -path '*/__pycache__/*' -printf '%h\n' | sed 's#^\./##' | sort -u)
+done < <(git ls-files '*.py' | grep -v '/test_[^/]*\.py$' | grep -v '^test_' | xargs -r -n1 dirname | sort -u)
 [[ $untested -eq 0 ]] || exit 1
 
 while IFS= read -r dir; do
@@ -26,7 +26,7 @@ while IFS= read -r dir; do
   # Each test imports its module from its own directory, so run from there.
   (cd "$dir" && python3 -m coverage run --parallel-mode --data-file="$ROOT/.coverage" \
       --source=. --omit='test_*.py' -m unittest -q)
-done < <(find . -name 'test_*.py' -not -path './.git/*' -printf '%h\n' | sed 's#^\./##' | sort -u)
+done < <(git ls-files '*test_*.py' | xargs -r -n1 dirname | sort -u)
 
 python3 -m coverage combine --quiet --data-file="$ROOT/.coverage"
 trap - EXIT
