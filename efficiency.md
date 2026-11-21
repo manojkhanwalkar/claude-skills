@@ -21,6 +21,10 @@ Twelve rules cut the tokens spent on each change without relaxing any safety gat
 
 Already in place before these: PRs under 250 changed lines get a self-review instead of a separate review agent (rule 3, [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27)).
 
+## Keeping the rules current
+
+[`token-efficiency-review`](token-efficiency-review/SKILL.md) measures token use from the local transcripts about every 10 days (a scheduled, report-only run) and proposes changes to these rules and the skills, backed by the numbers. Changes still go through a reviewed PR.
+
 ## What stays the same
 
 None of these rules relaxes a gate; they only change how much work is spent reaching it.
