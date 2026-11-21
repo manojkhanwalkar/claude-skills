@@ -1,4 +1,5 @@
 # Known false positives, by Gitleaks fingerprint (commit:file:rule:line). Each entry says why.
-# owasp-top10's reference lists grep patterns for finding secrets (password = "...", apiKey, ...);
-# the generic-api-key rule reads one of those search hints as a key. It is documentation, not a secret.
+# owasp-top10/references/owasp-2025.md line 191 is prose ("access denied, decryption/MAC failures");
+# the generic-api-key rule reads "access ... , decryption/MAC" as a key assignment. Not a secret.
+# Editing that line, or copying the sentence elsewhere, gives a new fingerprint: reword it then.
 1e150fd80b18467f2209de5ce2120955e2d388c1:owasp-top10/references/owasp-2025.md:generic-api-key:191
