@@ -1,0 +1,11 @@
+# Weekly update pull requests for the CI tools (pip) and the SHA-pinned GitHub Actions.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
