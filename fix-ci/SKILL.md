@@ -78,7 +78,7 @@ With `--report-only`, go to the report.
 2. **Reproduce locally** with the command the failing step runs (read it from the workflow file), on the same language and tool versions where it matters. If it doesn't reproduce, compare environments (versions, OS, environment variables, services) before changing code.
 3. **Flaky or infrastructure:** if the workflow is idempotent, rerun the failed jobs once: `gh run rerun <run-id> -R <r> --failed`. A failure that passes on rerun is flaky, not fixed: report it, and fix the cause if you can find it. Never rerun repeatedly until it passes.
 4. **Fix** the cause, smallest change first, in the style of the surrounding code. Where behaviour changed, add or adjust a test that fails without the fix.
-5. Run the failing step's command locally again, then the project's full build and tests.
+5. Run the failing step's command locally again, then the tests for the modules you changed and their dependents. CI runs the full suite on the push.
 6. **Commit and push**, never force-push.
    - **Dependabot PRs:** once you push your own commits, Dependabot stops rebasing that PR automatically; a later `@dependabot recreate`, or a superseding PR for a newer version, drops your commits. Say so in the report.
    - **Fork PRs:** push to the contributor's branch only if the PR allows maintainer edits (`maintainerCanModify`) and the user agreed.
@@ -86,7 +86,7 @@ With `--report-only`, go to the report.
 
 ## Phase 4 – Watch
 
-1. **A PR:** `gh pr checks <n> -R <r> --watch` on the new head.
+1. **A PR:** `gh pr checks <n> -R <r> --watch` on the new head, in one background command that reports once.
 2. **`--default-branch`:** open the fix PR first, then watch its checks. Check that each workflow that failed on the default branch actually ran on the PR. A workflow that runs only on push, on a schedule, on tags or from `workflow_run` won't: say the fix is unverified until it merges, run it by `workflow_dispatch` on the branch only if the workflow allows that and is idempotent (never a publishing, release or deploy workflow without asking), and after the merge re-check the default branch's run. Take the PR through `pr-review` (the user's rule 3).
 3. Green → done. Red again → back to Phase 2 with the new logs. Stop after `--max-attempts` cycles (reruns included) and report what is known.
 
