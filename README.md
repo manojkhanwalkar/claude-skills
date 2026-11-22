@@ -134,7 +134,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
-| 2026-11-22 | this PR | Add perf-review: find hot-path inefficiencies, estimate and measure them, fix in small tested steps; pr-review, deep-review and microservices-refactor call it |
+| 2026-11-22 | [#33](https://github.com/manojkhanwalkar/claude-skills/pull/33) | Add perf-review: find hot-path inefficiencies, estimate and measure them, fix in small tested steps; pr-review, deep-review and microservices-refactor call it |
 | 2026-11-22 | [#32](https://github.com/manojkhanwalkar/claude-skills/pull/32) | Add design-patterns: find design smells and fix them with the right pattern or a simpler design; pr-review, deep-review and microservices-refactor call it |
 | 2026-11-21 | [#31](https://github.com/manojkhanwalkar/claude-skills/pull/31) | Add microservices-refactor: assess service boundaries and extract one service per PR |
 | 2026-11-21 | this PR | First token-efficiency review applied: smaller model by default for mechanical agents, one agent per PR, load guides once, read big files by range |
