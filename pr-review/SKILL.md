@@ -34,7 +34,7 @@ The bar for merging is that every confirmed Critical, High or Medium finding is 
 ## Phase 2 – Independent review
 
 The review is better done by someone who did not write the code:
-- If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below, and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**, returned as a table (one line per finding: `file:line`, severity, defect, scenario, fix) plus one line on what was checked and fine, not an essay. Start mechanical reviews (a Dependabot or other version-only PR) with `model: sonnet`; code and security reviews keep the strongest. One review agent per PR, never one agent for several PRs (its context grows with each).
+- If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below (including its **Design** item: run `design-patterns --diff origin/<base> --report-only`), and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**, returned as a table (one line per finding: `file:line`, severity, defect, scenario, fix) plus one line on what was checked and fine, not an essay. Start mechanical reviews (a Dependabot or other version-only PR) with `model: sonnet`; code and security reviews keep the strongest. One review agent per PR, never one agent for several PRs (its context grows with each).
 - If you can't, run the `code-review` skill on the PR, or review it yourself, rereading it as a demanding outsider would.
 
 **Small PRs skip the subagent.** A PR with fewer than 250 changed lines (additions plus deletions, as `gh pr view <n> --json additions,deletions` counts them, generated files included) gets no independent subagent review and no re-check rounds: review it yourself against the checklist below, rereading it as a demanding outsider would, and mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the security checks, the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. Count the lines again after your fixes: a PR that grew to 250 or more gets the subagent review.
@@ -66,6 +66,7 @@ Checklist: read every changed file in full, not only the hunks.
   - the UI handles every new error status;
   - accessibility of new controls.
 - **Description:** the PR body's claims (numbers, behaviour, config) are true.
+- **Design** (PRs of 250 or more changed lines; a small PR's self-review covers it by eye): the reviewer runs `design-patterns --diff origin/<base> --report-only` and adds its findings to the table like any others. Design findings are usually Low or Medium (Medium when the design blocks safe change or testing, or creates a bug risk); a Medium one must be fixed or accepted by the owner in this session, as for any Medium finding.
 
 For each finding record:
 - `file:line`;
