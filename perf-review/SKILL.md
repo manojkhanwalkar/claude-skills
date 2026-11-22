@@ -53,8 +53,8 @@ Look for at least these, each with `file:line` evidence:
 | `Scan` or an unindexed query on a request path | A `Query` on a key or index; a GSI with a small projection; a SQL index |
 | A query or list with no limit or pagination | Pagination (keyset over OFFSET), a cap, a projection of the fields needed |
 | Unbounded memory: a static map or list that only grows, a cache with no size or expiry, reading a whole file or result set into memory | A bounded cache (Caffeine `maximumSize` plus expiry), streaming, a cap |
-| Expensive objects built per request: HTTP or SDK clients, `ObjectMapper`, `Pattern`, `MessageDigest` or `Cipher` lookups, `DateTimeFormatter`, JAXB or template engines | Build once and share (thread-safe ones) or per thread; inject the shared bean |
-| Sequential independent remote calls on one request | A bounded parallel fan-out with a deadline (the CreditAgent login fan-out on virtual threads is the model) |
+| Expensive objects built per request: HTTP or SDK clients, `ObjectMapper`, `Pattern`, `DateTimeFormatter`, `JAXBContext`, template engines | Build once and share them (all thread-safe); inject the shared bean. Not `MessageDigest`, `Cipher` or `Mac`: those are not thread-safe, so per use (cheap after warm-up) or per thread is right |
+| Sequential independent remote calls on one request | A bounded parallel fan-out with a deadline: a virtual-thread-per-task executor, a timeout per call, each call failing soft, no shared mutable state |
 | Blocking I/O on an event loop (Node, WebFlux, Netty) or long blocking inside `synchronized` on virtual threads before JDK 24 | Async APIs, `boundedElastic` or a worker pool, `ReentrantLock` |
 | Chatty remote calls: many small requests where one would do; the same call repeated in one request | A batch endpoint, request-scoped memoisation, a cache |
 | No connection reuse: a client per call, responses not closed, keep-alive off, pool too small for the concurrency | One shared client; close or fully read bodies; pool sized from Little's Law |
@@ -97,7 +97,7 @@ Most valuable first (High, then Medium, then Low; hot paths before warm ones):
 2. **Make the change small and behaviour-preserving.** Same results, same errors, same ordering unless it was never promised. Batching must keep per-item error handling (DynamoDB `UnprocessedKeys` retried with backoff); parallelism must keep a bound and a deadline; a cache must have a size, an expiry and a stated staleness the caller accepts.
 3. **Show the gain** where practical: a call-count assertion (the N+1 test asserts one batch call), a JMH result before and after, or a timing test with a generous bound so it isn't flaky. Put the numbers in the commit message.
 4. **One concern per commit** ("Batch account reads in AlertService", "Share one ObjectMapper"), so each can be reverted alone.
-5. **Never trade correctness, security or readability for a micro-gain.** No removing validation, auth checks or logging that audits need; no `Unsafe`, hand-rolled concurrency or caching of personal data across users to save microseconds. If the honest gain is under about 1% of the request's time, drop the change.
+5. **Never trade correctness, security or readability for a micro-gain.** No removing validation, auth checks or logging that audits need; no `Unsafe`, hand-rolled concurrency or caching of personal data across users to save microseconds. For a CPU or latency micro-optimisation whose honest gain is under about 1% of the request's time, drop the change (fixes for unbounded resources, pool exhaustion or scans stay, whatever their latency gain).
 6. Public APIs, wire formats, persisted data and config keys stay unchanged unless the user approves; such changes go under "Needs a decision". Don't add libraries (Caffeine, a new HTTP client) or change JVM flags in deployment without asking.
 7. Build and run the tests of the changed modules and their dependents; CI runs the full suite. Coverage must not drop.
 
