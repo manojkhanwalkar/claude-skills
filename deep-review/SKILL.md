@@ -90,6 +90,8 @@ The areas, in the order they get fixed:
    - reinventing standard-library or project utilities;
    - docs (README, architecture) that disagree with the code.
 
+**Design.** For the design side of duplication and readability (type switches, copied algorithm skeletons, god classes, primitive obsession, leaking external APIs, missing test seams, and pattern overuse), run the `design-patterns` skill on the same scope, when `dup` or `readability` is in `--focus`: with `--report-only` when this review is report-only, and with `--fix` when it is making edits, committing on this review's branch. Its findings join the duplication and readability findings, its Medium and Low recorded as Impact Medium and Low, with its effort, and are fixed in Phase 4 in that order.
+
 For each finding record:
 - `file:line`;
 - area;
