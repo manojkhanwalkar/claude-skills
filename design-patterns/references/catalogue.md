@@ -28,7 +28,7 @@ For each design smell: how to find it, what confirms it is worth fixing, the fix
 - **Fix:** OCP, GRASP Polymorphism, Effective Java item 23 ("Prefer class hierarchies to tagged classes"). Replace Conditional with Polymorphism; Replace Type Code with Subclasses; Replace Conditional Logic with Strategy **[K]**; Replace Conditional Dispatcher with Command **[K]**.
 - **Modern Java:**
   - Behaviour that belongs to the type (part of its contract) → a method on each type: an enum with a method per constant, or an interface with one implementation per case.
-  - Operations that don't belong on the type (formatting, mapping, reporting), or a closed set of data variants → a `sealed interface` of records and an exhaustive `switch` with record patterns and no `default`, so a new variant fails compilation at every switch.
+  - Operations that don't belong on the type (formatting, mapping, reporting), or a closed set of data variants → a `sealed interface` of records and an exhaustive `switch` with record patterns and no `default`, so a new variant fails compilation at every switch (Java 21+; on 17, use a method per type).
   - The variant is a pluggable algorithm chosen at runtime → Strategy as a functional interface; small strategies are lambdas or method references (items 42–44).
 - **Leave it:** one switch, in one place, over a small stable set; a switch that only picks which class to create (it is a factory); parsing at the system boundary.
 
