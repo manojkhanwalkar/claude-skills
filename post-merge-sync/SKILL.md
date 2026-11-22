@@ -75,7 +75,7 @@ For each PR, oldest first:
 
 After the last PR:
 
-4. **Deep review (rule 5).** If "merged since the last deep review" is 5 or more, rule 5 requires a deep review. Unless the memory records that the user deferred it, or this is a `--dry-run`, tell the user in one line and start `deep-review`, shipped as its own PR through `pr-review`.
+4. **Deep review (rule 5).** If "merged since the last deep review" is 10 or more, rule 5 requires a deep review. Unless the memory records that the user deferred it, or this is a `--dry-run`, tell the user in one line and start `deep-review`, shipped as its own PR through `pr-review`.
 5. **Linked repos.** If a PR changed a contract that a linked repo mirrors, add a line to that repo's backlog in memory: what changed, which PR, which golden files or tests it affects. Then tell the user it needs porting through `port-parity` (or, where that skill isn't installed, a reviewed PR in the linked repo). If the memory records that the user deferred parity work, add the backlog line but don't propose acting now.
 6. **Last sync.** Record the last processed PR's number, merge SHA and `mergedAt`.
 7. Update memory files in place and never create a duplicate. Keep `MEMORY.md` as an index of one-line pointers.
