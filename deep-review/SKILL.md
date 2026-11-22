@@ -80,6 +80,8 @@ The areas, in the order they get fixed:
    - missing connection reuse;
    - excessive logging or serialization;
    - slow start-up.
+
+   Run the `perf-review` skill on the same scope for this area when `perf` is in `--focus`: with `--report-only` when this review is report-only, and with `--fix` when it is making edits, committing on this review's branch. Its findings, estimates and measurements are this area's findings (its High, Medium and Low recorded as Impact High, Medium and Low), fixed in Phase 4 in that order.
 5. **Duplication.** Copy-pasted logic across files or modules, near-identical classes, repeated constants and config, and parallel code paths that drifted apart. Extract only when the shared version is clearly simpler than the copies.
 6. **Readability and maintenance:**
    - dead code;

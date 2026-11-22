@@ -110,6 +110,7 @@ Before each PR is opened (the checks that apply to its step), and again after cu
 - Run the system locally (compose): the new service is healthy, the monolith with the flag on uses it, a request through the main flow works end to end, and with the new service stopped the caller fails the way the plan says (a clear error or degraded answer, no hang).
 - **No shared writes remain** (from the cut-over PR on; earlier PRs keep the monolith writing by design): grep the monolith for the moved tables' names and repositories; every write path goes through the new service; once the data has moved, DB grants stop each side touching the other's tables.
 - Trace one request across both services and find its correlation ID in both logs.
+- **Performance:** run `perf-review` on the new service and the monolith's remote client (`--fix` while building them): the added hop fits the caller's latency budget (state it, and measure the round trip locally), the client is shared and reuses connections, calls inside loops are batched, and payloads carry only what the caller needs. Fix its Medium and High findings before the PR.
 - Read `references/checklist.md` ("Verify") and tick every item; anything left open goes in the report.
 
 ## Phase 5 – Report
