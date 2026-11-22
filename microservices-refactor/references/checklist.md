@@ -24,7 +24,8 @@ Tick every item, or say in the report why it doesn't apply.
 - [ ] Data ownership: tables moving, the transition sync (outbox or CDC, not ad-hoc dual writes), how other modules will read.
 - [ ] Each former cross-module transaction: saga with named compensations, or accepted eventual consistency.
 - [ ] Migration steps as branch by abstraction, each shippable, each with its rollback.
-- [ ] The step after which rollback needs a data migration, marked for sign-off.
+- [ ] The step after which rollback needs a data migration, marked for sign-off; the user approves it explicitly before that PR.
+- [ ] The new service has its data (through the monolith, or backfilled and synced) before it takes any traffic.
 - [ ] Prerequisites listed (CI for a second deployable, registry, secrets, observability).
 
 ## Extract (one service per PR)
@@ -52,7 +53,7 @@ Tick every item, or say in the report why it doesn't apply.
 - [ ] Contract tests pass, and a deliberate contract break makes them fail (then reverted).
 - [ ] Local run: new service healthy; main flow works end to end with the flag on and with it off.
 - [ ] New service stopped: the caller fails or degrades as planned, without hanging.
-- [ ] No shared writes: grep the monolith for the moved tables and repositories; no write path left outside the new service; DB grants enforce it once the data has moved.
+- [ ] From the cut-over PR on, no shared writes: grep the monolith for the moved tables and repositories; no write path left outside the new service; DB grants enforce it once the data has moved.
 - [ ] One request traced across both services; its correlation ID found in both logs.
 - [ ] Security checks run on the PR (security-review, plus compliance-check if the moved data is personal, payment or financial).
 
