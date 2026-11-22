@@ -1,6 +1,6 @@
 # Claude Code skills
 
-22 [Claude Code](https://claude.com/claude-code) skills that take code from pull request to merge, check it for security, compliance and accessibility, and build, port or test software along the way. They are checked out at `~/.claude/skills`, so Claude Code loads them in every project.
+23 [Claude Code](https://claude.com/claude-code) skills that take code from pull request to merge, check it for security, compliance and accessibility, and build, port or test software along the way. They are checked out at `~/.claude/skills`, so Claude Code loads them in every project.
 
 - **Invoke** a skill by name as a slash command (`/pr-review 30`, `/owasp-top10 --fix`), or let Claude pick it when a request matches its description.
 - **Change** a skill through a pull request: a separate agent reviews it, [CI](#checks) validates every skill, and it is squash-merged to `master`.
@@ -27,6 +27,7 @@
 | [`deep-review`](deep-review/SKILL.md) | Whole-codebase review: correctness, performance, duplication, readability, security, resilience | 5 or more PRs merged since the last one | path, `--report-only`, `--focus`, `--out FILE` |
 | [`test-gen`](test-gen/SKILL.md) | Raises coverage to the target with behaviour-checking tests, proved by mutation | Coverage below 95% | path, `--target`, `--diff`, `--no-mutation` |
 | [`resiliency`](resiliency/SKILL.md) | Retries with backoff and jitter, token-bucket and concurrency limits, timeouts | Services calling each other | path, `--retries-only`, `--limits-only`, `--report-only` |
+| [`microservices-refactor`](microservices-refactor/SKILL.md) | Finds service boundaries (split now, later or never, with reasons), plans extractions, and extracts one service per PR with Strangler Fig and branch by abstraction | Splitting a monolith or reviewing service boundaries | path, `--report-only`, `--service NAME`, `--out FILE` |
 | [`document`](document/SKILL.md) | Per-file and per-function docs plus a project summary merged into the README | Documenting a codebase | path, `--inline`, `--out DIR` |
 | [`mcp-builder`](mcp-builder/SKILL.md) | Builds MCP servers and clients with an end-to-end test | Exposing a tool to Claude over MCP | what to wrap, `--lang`, `--plain-sdk`, `--http`, `--server-only`, `--client-only` |
 | [`javatopython-converter`](javatopython-converter/SKILL.md) | Ports a Java project to idiomatic Python in a new repo, with the full process | Converting Java to Python | path, `--name`, `--dir`, `--public`, `--module`, `--no-merge` |
@@ -59,11 +60,12 @@ Six skills check code against named standards, each with `file:line` evidence, a
 
 ## Code quality and engineering
 
-Four skills improve a whole codebase rather than one change, each in small steps verified by the project's own build and tests.
+Five skills improve a whole codebase rather than one change, each in small steps verified by the project's own build and tests.
 
 - **deep-review** reviews an entire codebase (never a PR) for correctness bugs, performance, duplication, readability, a security recheck, and resilience to failing dependencies, and fixes what it proves. It runs once 5 or more PRs have merged since the last one (`post-merge-sync` starts it) and ships as its own PR.
 - **test-gen** raises unit-test coverage to the target (95% by default) with tests that assert real outcomes, ranks gaps by risk, and proves the new tests catch mutations. It never lowers a gate or adds exclusions to reach the number.
 - **resiliency** adds retries with exponential backoff and jitter on recoverable errors to every service-to-service call, token-bucket and concurrency limits that answer 429 or 503 with `Retry-After`, and timeouts on every outbound call, each proved by a test that simulates the failure.
+- **microservices-refactor** maps a codebase's modules, data, call graph and shared tables, recommends which candidates to split now, later or never (with "don't split" cases flagged), plans each extraction (contract, data move, sagas and outbox, rollback), and extracts one service per PR through branch by abstraction behind a flag, with contract tests, service-to-service auth and the `resiliency` checks.
 - **document** writes one doc per source file covering its purpose and every function, plus a project summary merged into the README.
 
 ## Building, porting and emulator testing
@@ -121,6 +123,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-21 | this PR | Add microservices-refactor: assess service boundaries and extract one service per PR |
 | 2026-11-21 | this PR | First token-efficiency review applied: smaller model by default for mechanical agents, one agent per PR, load guides once, read big files by range |
 | 2026-11-21 | this PR | Add token-efficiency-review: a 10-day review of token use that proposes rule and skill updates |
 | 2026-11-21 | [#28](https://github.com/manojkhanwalkar/claude-skills/pull/28) | Token-efficiency rules (`efficiency.md`) in pr-review, fix-ci, pr-triage, test-gen, post-merge-sync; grouped Dependabot updates |
