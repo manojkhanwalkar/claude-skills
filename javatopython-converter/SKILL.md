@@ -144,7 +144,7 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
    - Non-idiomatic Python (Java-isms: getters/setters, static-only classes, manual resource closing, `== None`, index loops)?
    `pr-review` fixes confirmed findings with tests, posts the findings table, waits for CI and squash-merges. Never merge with failing CI or an open High/Medium finding.
 5. Update the design doc and diagram if the PR changed behaviour, APIs, data or architecture.
-6. After the merge, increment the merged-PR counter in the project memory — every merged PR counts, including Dependabot and workflow-only PRs. When it reaches a multiple of 5, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
+6. After the merge, increment the merged-PR counter in the project memory — every merged PR counts, including Dependabot and workflow-only PRs. When it reaches a multiple of 10, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
 
 **Delegating PRs to agents:** a forked agent cannot start subagents, so it cannot run the independent review itself. The fork does steps 1–3 (gate, security and OWASP/compliance checks) up to a green CI, then **stops before merging and hands back**. The parent runs steps 4–6: `pr-review <n>` (which starts the reviewer, posts the findings table and merges; it may send the fixes back to the fork to make), then the doc/diagram update and the merged-PR counter.
 
@@ -154,7 +154,7 @@ After PR 1 merges and CI has run: set branch protection (`references/github-setu
 
 1. **Project memory:** bring it up to date (merged-PR count, open questions, links).
 2. If the port added the project's first LLM/agent feature, run **`owasp-llm-top10`** on the whole project; if it handles sensitive data, run **`owasp-top10`** (rule 4). Run **`compliance-check`** and **`digital-regulation-check`** on the whole new project and put their applicability tables and data maps in the design doc's Security/Compliance section.
-3. **Deep review** (rule 5): already run after every 5th merge in Phase 4; nothing extra here unless a multiple of 5 was reached by the last merge.
+3. **Deep review** (rule 5): already run after every 10th merge in Phase 4; nothing extra here unless a multiple of 10 was reached by the last merge.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 
 ## Final report to the user
