@@ -98,7 +98,7 @@ String bureauName(BureauReport r) {
 
 - **Find:** the same try/catch-log, timing, metrics, retry, authorisation check, audit write or transaction handling repeated across many methods.
 - **Fix:** Decorator (Move Embellishment to Decorator **[K]**) or Proxy around an interface. In Spring: `@Transactional`, `@PreAuthorize`, Micrometer's `@Timed`/`@Observed`, Spring Retry or Resilience4j annotations, servlet filters and `HandlerInterceptor`s, or an aspect for a project-specific concern.
-- **Watch:** Spring AOP is proxy-based: a call from one method to another on `this` skips the advice, and `final` or `private` methods can't be advised. A finding that relies on advice reaching a self-call is a correctness bug.
+- **Watch:** Spring AOP is proxy-based: a call from one method to another on `this` skips the advice, and `final` or `private` methods can't be advised. Code, or a proposed fix, that relies on advice applying to a self-call is a correctness bug; report it as one.
 
 ## 10. Hard-coded notification fan-out
 
