@@ -123,7 +123,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
-| 2026-11-21 | this PR | Add microservices-refactor: assess service boundaries and extract one service per PR |
+| 2026-11-21 | [#31](https://github.com/manojkhanwalkar/claude-skills/pull/31) | Add microservices-refactor: assess service boundaries and extract one service per PR |
 | 2026-11-21 | this PR | First token-efficiency review applied: smaller model by default for mechanical agents, one agent per PR, load guides once, read big files by range |
 | 2026-11-21 | this PR | Add token-efficiency-review: a 10-day review of token use that proposes rule and skill updates |
 | 2026-11-21 | [#28](https://github.com/manojkhanwalkar/claude-skills/pull/28) | Token-efficiency rules (`efficiency.md`) in pr-review, fix-ci, pr-triage, test-gen, post-merge-sync; grouped Dependabot updates |
