@@ -1,7 +1,7 @@
 # GitHub setup for the Python project
 
 All of this lands in **PR 1 (Scaffold)**, except the repository settings, which are API calls.
-Modelled on the user's other projects (CreditAgent is the fullest example).
+Modelled on the user's other projects.
 
 ## Pin actions to commit SHAs
 
@@ -272,7 +272,7 @@ jobs:
 ```
 
 If the Java project shipped a container image, add a Dockerfile (slim Python base, non-root
-user, `uv sync --locked --no-dev`) and an `images` job modelled on CreditAgent's
+user, `uv sync --locked --no-dev`) and an `images` job
 (`docker/setup-buildx-action`, `login-action`, `metadata-action`, `build-push-action` with
 provenance + SBOM, then a Trivy image scan) — resolve those actions' SHAs the same way, and add
 the `docker` ecosystem to Dependabot. Publishing to PyPI needs the user's decision (trusted
@@ -296,17 +296,26 @@ updates:
     schedule:
       interval: weekly
     groups:
-      dev-tools:
-        dependency-type: development
+      uv-minor-and-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
   # - package-ecosystem: docker      # if there is a Dockerfile
   #   directory: /
   #   schedule:
   #     interval: weekly
+  #   groups:
+  #     docker-minor-and-patch:
+  #       update-types: [minor, patch]
 ```
+
+Minor and patch bumps arrive as one weekly PR per ecosystem (rule 8); majors stay separate.
+`pr-triage` takes them through `pr-review`.
 
 ## `.github/pull_request_template.md`
 
