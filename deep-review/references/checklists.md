@@ -1,6 +1,6 @@
 # Deep review checklists
 
-Leads to check, not findings. Confirm each one by reading the code and tracing the real path. The "usually fine" notes list common false positives.
+Leads for the areas this skill reviews itself, not findings. Confirm each one by reading the code and tracing the real path. The "usually fine" notes list common false positives.
 
 ## Security recheck
 
@@ -46,16 +46,9 @@ Leads to check, not findings. Confirm each one by reading the code and tracing t
 - **Tests.** Each failure mode that matters has a test that simulates it: a mock server returning 5xx or a delay, a thrown IOException, a full queue.
 - Usually fine: demo or CLI tools where a crash is acceptable (say so); retries skipped deliberately for non-idempotent calls.
 
-## Performance
+## Performance, DynamoDB, design and doc comments
 
-- **Remote calls.** N+1 calls in loops, sequential calls that could be batched or run concurrently, no connection reuse (a client built per request), and missing pagination.
-- **Repeated work.** Compiling regexes, building clients or mappers, or loading config per call. The same value computed several times per request. Reflection on hot paths.
-- **Algorithms and data structures.** Nested loops over large collections, linear searches that should be maps or sets, sorting just to take the minimum, and string concatenation in loops.
-- **Memory.** Whole files or streams read into memory where streaming would do, unbounded collections built from user input, and large copies.
-- **I/O on hot paths.** Synchronous logging of large objects, debug serialization that runs while debug logging is off, and fsync or flush per item.
-- **Start-up.** Heavy eager initialization, and network calls at start-up that block readiness.
-- **Database.** Missing indexes or keys for access patterns, full scans or table scans in request paths, and strongly consistent reads where eventual consistency would do (or the reverse, as a correctness bug).
-- Usually fine: one-off scripts, admin paths, code that runs once at start-up with small n. Don't micro-optimize cold code. Readability wins there.
+Owned by `perf-review`, `dynamodb-optimizer`, `design-patterns` and `documenter`, which carry their own checklists. Don't repeat their checks here.
 
 ## Duplication
 
