@@ -142,6 +142,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-25 | [#40](https://github.com/manojkhanwalkar/claude-skills/pull/40) | Review design-patterns: clean-tree check and start commit when called, no push or PR from a caller's branch, a return format for deep-review and pr-review, review-rule Mediums left Open for the caller, hot-spot command completed |
 | 2026-11-25 | [#39](https://github.com/manojkhanwalkar/claude-skills/pull/39) | Review deep-review: one pr-review severity scale for every area; DynamoDB, performance, design and doc-comment steps in a fixed order, each run in its own subagent and committed separately; baseline from green CI; one findings table; checks owned by the called skills removed |
 | 2026-11-25 | [#38](https://github.com/manojkhanwalkar/claude-skills/pull/38) | Review compliance-check: scanner no longer scans the whole tree for an empty diff and scans each file once; `--diff` gives a short report and loads only the touched references; existing reports reused; SAQ A, 6.5.5 test-PAN and SOX evidence commands corrected; consent and transfers point to digital-regulation-check |
 | 2026-11-25 | [#37](https://github.com/manojkhanwalkar/claude-skills/pull/37) | Review ada-compatibility: scanner reads Vue modifiers, Thymeleaf and bound attributes, catches paste blocking in every framework, skips test files; `--diff` returns a findings table; stale baselines are flagged |
