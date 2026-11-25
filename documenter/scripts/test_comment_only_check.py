@@ -127,6 +127,10 @@ class CLikeTest(RepoTest):
         fails = self.failures({"p.tsx": old}, {"p.tsx": old.replace("10", "99")})
         self.assertEqual(len(fails), 1)
 
+    def test_jsx_comment_without_space_cannot_open_a_block(self):
+        old = "a();// note /* x\nkeep(1);\n// */\n"
+        self.assertEqual(len(self.failures({"k.tsx": old}, {"k.tsx": old.replace("keep(1)", "keep(2)")})), 1)
+
     def test_raw_and_verbatim_strings(self):
         cs = 'class A {\n  string p = @"C:\\"; string u = "http://x"; void M() { Run(1); }\n}\n'
         self.assertEqual(len(self.failures({"A.cs": cs}, {"A.cs": cs.replace("Run(1)", "Run(2)")})), 1)
@@ -137,7 +141,8 @@ class CLikeTest(RepoTest):
 
     def test_whitespace_inside_strings_is_code(self):
         old = 'class S {\n  String s = "a  b";\n}\n'
-        self.assertEqual(len(self.failures({"S.java": old}, {"S.java": old.replace("a  b", "a b")})), 1)
+        fails = self.failures({"S.java": old}, {"S.java": old.replace("a  b", "a b")})
+        self.assertEqual(fails, ['S.java: line 2: code changed: String s = "a b";'])
 
     def test_code_generation_markers_are_directives(self):
         old = "package p\n\n// Size is the pool size.\n// +kubebuilder:validation:Minimum=1\ntype Size int\n"

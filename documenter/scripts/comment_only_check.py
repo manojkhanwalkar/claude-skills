@@ -112,13 +112,13 @@ def split_c_like(text, path):
     while (m := lexer.search(text, scan)):
         before = text[pos:m.start()]
         comment = m.group("c")
-        line_so_far = (text[:m.start()].rsplit("\n", 1)[-1])
         if m.lastgroup == "r" and not _REGEX_BEFORE.search("".join(pieces[-1:]) + before):
             scan = m.start() + 1                 # a division, not a regex literal
             continue
-        if comment and jsx and comment.startswith("//") and line_so_far.strip() \
-                and not line_so_far[-1].isspace():
-            scan = m.start() + 2                 # JSX text such as https://..., not a comment
+        if comment and jsx and comment.startswith("//") \
+                and text[text.rfind("\n", 0, m.start()) + 1:m.start()].strip() \
+                and not text[m.start() - 1].isspace():
+            scan = m.end()                       # JSX text such as https://...: the line is code
             continue
         pieces.append(before)
         if comment:
@@ -151,6 +151,10 @@ def python_shape(text):
     return _strip_docstrings(tree), directives
 
 
+def _shown(line):
+    return line.replace("\x01", " ").replace("\x02", "\t")[:80]
+
+
 def compare(path, old, new):
     """Return a list of problems where new differs from old outside comments."""
     if kind(path) == "python":
@@ -169,11 +173,11 @@ def compare(path, old, new):
     old_lines = [t for _, t in old_code]
     for i, (n, line) in enumerate(new_code):
         if i >= len(old_lines) or old_lines[i] != line:
-            problems.append(f"line {n}: code changed: {line[:80]}")
+            problems.append(f"line {n}: code changed: {_shown(line)}")
             break
     else:
         if len(old_lines) > len(new_code):
-            problems.append(f"code removed: {old_lines[len(new_code)][:80]}")
+            problems.append(f"code removed: {_shown(old_lines[len(new_code)])}")
     if old_dir != new_dir:
         problems.append("a tool directive comment changed")
     return problems
