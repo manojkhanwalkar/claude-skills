@@ -25,7 +25,7 @@ Use when the server must run as a long-lived service, be shared by several clien
 - Security: the Spring AI starters apply no authentication and no `Origin` check of their own
   ([Spring AI reference](https://docs.spring.io/spring-ai/reference/api/mcp/mcp-server-boot-starter-docs.html)),
   so add them. An unauthenticated MCP endpoint is remote code execution for whatever the tools can do.
-  The spec's rules ([Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http#security-%26-endpoint),
+  The spec's rules ([Streamable HTTP](https://modelcontextprotocol.io/specification/2026-07-28/basic/transports/streamable-http),
   [Authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)):
   - **Local:** bind to `127.0.0.1` and check it after starting the server (`ss -ltnp` on Linux,
     `lsof -nP -iTCP -sTCP:LISTEN` on macOS).
