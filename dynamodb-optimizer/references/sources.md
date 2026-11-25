@@ -62,7 +62,7 @@ Pages read on 2026-11-25 when this skill was written. Book contents and conferen
 ## Testing
 
 - [DynamoDB Local setup](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.html): port 8000, `-inMemory`, `-sharedDb`.
-- [DynamoDB Local usage notes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.UsageNotes.html): differences from the service (throughput ignored, sequential parallel scan, no transaction conflicts).
+- [DynamoDB Local usage notes](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.UsageNotes.html): differences from the service (throughput ignored, sequential parallel scan, no transaction conflicts, tables and indexes always `ACTIVE`, reads mostly strongly consistent).
 - [Testcontainers DynamoDB module](https://testcontainers.com/modules/dynamodb/): the `amazon/dynamodb-local` image.
 - [Testcontainers LocalStack module](https://java.testcontainers.org/modules/localstack/): endpoint override and credentials; LocalStack now needs an auth token.
 

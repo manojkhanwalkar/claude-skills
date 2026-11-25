@@ -7,7 +7,7 @@
 - Build each `TableSchema` (`fromBean`, `fromImmutableClass`) and `DynamoDbTable` once; they use reflection.
 - **Timeouts**: the SDK sets no default `apiCallTimeout` (whole call, all attempts) or `apiCallAttemptTimeout` (one attempt). Set both in `ClientOverrideConfiguration`. The values and the retry budget belong to the `resiliency` skill.
 - **Retries**: since SDK 2.58.0 the default mode is `standard`: for DynamoDB 4 attempts, 25 ms base delay, backoff with jitter on throttling and transient errors. `legacy` (the earlier default) makes 9 attempts. `adaptive` adds client-side rate limiting; use one client per table with it. Configure with `overrideConfiguration(o -> o.retryStrategy(RetryMode.STANDARD))`, `AWS_RETRY_MODE`, or `aws.retryMode`; `AWS_MAX_ATTEMPTS` caps attempts.
-- `TransactionCanceledException` is not retried by the SDK; `TransactionInProgressException` is.
+- `TransactionCanceledException` is a client error the SDK doesn't retry; handle it by its cancellation reasons (see Transactions).
 
 ## Paginators
 
@@ -96,7 +96,7 @@ item.put("expiresAt", AttributeValue.fromS(expiry.toString()));                 
 - Force pagination with a small `limit` and more items than one page; assert all come back.
 - Race test: two writers update the same version; assert one gets `ConditionalCheckFailedException`.
 - Mocked-client tests (Mockito on `DynamoDbClient`) when there's no container: capture the request with an `ArgumentCaptor` and assert `keyConditionExpression`, `indexName`, `projectionExpression`, `consistentRead`, `conditionExpression`; return `unprocessedItems` once and assert the second call re-sends them.
-- DynamoDB Local ignores throughput, runs parallel scans sequentially and never throws `TransactionConflictException`.
+- DynamoDB Local ignores throughput, runs parallel scans sequentially, never throws `TransactionConflictException`, makes indexes `ACTIVE` at once and returns reads that look strongly consistent (GSI lag never shows); simulate those with a mocked client.
 
 ## boto3
 
