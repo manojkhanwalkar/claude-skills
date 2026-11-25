@@ -30,21 +30,33 @@ PYTHON = {".py", ".pyi"}
 PACKAGE_DOC = {"package-info.java": re.compile(r"package\s+[\w.]+\s*;"),
                "doc.go": re.compile(r"package\s+\w+")}
 
-_STRINGS = (r'"""[\s\S]*?"""'              # Java/Kotlin/Swift text blocks
+_STRINGS = (r'"""[\s\S]*?"""'              # Java/Kotlin/Swift text blocks, C# raw strings
             r'|"(?:\\.|[^"\\\n])*"'
             r'|`(?:\\.|[^`\\])*`')          # Go raw strings, JS template literals
+_COMMENT = r"(?P<c>/\*[\s\S]*?\*/|//[^\n]*)"
 _LEXER = {
-    # Rust uses ' for lifetimes too, so only a one-character literal counts as a string there.
-    "rust": re.compile(r"(/\*[\s\S]*?\*/|//[^\n]*)|(" + _STRINGS + r"|'(?:\\.{1,10}|[^'\\\n])')"),
-    "other": re.compile(r"(/\*[\s\S]*?\*/|//[^\n]*)|(" + _STRINGS + r"|'(?:\\.|[^'\\\n])*')"),
+    # Rust uses ' for lifetimes too, so only a short literal counts as a char there.
+    ".rs": re.compile(_COMMENT + r'|(?P<s>b?r(?P<h>#*)"[\s\S]*?"(?P=h)|' + _STRINGS
+                      + r"|'(?:\\.{1,10}|[^'\\\n])')"),
+    ".cs": re.compile(_COMMENT + r'|(?P<s>@"(?:""|[^"])*"|' + _STRINGS + r"|'(?:\\.|[^'\\\n])*')"),
+    ".swift": re.compile(_COMMENT + r'|(?P<s>(?P<h>#+)"[\s\S]*?"(?P=h)|' + _STRINGS + r")"),
+    # JavaScript family: a regex literal candidate; split_c_like checks it isn't a division.
+    "js": re.compile(_COMMENT + r"|(?P<s>" + _STRINGS + r"|'(?:\\.|[^'\\\n])*')"
+                     r"|(?P<r>/(?![/*])(?:\\.|\[(?:\\.|[^\]\\\n])*\]|[^/\\\n\[])+/)"),
+    "other": re.compile(_COMMENT + r"|(?P<s>" + _STRINGS + r"|'(?:\\.|[^'\\\n])*')"),
 }
+JS = {".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"}
+_REGEX_BEFORE = re.compile(r"(?:^|[(,=:\[!&|?{};+\-*%<>~^]|\b(?:return|typeof|case|do|else|in|of|"
+                           r"void|yield|await|delete|throw|new))\s*$")
 DIRECTIVE = re.compile(
-    r"^(?:#!|//go:|//line |//export |//extern |//\s*\+build|///\s*<(?:reference|amd)"
-    r"|//\s*#(?:region|endregion))"
-    r"|@ts-(?:ignore|expect-error|nocheck|check)|eslint-(?:disable|enable)|prettier-ignore"
-    r"|webpack[A-Z]\w*\s*:|[@#]__PURE__|istanbul ignore|c8 ignore|NOSONAR|noinspection"
-    r"|CHECKSTYLE|@formatter:|nolint|noqa|type:\s*ignore|pragma:|fmt:\s*(?:off|on|skip)"
-    r"|-\*-\s*coding|swiftlint:|@jsx|@flow\b|NON-NLS|@vite-ignore")
+    r"^(?:#!|//go:|//line |//export |//extern |//\s*\+[\w./-]+|///\s*<(?:reference|amd)"
+    r"|//\s*#(?:region|endregion)|(?:/\*|//)\s*(?:eslint|global|jshint)\b)"
+    r"|@ts-(?:ignore|expect-error|nocheck|check)|eslint-(?:disable|enable|env)|prettier-ignore"
+    r"|webpack[A-Z]\w*\s*:|[@#]__PURE__|istanbul ignore|c8 ignore|NOSONAR|NOPMD|noinspection"
+    r"|ReSharper|CHECKSTYLE|@formatter:|nolint|noqa|type:\s*ignore|pragma:|fmt:\s*(?:off|on|skip)"
+    r"|pylint:|mypy:|pyright:|isort:|biome-ignore|tslint:|deno-lint-ignore|-\*-\s*coding"
+    r"|swiftlint:|@jsx|@flow\b|NON-NLS|@vite-ignore"
+    r"|@(?:Router|Param|Success|Failure|Summary|Description|Tags|Accept|Produce|Security|ID)\b")
 
 
 def git(repo, *args):
@@ -54,7 +66,11 @@ def git(repo, *args):
 
 
 def changed_files(repo, start):
-    """Return (status, path, old_path) for every change since start, untracked files as 'A'."""
+    """Return (changes as (status, path, old_path), untracked files that aren't source).
+
+    Untracked source and package doc files count as added ('A'); other untracked files (local
+    settings, build output not ignored) are returned apart, since the clean-tree rule allows them.
+    """
     out = git(repo, "diff", "--name-status", "-z", "-M", start).split("\0")
     changes, i = [], 0
     while i < len(out) - 1:
@@ -65,10 +81,13 @@ def changed_files(repo, start):
         else:
             changes.append((status[0], out[i + 1], None))
             i += 2
-    for path in git(repo, "ls-files", "--others", "--exclude-standard", "-z").split("\0"):
-        if path and (kind(path) or os.path.basename(path) in PACKAGE_DOC):
+    others = []
+    for path in filter(None, git(repo, "ls-files", "--others", "--exclude-standard", "-z").split("\0")):
+        if kind(path) or os.path.basename(path) in PACKAGE_DOC:
             changes.append(("A", path, None))
-    return changes
+        else:
+            others.append(path)
+    return changes, others
 
 
 def kind(path):
@@ -77,20 +96,38 @@ def kind(path):
     return "c" if ext in C_LIKE else "python" if ext in PYTHON else None
 
 
+def _lexer(path):
+    ext = os.path.splitext(path)[1].lower()
+    return _LEXER.get(ext) or _LEXER["js" if ext in JS else "other"]
+
+
 def split_c_like(text, path):
-    """Return (code lines as (line number, normalised text), directive comments) of a C-like file."""
-    lexer = _LEXER["rust" if path.endswith(".rs") else "other"]
-    directives, pieces, pos = [], [], 0
-    for m in lexer.finditer(text):
-        pieces.append(text[pos:m.start()])
-        if m.group(1):                       # a comment: keep its line breaks, drop its text
-            comment = m.group(1)
+    """Return (code lines as (line number, normalised text), directive comments) of a C-like file.
+
+    String literals are kept verbatim (their whitespace protected from normalisation); comments
+    are dropped but keep their line breaks, so line numbers still match the file.
+    """
+    lexer, jsx = _lexer(path), path.lower().endswith((".jsx", ".tsx"))
+    directives, pieces, pos, scan = [], [], 0, 0
+    while (m := lexer.search(text, scan)):
+        before = text[pos:m.start()]
+        comment = m.group("c")
+        line_so_far = (text[:m.start()].rsplit("\n", 1)[-1])
+        if m.lastgroup == "r" and not _REGEX_BEFORE.search("".join(pieces[-1:]) + before):
+            scan = m.start() + 1                 # a division, not a regex literal
+            continue
+        if comment and jsx and comment.startswith("//") and line_so_far.strip() \
+                and not line_so_far[-1].isspace():
+            scan = m.start() + 2                 # JSX text such as https://..., not a comment
+            continue
+        pieces.append(before)
+        if comment:
             if DIRECTIVE.search(comment):
                 directives.append(" ".join(comment.split()))
             pieces.append("\n" * comment.count("\n"))
-        else:
-            pieces.append(m.group(2))
-        pos = m.end()
+        else:                                    # a string or regex literal: protect its spaces
+            pieces.append(m.group().replace(" ", "\x01").replace("\t", "\x02"))
+        pos = scan = m.end()
     pieces.append(text[pos:])
     code = "".join(pieces).split("\n")
     return [(n, " ".join(line.split())) for n, line in enumerate(code, 1) if line.strip()], directives
@@ -154,8 +191,8 @@ def check_new(path, text):
 
 
 def check(repo, start):
-    """Return (number of files checked, list of 'path: problem' strings)."""
-    failures, changes = [], changed_files(repo, start)
+    """Return (number of files checked, list of 'path: problem' strings, untracked non-source)."""
+    failures, (changes, others) = [], changed_files(repo, start)
     for status, path, old_path in changes:
         if status == "R":
             failures.append(f"{path}: renamed from {old_path}; this skill never moves files")
@@ -174,7 +211,7 @@ def check(repo, start):
                 old = git(repo, "show", f"{start}:{path}").replace("\r\n", "\n")
                 problems = compare(path, old, new)
             failures.extend(f"{path}: {p}" for p in problems)
-    return len(changes), failures
+    return len(changes), failures, others
 
 
 def main(argv):
@@ -188,7 +225,9 @@ def main(argv):
     except subprocess.CalledProcessError as e:
         print(f"error: {e.stderr.strip() or 'not a commit: ' + args.start}", file=sys.stderr)
         return 2
-    count, failures = check(repo, args.start)
+    count, failures, others = check(repo, args.start)
+    for path in others:
+        print(f"NOTE {path}: untracked and not source, so not checked; leave it out of the commit")
     for failure in failures:
         print(f"FAIL {failure}")
     if failures:
