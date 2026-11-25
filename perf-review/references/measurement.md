@@ -54,7 +54,8 @@ A timing test, when needed, uses a generous bound (several times the expected va
 - Start with the app: `java -XX:StartFlightRecording=duration=60s,filename=rec.jfr,settings=profile -jar app.jar`.
 - On a running JVM: `jcmd <pid> JFR.start duration=60s filename=rec.jfr settings=profile`; `JFR.dump`, `JFR.stop`.
 - `default.jfc` is low overhead (production-safe); `profile.jfc` gives more detail at more cost.
-- Read with JDK Mission Control or `jfr print --events jdk.ExecutionSample,jdk.ObjectAllocationSample,jdk.JavaMonitorEnter,jdk.VirtualThreadPinned rec.jfr`, or `jfr summary`.
+- Read with JDK Mission Control, `jfr view hot-methods rec.jfr` (JDK 21+; also `allocation-by-site`, `contention-by-site`, `gc-pauses`), `jfr print --events jdk.ExecutionSample,jdk.ObjectAllocationSample,jdk.JavaMonitorEnter,jdk.VirtualThreadPinned rec.jfr`, or `jfr summary`.
+- `jdk.ExecutionSample` samples wall-clock-scheduled threads; on JDK 25+ on Linux, the experimental CPU-time sampler (`jdk.CPUTimeSample`, JEP 509) measures CPU time per method more accurately. Enable it explicitly (`jdk.CPUTimeSample#enabled=true`); it isn't in the default settings.
 
 ## async-profiler
 
@@ -89,5 +90,5 @@ export default function () { http.get('http://localhost:8080/api/health'); }
 
 ## Python and Node
 
-- Python: `python -m cProfile -s cumulative app.py` or `profiling.tracing` on 3.15+; `py-spy record -o profile.svg --pid <pid>` samples a running process with little overhead; `pytest-benchmark` for microbenchmarks.
+- Python: `python -m cProfile -s cumulative app.py` or `profiling.tracing` on 3.15+; `py-spy record -o profile.svg --pid <pid>` (or the built-in `profiling.sampling` profiler on 3.15+) samples a running process with little overhead; `pytest-benchmark` for microbenchmarks.
 - Node: `node --cpu-prof app.js` (a `.cpuprofile` for DevTools), or `node --prof` then `node --prof-process`; `autocannon` or k6 for load. Event-loop delay (`perf_hooks.monitorEventLoopDelay`) shows blocking. Clinic.js is unmaintained; use its results with care.

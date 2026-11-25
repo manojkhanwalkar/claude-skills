@@ -1,6 +1,6 @@
 # Sources
 
-Pages read on 2026-11-22 when this skill was written. Book contents are cited through the pages that describe them.
+Pages read on 2026-11-22 when this skill was written, and rechecked on 2026-11-25 for the JDK 24 and 25 changes. Book contents are cited through the pages that describe them.
 
 ## Methodology
 
@@ -22,6 +22,7 @@ Pages read on 2026-11-22 when this skill was written. Book contents are cited th
 - [Oracle, JDK 21 Diagnostic Tools](https://docs.oracle.com/en/java/javase/21/troubleshoot/diagnostic-tools.html): JFR recordings at start-up and with `jcmd`, the default and profile settings.
 - [Grafana k6, Open and closed models](https://grafana.com/docs/k6/latest/using-k6/scenarios/concepts/open-vs-closed/): arrival-rate executors, and coordinated omission in closed models.
 - [Python docs, profile](https://docs.python.org/3/library/profile.html): `cProfile` (an alias of `profiling.tracing` from 3.15), `pstats`, overhead caveats.
+- [PEP 799](https://peps.python.org/pep-0799/): the `profiling` package in 3.15, with `profiling.tracing` and the `profiling.sampling` statistical profiler.
 - [py-spy](https://github.com/benfred/py-spy): sampling profiler that attaches to running Python processes; flame graphs; ptrace permissions.
 - [Node.js, Profiling Node.js Applications](https://nodejs.org/en/learn/getting-started/profiling): `--prof` and `--prof-process`, and a sync-crypto example.
 - [Clinic.js on GitHub](https://github.com/clinicjs/node-clinic): Doctor, Flame, Bubbleprof, HeapProfiler; no longer actively maintained.
@@ -33,6 +34,10 @@ Pages read on 2026-11-22 when this skill was written. Book contents are cited th
 - [Oracle, Virtual Threads (JDK 21)](https://docs.oracle.com/en/java/javase/21/core/virtual-threads.html): for I/O-bound concurrency, never pooled, Semaphore for limits, pinning and `jdk.tracePinnedThreads`.
 - [Oracle, Virtual Threads (JDK 24)](https://docs.oracle.com/en/java/javase/24/core/virtual-threads.html): pinning now listed only for native methods and foreign functions.
 - [inside.java, JEP 491 targeted to JDK 24](https://inside.java/2024/11/15/jep491-target-jdk24/): `synchronized` no longer pins virtual threads from JDK 24 (found by search; openjdk.org refused the fetch).
+- [Oracle, Virtual Threads (JDK 25)](https://docs.oracle.com/en/java/javase/25/core/virtual-threads.html): pinning only for native methods and foreign functions; `jdk.VirtualThreadPinned` on by default at 20 ms.
+- [JDK-8337395, JEP 491](https://bugs.openjdk.org/browse/JDK-8337395) and [InfoQ, Virtual threads after JDK 24](https://infoq.com/articles/virtual-threads-after-jdk24): `jdk.tracePinnedThreads` has no effect from JDK 24; class initialization and native frames still pin.
+- [JEP 474](https://openjdk.org/jeps/474) and [JEP 490](https://openjdk.org/jeps/490): generational ZGC the default in JDK 23; non-generational mode removed in JDK 24.
+- [JEP 509](https://openjdk.org/jeps/509): experimental JFR CPU-time profiling on Linux in JDK 25 (`jdk.CPUTimeSample`).
 - [HikariCP, About Pool Sizing](https://github.com/brettwooldridge/HikariCP/wiki/About-Pool-Sizing): small pools, `(cores × 2) + spindles` as a start, the deadlock floor formula.
 - [AWS, SDK for Java 2.x best practices](https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/best-practices.html): reuse thread-safe clients, close streams so connections return to the pool, call timeouts.
 - [Oracle, HttpClient (Java 21)](https://docs.oracle.com/en/java/javase/21/docs/api/java.net.http/java/net/http/HttpClient.html): each client has its own connection pool; reuse one client.
