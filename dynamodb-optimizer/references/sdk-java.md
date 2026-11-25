@@ -37,7 +37,7 @@ QueryConditional range = QueryConditional.sortBetween(
         k -> k.partitionValue(customerId).sortValue(from),
         k -> k.partitionValue(customerId).sortValue(to));
 orders.query(r -> r.queryConditional(range)).items().forEach(this::accept);   // all pages
-orders.index("open-orders").query(r -> r.queryConditional(open))   // a GSI: SdkIterable<Page<T>>, no .items()
+orders.index("open-orders").query(r -> r.queryConditional(QueryConditional.keyEqualTo(k -> k.partitionValue("OPEN"))))   // a GSI: SdkIterable<Page<T>>, no .items()
       .stream().flatMap(page -> page.items().stream()).forEach(this::accept);
 ```
 
