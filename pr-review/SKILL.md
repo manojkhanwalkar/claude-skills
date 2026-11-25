@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
+description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, bring doc comments on the touched code up to date (documenter), post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
 ---
 
 # PR Review
@@ -37,7 +37,7 @@ The review is better done by someone who did not write the code:
 - If you can start a subagent, start one for the review. Give it the PR number, the branch, the build and test commands, the checklist below (including its **Design** item: run `design-patterns --diff origin/<base> --report-only`, and its **Performance** item: run `perf-review --diff origin/<base> --report-only` when it applies), and the review rules from Phase 1 step 4 together with the **Limits** section of the `review-guidelines` skill, and ask for **verified findings only**, returned as a table (one line per finding: `file:line`, severity, defect, scenario, fix) plus one line on what was checked and fine, not an essay. Start mechanical reviews (a Dependabot or other version-only PR) with `model: sonnet`; code and security reviews keep the strongest. One review agent per PR, never one agent for several PRs (its context grows with each).
 - If you can't, run the `code-review` skill on the PR, or review it yourself, rereading it as a demanding outsider would.
 
-**Small PRs skip the subagent.** A PR with fewer than 250 changed lines (additions plus deletions, as `gh pr view <n> --json additions,deletions` counts them, generated files included) gets no independent subagent review and no re-check rounds: review it yourself against the checklist below, rereading it as a demanding outsider would, and mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the security checks, the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. Count the lines again after your fixes: a PR that grew to 250 or more gets the subagent review.
+**Small PRs skip the subagent.** A PR with fewer than 250 changed lines (additions plus deletions, as `gh pr view <n> --json additions,deletions` counts them, generated files included) gets no independent subagent review and no re-check rounds: review it yourself against the checklist below, rereading it as a demanding outsider would, and mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the security checks, the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. Count the lines again after your fixes (leaving out the `documenter` commit): a PR that grew to 250 or more gets the subagent review.
 
 Checklist: read every changed file in full, not only the hunks.
 - **Correctness:**
@@ -104,7 +104,11 @@ Leave a finding open (with the reason) when the fix needs a product or design de
 When all fixes are in:
 - Build and test the changed modules and their dependents with a clean (not resumed) build: partial resumed runs can pick up stale sibling modules. CI runs the full suite and the coverage gate on the push.
 - Compare against the baseline.
-- Commit on the PR branch with a message listing the fixes, then push. Never force-push, and never rewrite the PR author's commits.
+- Commit on the PR branch with a message listing the fixes. Never force-push, and never rewrite the PR author's commits.
+
+**Doc comments, on every PR** (any size, including small self-reviewed ones; skip Dependabot and docs-only PRs): after the fixes above are committed (so the tree is clean), run `documenter --diff origin/<base>`. It adds or fixes class and method doc comments only on the types and functions the PR touched, changes comment lines only, and verifies that. Missing or stale docs on touched code are one Low finding that is always fixed, never left open; commit its edits on the PR branch as their own commit (`Docs: ...`). The lines it adds don't count toward the 250-line threshold: the recount after fixes leaves the `documenter` commit out.
+
+Then push both commits.
 
 ## Phase 4 – Report on the PR
 
@@ -118,6 +122,7 @@ Post one comment (`gh pr comment <n> --body-file -`):
 | 2 | … | Low | **Open:** why, and what decision is needed |
 | 3 | … | — | **Not a bug:** why |
 | 4 | … | Low | **Suppressed by R2:** the rule, in a few words |
+| 5 | Doc comments on touched code | Low | **Fixed** in `<sha>` by `documenter`: N added, M standardised, K stale fixed (or "already complete") |
 
 Below the table, give one line with the test results (counts before and after) and one with coverage (before and after; if under 95%, what is uncovered and why), and say which security and compliance checks ran (with the applicable summary rows from `compliance-check`, `digital-regulation-check` and `ada-compatibility`, or "not applicable" and why). If the PR body now says something untrue, update it with `gh pr edit`.
 

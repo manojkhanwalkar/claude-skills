@@ -1,6 +1,6 @@
 ---
 name: document
-description: Analyze a project's source code and write documentation that lets a newcomer understand it quickly - one doc per source file covering its purpose and every function/method, plus an overall summary file that is also merged into the existing README (or a new README if none exists). Use when the user asks to document a codebase, explain every file/function, generate code docs, or write/update a project summary or README. Args - optional path/module to limit scope, optional --inline to also add doc comments in the source files, optional --out DIR for the docs directory (default docs/).
+description: Analyze a project's source code and write documentation that lets a newcomer understand it quickly - one doc per source file covering its purpose and every function/method, plus an overall summary file that is also merged into the existing README (or a new README if none exists). Use when the user asks to document a codebase, explain every file/function, generate code docs, or write/update a project summary or README. For in-source doc comments only (Javadoc, docstrings), use documenter. Args - optional path/module to limit scope, optional --inline to also add doc comments in the source files (done by the documenter skill), optional --out DIR for the docs directory (default docs/).
 ---
 
 # Document
@@ -93,12 +93,7 @@ Write `<out>/OVERVIEW.md`, the entry point for a new reader:
 
 ## Phase 4 — Inline doc comments (only with `--inline`)
 
-Add or refresh idiomatic doc comments (Javadoc, KDoc, Python docstrings, JSDoc/TSDoc, Go doc comments, Rust `///`, C# XML docs, etc.) for each file, type, and public/non-trivial function, matching the style already used in the project.
-
-- Change **only comments** — no code, formatting, import, or whitespace changes elsewhere.
-- Do not duplicate the Markdown docs verbatim; inline comments should be brief (purpose, params, returns, errors).
-- Don't overwrite accurate existing doc comments; fix ones that are wrong.
-- After editing, run the project's build (and tests if quick), subject to **Trust**, to confirm nothing broke; revert any file that fails to compile because of your change. If building was declined, say the inline comments are uncompiled.
+Run the `documenter` skill on the same scope. It owns in-source doc comments (Javadoc, KDoc, docstrings, TSDoc/JSDoc, Go doc comments): class comments, comments on methods over 10 lines of code and on public API, standardising and fixing stale ones, comment lines only, verified by a build and a comment-only diff check. Keep the inline comments brief rather than copying the Markdown docs into them.
 
 ## Phase 5 — Verify and report
 
