@@ -109,6 +109,45 @@ class ReviewRegressionTest(unittest.TestCase):
             self.assertLess(time.monotonic() - start, 10, path)
 
 
+class FrameworkBindingTest(unittest.TestCase):
+    """Skill review (2026-11-25): bindings, modifiers, render-time content and test files."""
+
+    def test_vue_event_modifiers_still_count_as_clicks(self):
+        self.assertIn("click-no-key", kinds('<div @click.stop="go">Go</div>', "a.vue", page=False))
+        self.assertIn("anchor-no-href", kinds('<a v-on:click.prevent="go">Go</a>', "a.vue", page=False))
+
+    def test_bound_names_count(self):
+        self.assertEqual(kinds('<img v-bind:alt="d" src="x"><button :aria-label="l"></button>', "a.vue", page=False), [])
+        self.assertEqual(kinds('<html th:lang="${l}"><head><title>T</title></head></html>', "a.html", page=False), [])
+        self.assertEqual(kinds('<label th:for="e">E</label><input th:id="e">'), [])
+
+    def test_render_time_content_is_a_name(self):
+        self.assertEqual(kinds('<button th:text="#{save}"></button><a href="/h" th:text="#{help}"></a>'), [])
+        self.assertEqual(kinds('<button v-text="label"></button>', "a.vue", page=False), [])
+        self.assertEqual(kinds('<button [innerHTML]="label"></button>', "a.component.html", page=False), [])
+
+    def test_button_value_is_not_a_name(self):
+        self.assertIn("button-name", kinds('<button value="x"></button>'))
+
+    def test_paste_blocking_in_each_framework(self):
+        for body, path in (('<input aria-label="p" @paste.prevent>', "a.vue"),
+                           ('<input aria-label="p" (paste)="$event.preventDefault()">', "a.component.html"),
+                           ('<input aria-label="p" on:paste|preventDefault>', "a.svelte"),
+                           ("el.addEventListener('paste', (e) => e.preventDefault());", "a.js")):
+            self.assertIn("paste-blocked", kinds(body, path, page=False), body)
+
+    def test_script_files_are_not_checked_for_a_title(self):
+        layout = 'export default function L({ children }) { return <html lang="en"><body>{children}</body></html>; }'
+        self.assertEqual(kinds(layout, "app/layout.tsx", page=False), [])
+
+    def test_test_files_are_skipped(self):
+        for path in ("src/test/js/pages.test.js", "a.spec.tsx", "web/__tests__/x.html", "tests/page.html"):
+            self.assertTrue(a.is_test_path(path), path)
+            self.assertEqual(a.scan_file(path), [])
+        self.assertFalse(a.is_test_path(os.path.join(os.sep, "home", "test", "app", "index.html")))
+        self.assertFalse(a.is_test_path("src/contest/index.html"))
+
+
 class StyleTest(unittest.TestCase):
     def test_outline_removed_without_replacement(self):
         self.assertEqual(kinds("button:focus { outline: none; }", "a.css", page=False), ["outline-none"])
@@ -136,8 +175,10 @@ class FileTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         r = self.tmp.name
         os.makedirs(os.path.join(r, "node_modules"))
+        os.makedirs(os.path.join(r, "test"))
         files = {"index.html": PAGE.format('<img src="x">'), "x.min.js": "<img src=x>", "README.md": "<img src=x>",
-                 os.path.join("node_modules", "m.html"): "<img src=x>", "app.js": "const n = 1 < 2;"}
+                 os.path.join("node_modules", "m.html"): "<img src=x>", "app.js": "const n = 1 < 2;",
+                 os.path.join("test", "t.html"): "<img src=x>", "p.test.js": "const s = '<img src=x>';"}
         for name, body in files.items():
             with open(os.path.join(r, name), "w") as f:
                 f.write(body)
