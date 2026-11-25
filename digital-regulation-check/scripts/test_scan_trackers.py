@@ -135,6 +135,21 @@ class FileTest(unittest.TestCase):
         finally:
             os.chdir(old)
 
+    def test_empty_files_from_scans_nothing(self):
+        old = os.getcwd()
+        os.chdir(self.root)
+        try:
+            rc, out, err = self.run_main("--files-from", "-", stdin="")
+        finally:
+            os.chdir(old)
+        self.assertEqual((rc, out), (0, ""))
+        self.assertIn("# 0 lead(s)", err)
+
+    def test_overlapping_roots_scanned_once(self):
+        page = os.path.join(self.root, "index.html")
+        out = self.run_main(self.root, page, page)[1]
+        self.assertEqual(len(out.strip().splitlines()), 2, out)
+
     def test_missing_path(self):
         self.assertEqual(self.run_main(os.path.join(self.root, "nope.js"))[:2], (0, ""))
 

@@ -48,6 +48,7 @@ Virginia, Colorado, Connecticut, Utah, Texas, Oregon, Montana, Iowa, Delaware, N
 - **COPPA** (under 13): verifiable parental consent before collecting children's PI, including persistent identifiers for ads; 2025 amendments — separate consent for disclosure to third parties (incl. targeted ads), written data retention policy and deletion when no longer needed, written security program; compliance by 22 Apr 2026.
 - **GLBA** (financial institutions): privacy notice and opt-out of sharing with non-affiliated third parties (Reg. P); Safeguards Rule security program (see `compliance-check`).
 - **FCRA** (consumer reports, credit scores): permissible purpose before pulling a report; **adverse action notices** with the score used, key factors, bureau contact and dispute rights when credit is denied or terms worsened (ECOA/Reg. B also requires specific principal reasons — including when AI models drive the decision, per CFPB circulars); accuracy and dispute handling for furnishers.
+- **State AI/ADMT laws**: Colorado SB 26-189 (from 1 Jan 2027; replaced the 2024 Colorado AI Act before it took effect) regulates automated decision-making technology that materially influences consequential decisions — notice, explanation and correction or appeal paths; check the statute's domains and duties. Same code checks as GDPR Art. 22 (`gdpr.md` G-ADM) and the CCPA ADMT rules.
 - **HIPAA** (covered entities and business associates): flag and ask; don't treat health data casually even outside HIPAA (Washington My Health My Data Act: consent and a separate privacy policy for consumer health data, private right of action; Nevada and Connecticut similar).
 - **Biometrics** (Illinois BIPA, Texas CUBI, Washington): written notice and consent before collecting face/voice/fingerprint templates; retention schedule; no sale. BIPA has a private right of action.
 
@@ -90,6 +91,7 @@ Virginia, Colorado, Connecticut, Utah, Texas, Oregon, Montana, Iowa, Delaware, N
 ## Sources
 
 - California: Cal. Civ. Code §1798.100 et seq.; CPPA regulations (Cal. Code Regs. tit. 11, §7000+), incl. 2025 ADMT, risk assessment and cybersecurity audit regulations: https://cppa.ca.gov/regulations/ ; Transcend, "Engineering implications of the CPRA": https://transcend.io/blog/engineering-implications-cpra
+- Colorado SB 26-189 (2026): Skadden, "Colorado Repeals and Replaces Its AI Act": https://www.skadden.com/insights/publications/2026/06/colorado-repeals-and-replaces-its-ai-act
 - IAPP US State Privacy Legislation Tracker: https://iapp.org/resources/article/us-state-privacy-legislation-tracker/
 - FTC COPPA Rule amendments (2025); CFPB Circular 2022-03 and 2023-03 (adverse action with complex algorithms).
 - UK: Data (Use and Access) Act 2025; ICO Children's Code; Ofcom Online Safety codes; DMCC Act 2024.
