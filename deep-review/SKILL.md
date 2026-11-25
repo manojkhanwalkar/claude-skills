@@ -1,11 +1,11 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase (never a PR or diff) that fixes correctness bugs, optimizes performance, removes duplication, improves readability, rechecks security, and hardens the code against failures (timeouts, retries, limits, graceful degradation), applied in small verified steps with the project's own build and tests. Use only for the whole code base, e.g. "deep review the project", "review and clean up the codebase", "fix bugs across the project", "refactor the whole project for maintainability", "remove duplication across the codebase", "make the whole project faster/more robust". Do NOT use for a pull request, a branch, the current diff or a few files; use pr-review, code-review, security-review or simplify for those. Args - optional path/module scope, optional --report-only (no edits), optional --focus LIST of correctness,perf,dup,readability,security,resilience (default all), optional --out FILE for a markdown report.
+description: Deep review of an ENTIRE codebase (never a PR or diff) that fixes correctness bugs, optimizes performance, removes duplication, improves readability, rechecks security, and hardens the code against failures (timeouts, retries, limits, graceful degradation), applied in small verified steps with the project's own build and tests. Use only for the whole code base, e.g. "deep review the project", "review and clean up the codebase", "fix bugs across the project", "refactor the whole project for maintainability", "remove duplication across the codebase", "make the whole project faster/more robust". Do NOT use for a pull request, a branch, the current diff or a few files; use pr-review, code-review, security-review or simplify for those. Args - optional path/module scope, optional --report-only (no edits), optional --focus LIST of correctness,perf,dup,readability,security,resilience,docs (default all), optional --out FILE for a markdown report.
 ---
 
 # Deep Review
 
-A whole-codebase pass across six areas: **security, correctness, resilience, performance, duplication, readability/maintenance**. It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
+A whole-codebase pass across seven areas: **security, correctness, resilience, performance, duplication, readability/maintenance, documentation**. It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
 
 This skill looks at everything in scope, not at what changed recently. If the user is asking about a PR, a branch, a diff or "my changes", stop. Tell them to use `/pr-review` to review, fix and merge it (or `/code-review` / `/security-review` to only report) instead.
 
@@ -15,7 +15,7 @@ The value comes from verified, behaviour-preserving improvements. A finding is w
 
 - A path or module name → limit the review to that scope.
 - `--report-only` → do Phases 1–3 and report (Phase 5). Make no edits.
-- `--focus correctness,perf,dup,readability,security,resilience` → only those areas. The default is all six.
+- `--focus correctness,perf,dup,readability,security,resilience,docs` → only those areas. The default is all seven.
 - `--out <file>` → also write the report as markdown, for example `docs/DEEP-REVIEW.md`. In a public repo, ask before writing security findings inside the working tree.
 - No args → the whole repository, all areas, with fixes.
 
@@ -91,6 +91,7 @@ The areas, in the order they get fixed:
    - inconsistent error handling;
    - reinventing standard-library or project utilities;
    - docs (README, architecture) that disagree with the code.
+7. **Documentation** (in-source doc comments), when `docs` is in `--focus`. Run the `documenter` skill on the same scope: with `--report-only` when this review is report-only, and editing when it is making edits. It adds missing class comments and method comments (methods over 10 lines of code, and public API a reader needs), standardises existing ones and fixes stale ones, changing comment lines only. Do this area last, after the code fixes, so the comments describe the final code, and commit it separately on this review's branch (`Docs: ...`). Its missing and stale counts are Impact Low findings, always fixed when editing.
 
 **Design.** For the design side of duplication and readability (type switches, copied algorithm skeletons, god classes, primitive obsession, leaking external APIs, missing test seams, and pattern overuse), run the `design-patterns` skill on the same scope, when `dup` or `readability` is in `--focus`: with `--report-only` when this review is report-only, and with `--fix` when it is making edits, committing on this review's branch. Its findings join the duplication and readability findings, its Medium and Low recorded as Impact Medium and Low, with its effort, and are fixed in Phase 4 in that order.
 
@@ -108,7 +109,7 @@ With `--report-only`, go to Phase 5.
 
 ## Phase 4 – Fix, in small verified steps
 
-Fix in the order above: security, then correctness, resilience, performance, duplication and readability. Within an area, fix the highest severity first.
+Fix in the order above: security, then correctness, resilience, performance, duplication, readability and documentation. Within an area, fix the highest severity first.
 
 1. Make one logical change at a time.
 2. After each change, re-run the build and the affected tests (subject to **Trust**; if builds were declined, mark the change unverified). For a performance change, re-run its measurement.
@@ -135,6 +136,7 @@ Subject to **Trust**, run the full build and tests again and compare them with t
 - **Performance.** Each change with its before and after measurement, or its complexity argument.
 - **Duplication removed.** What was consolidated, and where it lives now.
 - **Readability and maintenance.** A brief list.
+- **Documentation.** `documenter`'s table, condensed to counts per module (added, standardised, stale fixed), and its verification line.
 - **Needs a decision.** Larger changes (architecture, new dependencies, API changes), each with a recommendation.
 - **Suppressed by review rules.** Each suppressed Low, and each Medium the user accepted, with the rule it matched.
 - **Committed secrets.** For every hardcoded secret found, give the file and key but never the value, and say that it must be rotated.

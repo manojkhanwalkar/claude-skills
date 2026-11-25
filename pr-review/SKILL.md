@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
+description: Review a GitHub pull request end to end - an independent review of the PR's diff for bugs, security, resilience and test gaps, then fix the confirmed problems on the PR branch with tests, bring doc comments on the touched code up to date (documenter), post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review) or only commenting without merging (use code-review --comment). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
 ---
 
 # PR Review
@@ -101,6 +101,8 @@ For each confirmed finding, most severe first:
 
 Leave a finding open (with the reason) when the fix needs a product or design decision, a new dependency, or a change outside the PR's scope. A Low finding may also be left open, with its reason.
 
+**Doc comments, on every PR** (any size, including small self-reviewed ones; skip Dependabot and docs-only PRs): run `documenter --diff origin/<base>`. It adds or fixes class and method doc comments only on the types and functions the PR touched, changes comment lines only, and verifies that. Missing or stale docs on touched code are one Low finding that is always fixed, never left open; commit its edits on the PR branch as their own commit (`Docs: ...`). The lines it adds don't change whether the PR counts as small: that is measured before fixes, as for any reviewer fix.
+
 When all fixes are in:
 - Build and test the changed modules and their dependents with a clean (not resumed) build: partial resumed runs can pick up stale sibling modules. CI runs the full suite and the coverage gate on the push.
 - Compare against the baseline.
@@ -118,6 +120,7 @@ Post one comment (`gh pr comment <n> --body-file -`):
 | 2 | … | Low | **Open:** why, and what decision is needed |
 | 3 | … | — | **Not a bug:** why |
 | 4 | … | Low | **Suppressed by R2:** the rule, in a few words |
+| 5 | Doc comments on touched code | Low | **Fixed** in `<sha>` by `documenter`: N added, M standardised, K stale fixed (or "already complete") |
 
 Below the table, give one line with the test results (counts before and after) and one with coverage (before and after; if under 95%, what is uncovered and why), and say which security and compliance checks ran (with the applicable summary rows from `compliance-check`, `digital-regulation-check` and `ada-compatibility`, or "not applicable" and why). If the PR body now says something untrue, update it with `gh pr edit`.
 
