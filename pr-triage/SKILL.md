@@ -46,7 +46,9 @@ For each repository:
    ```
    Check `gh`'s exit status before parsing: on a 403 or 404 it still prints the error JSON, which `jq` would otherwise count as alerts. (`gh api` doesn't allow `--slurp` together with `--jq`, hence the separate `jq`.) A failed call means the feature is off or not visible; report that and go on, never as "no alerts".
 4. **Remote branches:** `gh api repos/<r>/branches --paginate --jq '.[] | {name, sha: .commit.sha, protected}'`. Match each to its PRs from step 2 by `headRefName`, keeping only same-repository PRs (`isCrossRepository == false`).
-5. **Local clones.** Only for repositories with a local clone the session knows: the current directory, or a path the user or the project memory names. In each, `git fetch --prune`, then `git worktree list --porcelain` and `git branch -vv`. Don't search the disk for clones.
+5. **Local clones.** Only for repositories with a local clone the session knows: the current directory, or a path the user or the project memory names. In each, `git fetch --prune`, then `git worktree list --porcelain` and `git branch -vv`. Don't search the disk for clones. Note each worktree's `locked` and `prunable` lines.
+
+A gather call that fails (network, rate limit, 403) leaves that item's state **unknown**: report it, re-read once with backoff, and never rank it as green or red. The same holds for checks: pending checks or an empty `statusCheckRollup` are not green.
 
 ## Phase 2 – Rank
 
@@ -55,8 +57,8 @@ Put each item into the first band that fits:
 | Band | Items | Suggested action |
 |---|---|---|
 | **P0** | Default-branch CI red; Dependabot security PRs (author `app/dependabot`, and the body mentions a GHSA id or "Vulnerabilities fixed", or the bumped package matches an open alert's package from step 3); open critical or high Dependabot alerts; secret-scanning alerts | Fix CI first (`fix-ci` where installed); review and merge the security PRs; rotate secrets |
-| **P1** | PRs ready to merge: checks green, `mergeStateStatus` CLEAN, not draft | `pr-review` (it reviews, then merges) |
-| **P2** | Checks failing (`UNSTABLE`, or a required check red); conflicts (`DIRTY`) or behind (`BEHIND`); changes requested; waiting on review (`BLOCKED` with `reviewDecision` `REVIEW_REQUIRED`); `HAS_HOOKS` or still `UNKNOWN` after a re-query | `fix-ci` / `resolve-conflicts` where installed (else fix in the PR); review; ping nobody without asking |
+| **P1** | PRs ready to merge: checks green, `mergeStateStatus` `CLEAN` or `BEHIND`, not draft | `pr-review` (it updates a branch that is behind, waits for CI once, reviews, then merges) |
+| **P2** | Checks failing (`UNSTABLE`, or a required check red); conflicts (`DIRTY`); changes requested; waiting on review (`BLOCKED` with `reviewDecision` `REVIEW_REQUIRED`); checks pending or missing; `HAS_HOOKS`, or state unknown after a re-query | `fix-ci` / `resolve-conflicts` where installed (else fix in the PR); review; ping nobody without asking |
 | **P3** | Stale PRs (no update for `--stale-days`); drafts | Ask the author or the user; propose closing if abandoned |
 
 Within a band, order Dependabot PRs together (they often touch the same lockfile, so each merge makes the next one stale), then by age.
@@ -70,7 +72,8 @@ Within a band, order Dependabot PRs together (they often touch the same lockfile
 - never touch the default branch, protected branches, long-lived branches (`develop`, `main`, `master`, `release/*`, `hotfix/*`), or a branch an open PR uses as its head **or its base** (a stacked PR's base);
 - a remote branch is a **delete candidate** only when its PR was **merged** and its tip still equals that PR's `headRefOid` (nothing pushed since);
 - everything else is listed as **needs a decision** and never deleted without a per-branch confirmation: a closed but unmerged PR's branch, a branch with no PR (even one fully contained in the default branch: it may be a new working branch or a deploy branch), and a tip with commits nobody merged;
-- local branches whose upstream is gone, and worktrees whose branch is merged or whose directory is missing, are clean-up candidates; uncommitted or untracked work in a worktree is archived before anything is removed (Phase 4).
+- local branches whose upstream is gone, and worktrees whose branch's PR was merged or whose directory is missing (`prunable`), are clean-up candidates; uncommitted or untracked work in a worktree is archived before anything is removed (Phase 4);
+- a **locked** worktree (agent worktrees under `.claude/worktrees` are often locked by the harness while an agent runs) is listed as locked and skipped: never unlock it or force its removal.
 
 ## Phase 3 – Plan
 
@@ -82,18 +85,28 @@ Without `--apply`, stop here.
 
 With `--apply`, ask the user which numbered actions to carry out (all, a list, or none). Then, in this order:
 
-1. **Merges go through `pr-review` only**, one PR at a time, P0 then P1, each in its own review (one agent per PR, never one agent working through the batch). A grouped Dependabot PR of minor and patch bumps, green and with release notes that show nothing breaking, takes `pr-review`'s self-review path (any agent it needs starts with `model: sonnet`); a major version, a breaking change, a failing check or a security advisory gets the full review. Never merge directly or with admin rights. After each merge, the remaining Dependabot PRs in that repository usually need rebasing: comment `@dependabot rebase` on the next one (Dependabot's own command; it notifies nobody else) and wait for its checks before reviewing it.
-   After the merges in a repository, keep the merged-PR counter, a due deep review and the design doc correct (the user's rules 2 and 5): in that repository's local clone, run `post-merge-sync <n>` for each PR merged in this run, oldest first. For a repository without a known local clone, list those PRs in the final report as pending `post-merge-sync`.
-2. **Failing checks and conflicts** go to `fix-ci` and `resolve-conflicts` where installed; otherwise list them for the user.
-3. **Closing a PR** happens only after the user confirms that specific PR. Leave a short comment saying why (superseded by #n, duplicate of #n, no activity since <date>), then `gh pr close <n> -R <r>`. Never delete a fork's branch.
-4. **Deleting branches**: just before each delete, re-check that no open PR uses the branch as head or base. Then delete atomically, so a push since the plan makes it fail instead of losing work: `git push --force-with-lease=<b>:<recorded sha> origin --delete <b>` in a clone. Without a clone, re-read the branch's SHA (`gh api repos/<r>/branches/<b> --jq .commit.sha`), compare it with the recorded one, then `gh api -X DELETE repos/<r>/git/refs/heads/<b>`; a small window remains between the check and the delete, so prefer the clone path when one exists. Branches marked "needs a decision" are deleted only after a per-branch confirmation, with their extra commits saved first (`git format-patch` into the scratchpad).
-5. **Worktrees and local branches**, in local clones only: first `cd` to the main worktree. Archive uncommitted work exactly as `post-merge-sync` Phase 5 step 3 does (patches and a tar of untracked files in the session's scratchpad, names listed, contents never printed), ask before removing work that looks unfinished, then `git worktree remove` and `git worktree prune`. Delete local branches with `git branch -d`, or `-D` only under `post-merge-sync`'s ancestry check.
-6. If an action fails or the state changed since the plan (new commits, new reviews), skip it and report; don't improvise a different action.
+1. **Red default-branch CI first.** Run `fix-ci --default-branch` (where installed); its fix PR goes through `pr-review` like any other. Hold the other merges in that repository until the default branch is green, since they would merge onto red.
+2. **Merges go through `pr-review` only**, one PR at a time per repository, P0 then P1. Start one background agent per PR with a brief scoped to that PR (never one agent working through the batch); its own report is the only progress signal, so start no watcher beside it. A grouped Dependabot PR of minor and patch bumps, green and with release notes that show nothing breaking, takes `pr-review`'s self-review path and its agent starts with `model: sonnet`; a major version, a breaking change, a failing check or a security advisory gets the full review. Never merge directly or with admin rights.
+   - **The next Dependabot PR.** Each merge usually leaves the next one `BEHIND` or `DIRTY`. `BEHIND` needs nothing extra: `pr-review` updates the branch (`gh pr update-branch`) and waits for CI once. For `DIRTY` (a lockfile conflict), comment `@dependabot rebase` (Dependabot's own command; it notifies nobody else) so Dependabot regenerates the lockfile; if it answers that the PR was edited by someone else, comment `@dependabot recreate`. Start that PR's `pr-review` only after its `headRefOid` changes, in one background wait that reports once, so the review waits for CI once.
+   - **A watcher error** (GitHub unreachable, rate limit, "no checks reported" just after a push) is neither red nor green: re-read the checks with backoff, as `pr-review` does.
+   - **Sync.** After the merges in a repository, keep the merged-PR counter, a due deep review and the design doc correct (the user's rules 2 and 5): in that repository's local clone, run `post-merge-sync` once with the newest PR merged in this run; it syncs every earlier unsynced merge with it, oldest first, and cleans up their branches. For a repository without a known local clone, list those PRs in the final report as pending `post-merge-sync`.
+3. **Failing checks and conflicts** go to `fix-ci` and `resolve-conflicts` where installed, one agent per PR starting with `model: sonnet`; `fix-ci` separates real failures from ones that only look red. Otherwise list them for the user.
+4. **Closing a PR** happens only after the user confirms that specific PR. Leave a short comment saying why (superseded by #n, duplicate of #n, no activity since <date>), then `gh pr close <n> -R <r>`. Never delete a fork's branch.
+5. **Deleting remote branches.** Just before each delete, re-check that no open PR uses the branch as head or base (`gh pr list -R <r> --state open --head <b>` and `--base <b>` both empty). Then:
+   - **In a clone:** `git ls-remote --exit-code origin refs/heads/<b>`. Exit 2 means the branch is already gone (often `post-merge-sync` or `--delete-branch` removed it): report it and skip. Any other non-zero exit is an error: skip and report. On exit 0, its first field must equal the recorded SHA; then delete atomically, so a push since the check makes it fail instead of losing work: `git push --force-with-lease=<b>:<recorded sha> origin --delete <b>`.
+   - **Without a clone:** re-read the SHA (`gh api repos/<r>/branches/<b> --jq .commit.sha`; a 404 means already gone), compare it with the recorded one, then `gh api -X DELETE repos/<r>/git/refs/heads/<b>`. A small window remains between the check and the delete, so prefer the clone path when one exists.
+   - **"Needs a decision" branches** are deleted only after a per-branch confirmation, and only from a clone, with their extra commits saved first: `git format-patch origin/<default>..origin/<b> -o <scratchpad>/<b>-unmerged/`. Without a clone, list them and skip.
+6. **Worktrees and local branches**, in local clones only (a cleanup agent, if one is used, starts with `model: sonnet`). First `cd` to the main worktree (the first entry of `git worktree list`). Skip and report every locked worktree. For each other candidate `<wt>`:
+   - **Archive** uncommitted work into the session's scratchpad: `git -C <wt> diff` and `git -C <wt> diff --cached` as patch files, and the untracked files with `git -C <wt> ls-files -o --exclude-standard -z | tar -C <wt> --null -T - -czf <archive>.tgz`. List the archived file names; never print their contents (they may include `.env` files or keys).
+   - **Ask** before going on if that work looks like a real change that never reached a PR (new code or tests, not build output).
+   - **Remove** it with `git worktree remove <wt>` (`--force` only after archiving, and never twice to override a lock), then `git worktree prune`.
+   - **Local branches:** `git branch -d <b>`. A squash merge isn't an ancestor, so `-d` usually refuses; use `-D` only when the branch's PR was merged and its tip is that PR's head or behind it (`git merge-base --is-ancestor <b> <headRefOid>`, fetching `pull/<n>/head` first if needed). A branch with no merged PR keeps `-d` only, or goes to "needs a decision".
+7. If an action fails or the state changed since the plan (new commits, new reviews), skip it and report; don't improvise a different action.
 
 ## Final report
 
 - Per repository: the ranked table, then what was done (merged via `pr-review` with SHAs, closed, deleted, archived) and what was skipped and why.
 - Default-branch CI and security alert status.
 - Close candidates and branches that need the user's decision.
-- Where archives were saved.
+- Where archives were saved, and the locked worktrees that were skipped.
 - Merged PRs still pending `post-merge-sync` (repositories without a local clone).
