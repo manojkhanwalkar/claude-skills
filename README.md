@@ -142,6 +142,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-25 | [#37](https://github.com/manojkhanwalkar/claude-skills/pull/37) | Review ada-compatibility: scanner reads Vue modifiers, Thymeleaf and bound attributes, catches paste blocking in every framework, skips test files; `--diff` returns a findings table; stale baselines are flagged |
 | 2026-11-25 | [#36](https://github.com/manojkhanwalkar/claude-skills/pull/36) | Add dynamodb-optimizer: inventory DynamoDB tables and access patterns, fix correctness and cost issues (keys, indexes, queries, TTL, transactions) in small tested steps; deep-review runs it, perf-review points to it |
 | 2026-11-25 | [#35](https://github.com/manojkhanwalkar/claude-skills/pull/35) | Add documenter: class and method doc comments, standardised and kept current; pr-review runs it on every PR, deep-review on the whole project, document `--inline` delegates to it |
 | 2026-11-22 | [#34](https://github.com/manojkhanwalkar/claude-skills/pull/34) | Deep review every 10 merged PRs instead of 5 (rule 5), to spend fewer tokens: post-merge-sync, javatopython-converter, README |

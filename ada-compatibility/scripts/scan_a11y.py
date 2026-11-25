@@ -21,7 +21,13 @@ Kinds (WCAG success criterion in brackets):
   outline-none       outline: none/0 in CSS (check a visible :focus-visible style exists) [2.4.7]
   autoplay           <video>/<audio> with autoplay                         [1.4.2, 2.2.2]
   heading-skip       heading level jumps by more than one (h2 -> h4) in a file [1.3.1]
-  paste-blocked      onpaste that prevents paste (blocks password managers) [3.3.8]
+  paste-blocked      a paste handler that prevents paste (onpaste, @paste.prevent, (paste),
+                     on:paste|preventDefault, addEventListener('paste'))     [3.3.8]
+
+Bound attributes count as the attribute (:alt, v-bind:alt, th:alt, [attr.alt] -> alt), and
+th:text / v-text / v-html / [innerHTML] count as content. Test files (*.test.*, *.spec.*, and
+test, tests, __tests__, __mocks__ folders) are skipped: markup in them is test data, not UI.
+Web only: mobile screens (SwiftUI, Compose, layouts) are reviewed by reading them.
 
 Usage:
   scan_a11y.py [PATH ...]           (default .)
@@ -46,6 +52,8 @@ SKIP_DIRS = {
     ".git", ".hg", ".svn", "node_modules", "target", "build", "dist", "out", ".gradle", ".idea",
     ".venv", "venv", "__pycache__", ".next", ".nuxt", "coverage", "htmlcov", "vendor", "storybook-static",
 }
+TEST_DIRS = {"test", "tests", "__tests__", "__mocks__"}
+TEST_FILE = re.compile(r"\.(?:test|spec)\.[a-z]+$", re.IGNORECASE)
 MARKUP_SUFFIXES = (".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte", ".jsp", ".ftl", ".erb", ".hbs",
                    ".mustache", ".twig", ".jinja", ".j2", ".cshtml", ".razor", ".php", ".astro")
 SCRIPT_SUFFIXES = (".js", ".mjs", ".ts")  # may build markup in template literals
@@ -54,7 +62,7 @@ STYLE_SUFFIXES = (".css", ".scss", ".sass", ".less")
 TAG_OPEN = re.compile(r"<([a-zA-Z][a-zA-Z0-9-]*)\b")
 # Attribute keys include Vue (:x, @x, v-bind:x), Svelte (on:x) and Angular ([x], (x), [attr.x]) bindings.
 ATTR = re.compile(r"""(\[[\w.:-]+\]|\([\w.:-]+\)|[:@#*a-zA-Z_][-:.\w]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|\{([^{}]*)\}|([^\s"'>]+)))?""")
-LABEL_FOR = re.compile(r"""<label\b[^>]{0,500}?\s(?:(?::|v-bind:)?for|htmlFor|\[for\]|\[attr\.for\])\s*=\s*(?:["'{]\s*["']?)?([^"'}\s>]+)""",
+LABEL_FOR = re.compile(r"""<label\b[^>]{0,500}?\s(?:(?::|v-bind:|th:)?for|htmlFor|\[for\]|\[attr\.for\])\s*=\s*(?:["'{]\s*["']?)?([^"'}\s>]+)""",
                        re.IGNORECASE)
 TITLE = re.compile(r"<title\b[^>]{0,200}>\s*([^<\s][^<]*)</title>", re.IGNORECASE)
 HEADING = re.compile(r"<h([1-6])\b", re.IGNORECASE)
@@ -63,13 +71,18 @@ OUTLINE_NONE = re.compile(r"outline\s*:\s*(?:none|0(?:px|em|rem)?)(?![\w.])", re
 # A replacement focus indicator: a visible outline, box-shadow or border on a :focus rule (not "none"/0).
 FOCUS_STYLE = re.compile(r":focus(?:-visible|-within)?\b[^{]{0,500}\{[^}]{0,2000}?"
                          r"(?:outline|box-shadow|border(?:-[a-z]+)?)\s*:(?!" + NONE_VALUE + r")", re.IGNORECASE)
-PASTE_BLOCK = re.compile(r"""on[Pp]aste\s*=\s*["'{][^"'}]*(return\s+false|preventDefault)""")
+PASTE_BLOCK = re.compile(r"""on[Pp]aste\s*=\s*["'{][^"'}]*(?:return\s+false|preventDefault)"""
+                         r"""|(?:@|v-on:)paste\.prevent\b|on:paste\|preventDefault"""
+                         r"""|\(paste\)\s*=\s*["'][^"']*preventDefault"""
+                         r"""|addEventListener\(\s*["']paste["'][^;]{0,200}?preventDefault""")
 
 FORM_CONTROLS = {"input", "select", "textarea"}
 NO_LABEL_INPUT_TYPES = {"hidden", "submit", "reset", "button", "image"}
 CLICK_ATTRS = {"onclick", "@click", "v-on:click", "(click)", "on:click"}
 NON_INTERACTIVE = {"div", "span", "li", "td", "tr", "img", "p", "section", "article", "svg"}
 NATIVELY_FOCUSABLE = {"a", "button", "input", "select", "textarea", "summary", "iframe"}
+# Attributes that fill an element's content at render time (Thymeleaf, Vue, Angular, React).
+CONTENT_ATTRS = {"text", "utext", "v-text", "v-html", "innerhtml", "textcontent", "dangerouslysetinnerhtml"}
 
 
 class Hit(NamedTuple):
@@ -124,12 +137,20 @@ def parse_tags(text: str, jsx: bool = False) -> Iterator[Tag]:
 
 
 def normalise_key(key: str) -> str:
-    """Bound attributes count as the attribute: [attr.aria-label] / [aria-label] -> aria-label. (click) stays."""
+    """Bound attributes count as the attribute: [attr.x], [x], :x, v-bind:x and th:x -> x.
+
+    Vue event modifiers are dropped (@click.stop -> @click); (click) and on:click stay.
+    """
     key = key.lower()
     if key.startswith("[") and key.endswith("]"):
         key = key[1:-1]
         if key.startswith("attr."):
             key = key[5:]
+    for prefix in ("v-bind:", "th:", ":"):
+        if key.startswith(prefix) and len(key) > len(prefix):
+            return key[len(prefix):]
+    if key.startswith(("@", "v-on:")):
+        return key.split(".", 1)[0]
     return key
 
 
@@ -178,11 +199,11 @@ NAME_ATTRS = ("aria-label", "aria-labelledby", "title")
 
 
 def has_name(attrs: dict) -> bool:
-    for key in NAME_ATTRS:
-        for variant in (key, ":" + key, "v-bind:" + key):
-            if attrs.get(variant, "").strip():
-                return True
-    return False
+    return any(attrs.get(key, "").strip() for key in NAME_ATTRS)
+
+
+def has_content(attrs: dict) -> bool:
+    return any(key in attrs for key in CONTENT_ATTRS)
 
 
 class Lines:
@@ -217,7 +238,8 @@ def scan_markup(path: str, text: str) -> Iterator[Hit]:
     def inside_a_label(index: int) -> bool:
         i = bisect.bisect_right(label_starts, index) - 1
         return i >= 0 and label_spans[i][0] <= index < label_spans[i][1]
-    full_page = re.search(r"<html\b", text, re.IGNORECASE) is not None
+    # Script files (JSX, Next.js layouts) set the title by other means, such as metadata exports.
+    full_page = not jsx and re.search(r"<html\b", text, re.IGNORECASE) is not None
     lines = Lines(text)
     last_heading = 0
 
@@ -229,36 +251,36 @@ def scan_markup(path: str, text: str) -> Iterator[Hit]:
         ln = lines.of(tag.start)
         role = a.get("role", "").lower()
 
-        if name == "html" and "lang" not in a and ":lang" not in a:
+        if name == "html" and "lang" not in a:
             yield Hit(path, ln, "html-lang", "<html> has no lang")
 
-        if name == "img" and "alt" not in a and ":alt" not in a and "aria-hidden" not in a \
+        if name == "img" and "alt" not in a and "aria-hidden" not in a \
                 and role not in {"presentation", "none"}:
             yield Hit(path, ln, "img-alt", "<img> without alt (use alt=\"\" if decorative)")
 
         if name in FORM_CONTROLS:
             kind = a.get("type", "text").lower()
             if not (name == "input" and kind in NO_LABEL_INPUT_TYPES):
-                control_id = a.get("id") or a.get(":id") or a.get("v-bind:id") or ""
+                control_id = a.get("id") or ""
                 inside_label = inside_a_label(tag.start)
                 if not (has_name(a) or (control_id and control_id in labelled_ids) or inside_label):
                     yield Hit(path, ln, "input-label", f"<{name}{' type=' + kind if name == 'input' else ''}> has no label")
 
         if name == "button" or role == "button":
             content = inner_text(text, tag)
-            if content is not None and not visible_text(content) and not has_name(a) and "value" not in a:
+            if content is not None and not visible_text(content) and not has_name(a) and not has_content(a):
                 yield Hit(path, ln, "button-name", f"<{tag.name}> has no accessible name")
 
         if name == "a":
             href = a.get("href")
-            if href is None and "to" not in a and ":href" not in a and "routerlink" not in a:
+            if href is None and "to" not in a and "routerlink" not in a:
                 if any(k in a for k in CLICK_ATTRS) and role != "button":
                     yield Hit(path, ln, "anchor-no-href", "<a> without href used as a button")
             elif href is not None and (href.strip() in {"#", ""} or href.strip().lower().startswith("javascript:")):
                 yield Hit(path, ln, "anchor-no-href", f"<a href=\"{href.strip()[:20]}\"> used as a button")
             if href is not None or "to" in a:
                 content = inner_text(text, tag)
-                if content is not None and not visible_text(content) and not has_name(a):
+                if content is not None and not visible_text(content) and not has_name(a) and not has_content(a):
                     yield Hit(path, ln, "link-name", "link has no accessible name")
 
         tabindex = a.get("tabindex", "")
@@ -291,6 +313,10 @@ def scan_markup(path: str, text: str) -> Iterator[Hit]:
 
     if full_page and not TITLE.search(text):
         yield Hit(path, 1, "page-title", "page has no non-empty <title>")
+    yield from scan_paste(path, text, lines)
+
+
+def scan_paste(path: str, text: str, lines: Lines) -> Iterator[Hit]:
     for m in PASTE_BLOCK.finditer(text):
         yield Hit(path, lines.of(m.start()), "paste-blocked", "paste is prevented")
 
@@ -322,6 +348,8 @@ def scan_text(path: str, text: str) -> list[Hit]:
                 offset = text.count("\n", 0, open_end + 1)
                 hits.extend(h._replace(line=h.line + offset) for h in scan_style(path, body))
                 pos = close + 7
+    elif lower.endswith(SCRIPT_SUFFIXES):
+        hits.extend(scan_paste(path, text, Lines(text)))  # no markup, but a listener may still block paste
     return sorted(hits, key=lambda h: h.line)
 
 
@@ -331,13 +359,27 @@ def iter_files(roots: list[str]) -> Iterator[str]:
             yield root
             continue
         for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS and d not in TEST_DIRS]
             for name in filenames:
                 yield os.path.join(dirpath, name)
 
 
+def is_test_path(path: str) -> bool:
+    """A test file, or a relative path (as git lists it) inside a test folder.
+
+    Folders of an absolute path aren't checked, so a checkout under /home/me/test/ is still scanned;
+    the directory walk prunes test folders below the scan root instead.
+    """
+    parts = re.split(r"[\\/]", path)
+    if TEST_FILE.search(parts[-1]):
+        return True
+    return not os.path.isabs(path) and any(p in TEST_DIRS for p in parts[:-1])
+
+
 def scan_file(path: str) -> list[Hit]:
-    if not path.lower().endswith(MARKUP_SUFFIXES + SCRIPT_SUFFIXES + STYLE_SUFFIXES) or path.lower().endswith(".min.js"):
+    lower = path.lower()
+    if not lower.endswith(MARKUP_SUFFIXES + SCRIPT_SUFFIXES + STYLE_SUFFIXES) or lower.endswith(".min.js") \
+            or is_test_path(path):
         return []
     try:
         st = os.lstat(path)

@@ -211,7 +211,7 @@ The same criteria apply, through the platform accessibility APIs:
 - **Cypress:** `cy.injectAxe(); cy.checkA11y(null, { runOnly: ['wcag2a','wcag2aa','wcag21a','wcag21aa','wcag22aa'] })`.
 - **CLI or CI without a test suite:** `npx pa11y-ci` (runner `axe`, standard `WCAG2AA`) or `npx @axe-core/cli <urls> --exit`.
 - **Server-rendered pages in Java:** `org.jsoup` assertions on the rendered HTML (each `input` has a `label[for]` or `aria-label`; `html[lang]`; each `img[alt]`). Also `com.deque.html.axe-core:playwright` or `selenium` if a browser runs in CI.
-- **Linters:** `eslint-plugin-jsx-a11y` (recommended or strict), `eslint-plugin-vuejs-accessibility`, `@angular-eslint/template` accessibility rules, `stylelint-a11y`.
+- **Linters:** `eslint-plugin-jsx-a11y` (recommended or strict), `eslint-plugin-vuejs-accessibility`, `@angular-eslint/template` accessibility rules, `@double-great/stylelint-a11y` (the maintained fork of the archived `stylelint-a11y`).
 - **Gate on new violations:** fail CI on any new violation. If legacy debt exists, baseline the known ones explicitly (a reviewed allow-list with expiry), never wholesale.
 - **Manual pass for every UI PR that changes interaction:**
   - keyboard only: Tab, Shift+Tab, Enter, Space, Escape, arrow keys;
