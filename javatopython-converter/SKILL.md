@@ -102,9 +102,9 @@ After each merge, `post-merge-sync` updates both when the PR changed behaviour, 
 6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the absolute path with every character other than `A–Z`, `a–z` and `0–9` replaced by `-`):
    - the Java origin (repo + source SHA), and the design doc and diagram links;
    - the counters `post-merge-sync` keeps (total merged PRs, merged since the last deep review, last deep review, last sync), at 0 with no last deep review or sync yet; that skill maintains them from here on;
-   - the **link `port-parity` reads**: source = the Java repo and local path, target = this one, parity baseline = the source SHA, and an empty parity backlog.
+   - the **link `port-parity` reads**, in its exact `## Parity link` format (port-parity §Parity memory): Role target, the Java repo as source and this one as target (repo, local path, default branch), and the full source SHA as the parity baseline.
 
-   Write the same link and baseline into the **Java project's memory** too (memory only; the Java repo is never touched), so that `post-merge-sync` there records contract changes as a parity backlog for the port. Update existing memory files rather than adding duplicates, and add one-line pointers to each `MEMORY.md`.
+   Write the same block with Role source into the **Java project's memory** too (memory only; the Java repo is never touched). The parity backlog lives there: `post-merge-sync` adds a line to it whenever a Java PR changes the contract. Update existing memory files rather than adding duplicates, and add one-line pointers to each `MEMORY.md`.
 
 ## Phase 4 – Convert through PRs
 
@@ -164,7 +164,7 @@ After the first module PR merges (the first real code, rule 4): run `compliance-
 
 1. **Project memory:** open questions and links up to date (`post-merge-sync` keeps the counters).
 2. If the port handles sensitive data, run **`owasp-top10`** on the whole project (rule 4).
-3. **Hand off to `port-parity`:** check both projects' memory carries the link and the parity baseline from Phase 3. If golden files were re-captured from a newer Java commit during the port, move the baseline to that commit. From now on Java changes reach the port through `port-parity`, never by re-running this skill.
+3. **Hand off to `port-parity`:** check both projects' memory carries the link and the parity baseline from Phase 3, and add the capture scripts' paths as its `Golden capture` line. If golden files were re-captured from a newer Java commit during the port, move the baseline to that commit. From now on Java changes reach the port through `port-parity`, never by re-running this skill.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 
 ## Final report to the user
