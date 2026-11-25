@@ -97,4 +97,4 @@ Skip `target/`, `build/`, `node_modules/` and generated code.
 - Is there a test where a conditional write fails (two writers, a stale version)?
 - Is there a test that an expired-but-present item is not returned?
 - Is there a test that unprocessed batch items are re-sent (a mocked client returning `UnprocessedItems` once)?
-- DynamoDB Local differences: no throughput limits, `Segment`/`TotalSegments` ignored, no `TransactionConflictException`, table names case-insensitive. Don't rely on it for those.
+- DynamoDB Local differences: no throughput limits, `Segment`/`TotalSegments` ignored, no `TransactionConflictException`, indexes `ACTIVE` at once, reads that look strongly consistent (a GSI read-after-write bug passes), table names case-insensitive. Don't rely on it for those.
