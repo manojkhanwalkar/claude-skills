@@ -92,7 +92,7 @@ Write the business change and the outgoing message to an outbox table in the sam
 - Clients ignore unknown fields (tolerant reader).
 - A major version in the path (`/v1`); run old and new major versions side by side for a transition period, and track who still calls the old one before removing it.
 - Idempotency keys on operations that are not safe to repeat, so retries can't duplicate effects.
-- Errors in one documented shape; map them, don't leak stack traces.
+- Errors in one documented shape (RFC 9457 problem details), with a `type` per business outcome so a caller can tell a business "no" from a missing or misconfigured route; map them, don't leak stack traces.
 
 ## Between services
 
