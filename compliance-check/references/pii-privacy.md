@@ -79,19 +79,18 @@ Each item has an ID (`PII-…`) to cite in findings. Grep hints are leads only.
 - **Access / portability**: a way to export everything held about a person (all stores in the inventory) in a machine-readable form, without other people's data.
 - **Deletion / erasure**: a path that deletes or irreversibly anonymises the person's data in every store — primary DB, caches, search, vector stores, queues, files, analytics, third parties (notified) — with legal-hold exceptions (e.g. SOX/financial records that must be retained are kept, minimised and flagged). Soft-delete flags alone don't erase. Test it.
 - **Correction**: PII fields are editable and corrections propagate to copies.
-- **Opt-out / limit**: honour opt-out of sale/sharing and the Global Privacy Control (`Sec-GPC: 1`) header if the business sells/shares data or does targeted ads; limit use of sensitive PI if used beyond the service.
+- **Opt-out / limit** (sale/sharing opt-out, Global Privacy Control, limit use of sensitive PI): legal design owned by `digital-regulation-check`; cite it from there.
 - Requests are authenticated/verified before data is returned or deleted (an unauthenticated "export my data" is a breach generator).
 
 ## PII-CON — Consent and defaults (GDPR Art. 6, 7, 25(2))
 
-- Optional processing (marketing emails, analytics, sharing, model training) is off by default and needs an affirmative action; consent is recorded with timestamp, version of the notice and source, and withdrawal is as easy as giving it.
-- Cookies and trackers that aren't strictly necessary load only after consent.
+Owned by `digital-regulation-check` (consent, cookies and trackers, privacy by default). When it runs on the same change, mark this area "see digital-regulation-check"; otherwise note it under "not checked" and recommend running it.
 
 ## PII-3P — Third parties, transfers and AI/LLM use (GDPR Art. 28, 44+; CPRA service-provider rules)
 
 - List every third party that receives PII (email/SMS providers, analytics, error trackers, LLM APIs, credit bureaus, KYC vendors) and what fields; flag any that receive more than they need.
 - **LLMs**: redact or tokenise PII before it goes into a prompt, a tool result, a vector store or agent memory; don't log prompts/responses with PII; check the provider's data-retention and no-training settings; guard against the model echoing another user's data (see `owasp-llm-top10` LLM02).
-- Cross-border transfers (e.g. EU data to US regions) need a basis — flag region configuration that moves data unexpectedly.
+- Cross-border transfers: flag region configuration that moves data unexpectedly; the legal basis (SCCs, adequacy) is `digital-regulation-check`'s.
 
 ## PII-TEST — Test data and non-production
 

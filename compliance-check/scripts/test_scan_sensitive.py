@@ -163,6 +163,30 @@ class FileWalkTest(unittest.TestCase):
         finally:
             os.chdir(old)
 
+    def test_empty_files_from_scans_nothing(self):
+        old = os.getcwd()
+        os.chdir(self.root)  # the default "." would find two leads here
+        try:
+            rc, out, err = self.run_main("--files-from", "-", stdin="\n")
+        finally:
+            os.chdir(old)
+        self.assertEqual((rc, out), (0, ""))
+        self.assertIn("# 0 lead(s)", err)
+
+    def test_overlapping_roots_scanned_once(self):
+        path = os.path.join(self.root, "src", "App.java")
+        twice = os.path.join(self.root, "src", ".", "App.java")
+        out = self.run_main(path, twice, os.path.join(self.root, "src"))[1]
+        self.assertEqual(sum("App.java:" in l for l in out.splitlines()), 1, out)
+
+    @unittest.skipUnless(hasattr(os, "symlink"), "needs symlinks")
+    def test_symlink_listed_first_does_not_hide_its_target(self):
+        path = os.path.join(self.root, "src", "App.java")
+        link = os.path.join(self.root, "link.java")
+        os.symlink(path, link)
+        out = self.run_main(link, path)[1]
+        self.assertIn("App.java:1: ssn", out)
+
     def test_missing_file_is_ignored(self):
         rc, out, _ = self.run_main(os.path.join(self.root, "nope.txt"))
         self.assertEqual((rc, out), (0, ""))

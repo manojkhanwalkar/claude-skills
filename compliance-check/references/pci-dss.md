@@ -23,7 +23,7 @@ Grep hints are leads only: read the code and trace the data.
 - **What is account data?** Cardholder data (CHD) = PAN, plus name, expiry and service code *when stored with the PAN*. Sensitive authentication data (SAD) = full track/chip data, CVV/CVC/CID (card verification code), PIN and PIN block. PCI applies to every system component that **stores, processes or transmits** CHD/SAD, and to anything connected to or able to affect its security.
 - **12.5.2 / 12.5.2.1**: scope must be documented and confirmed (annually; every 6 months for service providers), including every data flow and location of account data. In code: the data inventory from Phase 1 *is* the scope evidence. Flag any flow of PAN that the project's docs don't mention.
 - **Reduce scope before you protect it.** The best finding fix is often "stop touching PAN": use the processor's hosted fields / iframe / redirect (Stripe Elements or Checkout, Braintree Hosted Fields, Adyen Drop-in, Recurly.js) and keep only the processor token, brand, last four and expiry. Then the merchant typically files **SAQ A** (iframe/redirect) or **SAQ A-EP** (your page posts card data via JS you control).
-- **SAQ A since v4.0.1**: 6.4.3 and 11.6.1 were removed from SAQ A, but the merchant must confirm its site is *not susceptible to attacks from scripts that could affect the e-commerce system* — in practice, the same script controls (see below). SAQ A-EP and SAQ D must implement 6.4.3 and 11.6.1 in full.
+- **SAQ A (revised January 2025, for v4.0.1)**: 6.4.3 and 11.6.1 were removed from SAQ A, but the merchant must confirm its site is *not susceptible to attacks from scripts that could affect the e-commerce system* — in practice, the same script controls (see below). SAQ A-EP and SAQ D must implement 6.4.3 and 11.6.1 in full.
 - Grep: `card_?number|cardNumber|pan\b|primary_?account|cc_?num|creditCard|expiry|exp_?month|cvv|cvc|security_?code|track|pin_?block|stripe|braintree|adyen|recurly|checkout|payment_?method|tokeni[sz]`
 
 ## 3 — Protect stored account data
@@ -61,7 +61,7 @@ Grep: `sha(1|256|512)\(|MessageDigest|hashlib|digest\(` near PAN · `@Column.*(c
 | **6.4.1 / 6.4.2** | Public-facing web apps protected by an automated solution that detects and prevents web attacks (WAF), actively running and logging. | Infrastructure; note if absent from IaC. |
 | **6.5.1 / 6.5.2** | Changes to production follow change control: reason, security impact, approval, testing, rollback plan; PCI requirements re-confirmed after significant changes. | PR template sections; release workflow with environment approval. |
 | **6.5.3 / 6.5.4** | Pre-production separated from production; separation of duties between those who develop and those who deploy to production. | Separate accounts/projects/credentials; deploy only by pipeline. |
-| **6.5.5** | **Live PANs not used in pre-production** (tests, fixtures, seed data, staging) — except in a pre-prod environment itself in PCI scope. | Use network test PANs; scanner `pan` hits in tests are High. |
+| **6.5.5** | **Live PANs not used in pre-production** (tests, fixtures, seed data, staging) — except in a pre-prod environment itself in PCI scope. | Use network test PANs. A scanner `pan` hit in tests (Luhn-valid, brand prefix, not a published test number) is High until shown synthetic; `test-pan` hits are fine. |
 | **6.5.6** | Test data and test accounts removed before production. | No default/test users seeded in prod profiles; `@Profile("!prod")` on seeders. |
 
 ## 6.4.3 / 11.6.1 — Payment page scripts
