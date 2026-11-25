@@ -82,6 +82,8 @@ The areas, in the order they get fixed:
    - slow start-up.
 
    Run the `perf-review` skill on the same scope for this area when `perf` is in `--focus`: with `--report-only` when this review is report-only, and with `--fix` when it is making edits, committing on this review's branch. Its findings, estimates and measurements are this area's findings (its High, Medium and Low recorded as Impact High, Medium and Low), fixed in Phase 4 in that order.
+
+   **DynamoDB.** When the project uses DynamoDB (an AWS SDK DynamoDB dependency, `DynamoDbClient` or `DynamoDbEnhancedClient`, boto3 `dynamodb`, `@aws-sdk/client-dynamodb`, or table definitions in IaC or `createTable` code) and `perf` or `correctness` is in `--focus`, also run the `dynamodb-optimizer` skill on the same scope: `--report-only` when this review is report-only, `--fix` when it is making edits, committing on this review's branch. It covers keys, indexes, queries, TTL, capacity, consistency and transactions; its findings join this review's table, its correctness findings (pagination ignored, unprocessed batch items, races without conditions) under Correctness at their severity and the rest under Performance on the Impact scale, and its schema changes that can't be undone go under Needs a decision. Leave DynamoDB items to it rather than reporting them twice from `perf-review`.
 5. **Duplication.** Copy-pasted logic across files or modules, near-identical classes, repeated constants and config, and parallel code paths that drifted apart. Extract only when the shared version is clearly simpler than the copies.
 6. **Readability and maintenance:**
    - dead code;
@@ -134,6 +136,7 @@ Subject to **Trust**, run the full build and tests again and compare them with t
 - **Correctness.** Each bug with `file:line`, what was wrong, the fix, and the test that covers it.
 - **Resilience.** Each failure mode found, how it is now handled, and the test that proves it.
 - **Performance.** Each change with its before and after measurement, or its complexity argument.
+- **DynamoDB.** When `dynamodb-optimizer` ran: its inventory table (tables, keys, indexes, TTL, readers and writers), condensed, and its checked-and-fine line; its findings sit in the Correctness and Performance tables.
 - **Duplication removed.** What was consolidated, and where it lives now.
 - **Readability and maintenance.** A brief list.
 - **Documentation.** `documenter`'s table, condensed to counts per module (added, standardised, stale fixed), and its verification line.

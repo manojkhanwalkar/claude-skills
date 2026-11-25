@@ -28,6 +28,8 @@ Every round trip to a store costs network time plus the store's work. On a hot p
 
 ## DynamoDB
 
+These are the basics for a PR's diff. For a full DynamoDB review (table and index inventory, access patterns matched to keys, TTL, transactions, cost arithmetic, schema fixes) run the `dynamodb-optimizer` skill; `deep-review` runs it on projects that use DynamoDB.
+
 ### Query, not Scan
 
 - A `Scan` reads the whole table or index and filters afterwards; a 1 MB page of 4 KB items costs about 128 read units eventually consistent (256 strongly). On a request path it is Medium at least. Use `GetItem`, `Query` on the partition key, `BatchGetItem`, or a GSI keyed for the access pattern.

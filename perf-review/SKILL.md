@@ -43,7 +43,7 @@ Size the map to the scope; with `--diff` this takes minutes.
 
 ## Phase 2 – Detect
 
-Read `references/checklist.md` now (signs to grep for, by area), plus `references/jvm.md` for JVM code and `references/data-access.md` for SQL, JPA or DynamoDB. With `--diff`, read every changed file in full, not only the hunks, and the hot path around it.
+Read `references/checklist.md` now (signs to grep for, by area), plus `references/jvm.md` for JVM code and `references/data-access.md` for SQL, JPA or DynamoDB. For a full DynamoDB review (schema, indexes, TTL, transactions) point to `dynamodb-optimizer` rather than going deeper here. With `--diff`, read every changed file in full, not only the hunks, and the hot path around it.
 
 Look for at least these, each with `file:line` evidence:
 
