@@ -20,7 +20,8 @@ Matched values are never printed in full - only the last four characters.
 
 Usage:
   scan_sensitive.py [PATH ...]           scan files or directories (default .)
-  scan_sensitive.py --files-from -       read file paths from stdin (e.g. git diff --name-only)
+  scan_sensitive.py --files-from -       read file paths from stdin (e.g. git diff --name-only);
+                                         an empty list scans nothing
   scan_sensitive.py --json ...           one JSON object per line instead of text
 
 Standard library only. Reads files as data; never executes or imports them.
@@ -179,15 +180,29 @@ def scan_line(path: str, lineno: int, line: str) -> Iterator[Hit]:
             yield Hit(path, lineno, "log-pii", name.group(0))
 
 
+def walk(root: str) -> Iterator[str]:
+    if os.path.isfile(root):
+        yield root
+        return
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for name in filenames:
+            yield os.path.join(dirpath, name)
+
+
 def iter_files(roots: list[str]) -> Iterator[str]:
+    """Each file once, even when roots overlap (a file and its directory, or a path listed twice).
+
+    Paths are compared after normalisation, not symlink resolution: scan_file skips symlinks,
+    so resolving one here could hide the real file it points to.
+    """
+    seen: set[str] = set()
     for root in roots:
-        if os.path.isfile(root):
-            yield root
-            continue
-        for dirpath, dirnames, filenames in os.walk(root):
-            dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
-            for name in filenames:
-                yield os.path.join(dirpath, name)
+        for path in walk(root):
+            key = os.path.normcase(os.path.abspath(path))
+            if key not in seen:
+                seen.add(key)
+                yield path
 
 
 def scan_file(path: str) -> Iterator[Hit]:
@@ -225,8 +240,8 @@ def main(argv: list[str] | None = None) -> int:
         src = sys.stdin if args.files_from == "-" else open(args.files_from, encoding="utf-8")
         with src:
             roots += [p.strip() for p in src if p.strip()]
-    if not roots:
-        roots = ["."]
+    if not roots and not args.files_from:
+        roots = ["."]  # an empty --files-from list (a diff with no files) scans nothing, not the whole tree
 
     count = 0
     for path in iter_files(roots):

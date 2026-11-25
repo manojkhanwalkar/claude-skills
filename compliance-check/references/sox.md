@@ -27,7 +27,7 @@ SOX scope is a business decision (public company or pre-IPO, financially signifi
 
 Auditors pick a sample of production changes and ask: was each one requested, tested, approved by someone other than the developer, and deployed through the controlled path? Can any change reach production without that?
 
-- **CM1 — every change goes through a PR** to the protected production branch; no direct pushes, including by admins (`enforce_admins`), no force pushes or deletions. Check: `gh api repos/{owner}/{repo}/branches/main/protection` or rulesets (`gh api repos/{owner}/{repo}/rulesets`).
+- **CM1 — every change goes through a PR** to the protected production branch; no direct pushes, including by admins (`enforce_admins`), no force pushes or deletions. Check: `gh api repos/{owner}/{repo}/branches/<default branch>/protection` and the rules that apply to it (`gh api repos/{owner}/{repo}/rules/branches/<default branch>`), which include org- and repo-level rulesets.
 - **CM2 — independent approval**: at least one approving review by someone other than the author; stale approvals dismissed on new commits; last-push approval required (so the approver saw the final code); CODEOWNERS review for financial modules.
 - **CM3 — tested before deploy**: required status checks (build, tests, coverage) must pass; branch must be up to date.
 - **CM4 — deployment only by pipeline** from the protected branch, with an environment protection rule (required reviewers, `main`-only deployment branches) for production; no manual `kubectl apply`, console edits, or SSH changes. Deploy workflows use OIDC, not long-lived cloud keys.
@@ -100,7 +100,7 @@ Auditors pick a sample of production changes and ask: was each one requested, te
 
 ## SOX-EVD — Evidence
 
-- Prefer machine-generated evidence over screenshots: export branch protection and rulesets (`gh api`), PR review history (`gh pr list --state merged --json number,author,reviews,mergedBy`), deployment history (`gh api repos/{owner}/{repo}/deployments`), workflow run logs.
+- Prefer machine-generated evidence over screenshots: export branch protection and rulesets (`gh api`), PR review history (`gh pr list --state merged --search "merged:>=<period start>" --limit 1000 --json number,author,reviews,mergedBy,mergeCommit`; the default limit is 30), deployment history (`gh api repos/{owner}/{repo}/deployments`), workflow run logs.
 - A check for unreviewed changes: every commit on `main` since the last audit maps to a merged PR with an approving review by someone other than the author.
 
 ## Sources
