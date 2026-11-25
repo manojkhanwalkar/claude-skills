@@ -37,10 +37,11 @@ QueryConditional range = QueryConditional.sortBetween(
         k -> k.partitionValue(customerId).sortValue(from),
         k -> k.partitionValue(customerId).sortValue(to));
 orders.query(r -> r.queryConditional(range)).items().forEach(this::accept);   // all pages
-orders.index("open-orders").query(...)   // a GSI: returns pages of results
+orders.index("open-orders").query(r -> r.queryConditional(open))   // a GSI: SdkIterable<Page<T>>, no .items()
+      .stream().flatMap(page -> page.items().stream()).forEach(this::accept);
 ```
 
-- `query`, `scan` and batch calls return `PageIterable` (sync) or `PagePublisher` (async); `.items()` iterates across all pages. Code that takes `.iterator().next()` or `.stream().findFirst()` on pages reads one page only.
+- A table's `query` and `scan` return `PageIterable` (sync) or `PagePublisher` (async); `.items()` iterates across all pages. An index's (`DynamoDbIndex`) return `SdkIterable<Page<T>>`: flatten the pages as above. `batchGetItem` returns `BatchGetResultPageIterable` and `batchWriteItem` a `BatchWriteResult` (see Batch calls). Code that takes `.iterator().next()` or `.stream().findFirst()` on pages reads one page only.
 - `QueryConditional.keyEqualTo`, `sortBeginsWith`, `sortBetween`, `sortGreaterThan(OrEqualTo)`, `sortLessThan(OrEqualTo)` are key conditions; methods named `sort...` compare the sort key, they don't sort. A `filterExpression` on the request is applied after the read.
 
 ## Batch calls
@@ -50,7 +51,8 @@ Map<String, List<WriteRequest>> pending = Map.of(table, requests);   // ≤ 25, 
 for (int attempt = 0; !pending.isEmpty(); attempt++) {
     if (attempt == MAX_ATTEMPTS) throw new IllegalStateException(count(pending) + " items not written");
     if (attempt > 0) sleep(backoffWithJitter(attempt));               // e.g. 50 ms × 2^attempt, full jitter, cap 2 s
-    BatchWriteItemResponse r = dynamo.batchWriteItem(b -> b.requestItems(pending));
+    var batch = pending;                                              // a lambda needs an effectively final local
+    BatchWriteItemResponse r = dynamo.batchWriteItem(b -> b.requestItems(batch));
     pending = r.hasUnprocessedItems() ? r.unprocessedItems() : Map.of();
 }
 ```

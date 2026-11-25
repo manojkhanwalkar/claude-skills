@@ -131,7 +131,7 @@ Keep the report to the tables and these lines; no essay. With `--out`, write the
 
 ## How other skills use it
 
-- **deep-review**: when the project uses DynamoDB (an SDK dependency, `DynamoDbClient`, boto3 `dynamodb`, or table definitions), its DynamoDB area runs this skill on the same scope: `--fix` when deep-review is editing, `--report-only` when it is report-only. Findings join deep-review's table on its Impact scale.
+- **deep-review**: when the project uses DynamoDB (an SDK dependency, `DynamoDbClient`, boto3 `dynamodb`, or table definitions), its DynamoDB area runs this skill on the same scope: `--fix` when deep-review is editing, `--report-only` when it is report-only. Findings join deep-review's table: correctness findings under Correctness at their severity, the rest under Performance on the Impact scale.
 - **perf-review** points here for a full DynamoDB review; it keeps the basics for PR diffs. `pr-review` does not run this skill.
 
 ## References

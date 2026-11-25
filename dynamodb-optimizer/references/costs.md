@@ -28,7 +28,7 @@ Arithmetic for the "Evidence and estimate" column. State every input; label the 
 
 ## Capacity modes
 
-- **On-demand** (the default and AWS's recommendation): pay per request, no planning; per-table default ceilings of 40,000 read and 40,000 write units per second apply. Good for spiky, unknown or low traffic.
+- **On-demand** (AWS's recommendation, and the default in the console and CDK `TableV2`; the `CreateTable` API, CloudFormation and SAM `AWS::DynamoDB::Table` and CDK `Table` default to provisioned when no billing mode is set, so check IaC): pay per request, no planning; per-table default ceilings of 40,000 read and 40,000 write units per second apply. Good for spiky, unknown or low traffic.
 - **Provisioned**: pay for units per hour whether used or not; cheaper for steady, predictable, high load, with auto scaling. A table at low utilisation is paying for idle capacity; one at high utilisation without auto scaling throttles on spikes.
 - Recommending a mode switch is a "Needs a decision" item with the monthly arithmetic both ways from real or stated traffic.
 - **Per partition**: 3,000 RCU and 1,000 WCU per second, whatever the mode. A 4 KB item read strongly 3,000 times a second, or a 1 KB item written 1,000 times a second, is at the limit.
