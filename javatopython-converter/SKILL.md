@@ -1,6 +1,6 @@
 ---
 name: javatopython-converter
-description: Convert a Java project (Maven or Gradle; plain Java, Spring Boot, Spring AI, MCP servers or clients, CLIs, libraries) into an idiomatic, behaviour-equivalent Python project in a new IntelliJ project and a new GitHub repository, through the standard process - PRs only, CI with a 95% coverage gate, CodeQL, dependency and secret scanning, Dependabot, branch protection, design doc and system diagram, a separate agent reviewing every PR (pr-review), security-review, and owasp-llm-top10 for LLM/agent code. Use when the user asks to port, convert, migrate, rewrite or translate a Java project, module or service to Python, even without saying "converter". Not for a single snippet in chat. Args - optional Java project path (default the current directory), optional --name PYTHON_NAME (default the Java name plus Py), optional --dir PARENT_DIR (default ~/IdeaProjects), optional --public (default private repo), optional --module PATH for one module only, optional --no-merge to stop with the PRs open.
+description: Convert a Java project (Maven or Gradle; plain Java, Spring Boot, Spring AI, MCP servers or clients, CLIs, libraries) into an idiomatic, behaviour-equivalent Python project in a new IntelliJ project and GitHub repository, with the standard process - PRs only, a 95% coverage gate, CodeQL and scanning, Dependabot, branch protection, design doc and diagram, golden-file parity tests captured from the Java build, every PR through pr-review and post-merge-sync - then hands the pair to port-parity. Use when the user asks to port, convert, migrate, rewrite or translate a Java project, module or service to Python, even without saying "converter". Not for a snippet in chat, or for keeping an existing port in step (port-parity). Args - optional Java project path (default the current directory), optional --name PYTHON_NAME (default Java name plus Py), optional --dir PARENT_DIR (default ~/IdeaProjects), optional --public (default private), optional --module PATH (one module), optional --no-merge (stop with PRs open).
 ---
 
 # Java → Python converter
@@ -10,7 +10,7 @@ idiomatic Python, and arrives with the same engineering process as every other p
 
 1. A **new IntelliJ project** in its own directory.
 2. A **new GitHub repository**, set up like the others (CI, security, Dependabot, branch protection).
-3. The code arrives through **PRs**, each reviewed by a **separate agent**, security-checked, and merged only on green CI.
+3. The code arrives through **PRs**, each taken through `pr-review` (an independent reviewer on PRs of 250 or more changed lines, a self-review below that), security-checked, and merged only on green CI.
 4. **Behaviour parity** with the Java original is proven by tests, not assumed.
 
 The Java project is the source of truth and is **never modified**.
@@ -38,6 +38,11 @@ uv --version                   # project and venv manager
 python3 --version              # pick the newest stable CPython uv can install (uv python list)
 git -C <java-path> status      # source must be a clean git checkout
 ```
+
+Record the **source SHA** (`git -C <java-path> rev-parse HEAD`). It becomes the parity baseline
+that `port-parity` later diffs from, so it must be on the remote default branch
+(`git -C <java-path> fetch && git -C <java-path> merge-base --is-ancestor HEAD origin/<default>`);
+if it isn't, ask the user whether to push it or convert from `origin/<default>` instead.
 
 Note the Java build tool (`mvnw`/`mvn`/`gradlew`) and run the Java build **and tests** once as
 the baseline. Record pass/fail counts. If Java tests already fail, record which ones and tell
@@ -72,7 +77,7 @@ Look for existing ones first: `Artifact` list and the new project's memory. Then
 - **Design doc** — a Claude Doc named exactly `<name>`. Sections: Purpose, Origin (link the Java repo and commit SHA converted), Architecture, Module mapping, Library mapping, Public contract, Parity strategy, Performance/resilience/scale trade-offs (rule 6), Security, Testing and coverage, Open questions.
 - **System diagram** — a Design canvas named `<name> System Diagram`: a system page plus one page per major flow.
 
-Update both whenever a later PR changes behaviour, APIs, data or architecture.
+After each merge, `post-merge-sync` updates both when the PR changed behaviour, APIs, data or architecture.
 
 ## Phase 3 – Create the IntelliJ project and the GitHub repository
 
@@ -94,7 +99,12 @@ Update both whenever a later PR changes behaviour, APIs, data or architecture.
    ```
    Use `--public` instead of `--private` when the user passed `--public` or chose a public repo.
 5. **Repository settings** — see `references/github-setup.md` §Settings: secret scanning + push protection, Dependabot alerts and security updates, private vulnerability reporting (public repos), auto-delete head branches, squash-merge only. Branch protection on `main` is set **after PR 1's CI has run once**, so the required check names exist.
-6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the absolute path with every character other than `A–Z`, `a–z` and `0–9` replaced by `-`): a project memory with the Java origin (repo + SHA), the design doc and diagram links, and a **merged-PR counter** (starts at 0) for rule 5. Add the pointers to `MEMORY.md`.
+6. **Project memory** for the new project (`~/.claude/projects/<encoded path of the new dir>/memory/`, the absolute path with every character other than `A–Z`, `a–z` and `0–9` replaced by `-`):
+   - the Java origin (repo + source SHA), and the design doc and diagram links;
+   - the counters `post-merge-sync` keeps (total merged PRs, merged since the last deep review, last deep review, last sync), at 0 with no last deep review or sync yet; that skill maintains them from here on;
+   - the **link `port-parity` reads**: source = the Java repo and local path, target = this one, parity baseline = the source SHA, and an empty parity backlog.
+
+   Write the same link and baseline into the **Java project's memory** too (memory only; the Java repo is never touched), so that `post-merge-sync` there records contract changes as a parity backlog for the port. Update existing memory files rather than adding duplicates, and add one-line pointers to each `MEMORY.md`.
 
 ## Phase 4 – Convert through PRs
 
@@ -116,11 +126,12 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 - **Resilience (rule 6):** every outbound call has a timeout; retries only on recoverable errors and idempotent calls, with exponential backoff + jitter (`tenacity` or hand-rolled); token-bucket + concurrency-cap limits on every service, returning 429/503 with `Retry-After`. Use the `resiliency` skill's checklist. If the Java code lacked these, add them and note it in the design doc as an intentional difference.
 - **Security:** carry over every Java control (auth, validation, size limits, log redaction, safe path handling) and don't weaken one. Never log secrets or PII. No `eval`, `exec`, `pickle` on untrusted data, `shell=True`, or `yaml.load` without `SafeLoader`.
 - **Logging:** `logging` with module loggers; keep Java's log levels and don't log what Java deliberately didn't.
+- **UI (rule 4a):** if the Java project serves a UI, the port's UI meets WCAG 2.2 AA: native elements, a label on every control, visible focus, and axe checks (Playwright or jest-axe) in CI. `pr-review` runs `ada-compatibility --diff` on it.
 
 ### Proving parity
 
 - Every Java test has a Python counterpart (name mapping in the test's docstring: `Ports: FooTest.testBar`). List any you intentionally drop, with the reason, in the PR body.
-- **Golden tests:** for anything with an external contract, run the Java build to capture real responses (HTTP, MCP tool results, CLI output) for a representative input set, commit them under `tests/golden/` together with the capture script (stdlib-only, so it can be re-run), and assert the Python output matches. Generate the inputs to cover edge cases (empty, max size, invalid, unicode, error paths). For MCP servers capture over raw JSON-RPC: the `initialize` result (capabilities, serverInfo, instructions), `tools/list` (names, titles, annotations, input schemas) and `tools/call` results *and* JSON-RPC errors (unknown tool, schema-invalid arguments). Framework defaults leak into the contract — e.g. Spring AI repeats a tool's exception message on two lines and adds default annotations — capture rather than guess.
+- **Golden tests:** for anything with an external contract, run the Java build to capture real responses (HTTP, MCP tool results, CLI output) for a representative input set, commit them under `tests/golden/` together with the capture script (stdlib-only, so it can be re-run; `port-parity` re-runs it against newer Java commits), and assert the Python output matches. Generate the inputs to cover edge cases (empty, max size, invalid, unicode, error paths). For MCP servers capture over raw JSON-RPC: the `initialize` result (capabilities, serverInfo, instructions), `tools/list` (names, titles, annotations, input schemas) and `tools/call` results *and* JSON-RPC errors (unknown tool, schema-invalid arguments). Framework defaults leak into the contract — e.g. Spring AI repeats a tool's exception message on two lines and adds default annotations — capture rather than guess.
 - **Capturing from the Java side is fragile — build that in:**
   - Give every reply a deadline and restart the server on a dropped reply or a dead process: the MCP Java SDK's stdio transport occasionally drops a response ("Failed to enqueue message" in its log).
   - Run Java CLI clients **one at a time**, each in its own process group (`start_new_session=True`) with a timeout, and kill the whole group on timeout. Under load a Java client can time out initializing, return from `main` without `System.exit` and hang forever on its non-daemon transport threads; it also hangs after a Spring start-up failure (missing jar, duplicate tool). Its child server JVMs keep the output pipes open, so killing only the client isn't enough.
@@ -131,37 +142,36 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 - For servers, an **end-to-end test** that starts the real Python server (subprocess or ASGI test client for HTTP; stdio subprocess for MCP) and calls it as a client would.
 - Differences that are bugs in the Java code: keep the Java behaviour by default, record it in the design doc's Open questions, and ask the user.
 
-### Every PR, before merge
+### Every PR
 
-1. Local gate: `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, `uv run pytest --cov` — all green, coverage ≥ 95% (rule 7). Report coverage in the PR body; where 95% isn't reached, say what's uncovered and why.
-2. **`security-review`** skill on the branch; fix what it confirms (rule 4).
-3. **`owasp-llm-top10 --diff origin/main`** if the PR touches LLM/agent/MCP/A2A code; fix confirmed High and Medium.
-   **`compliance-check --diff origin/main`** if it touches personal, payment or financial data or their controls, and **`digital-regulation-check --diff origin/main`** if it touches consent, tracking, user rights, AI decisions, user-generated content or user-facing UI; fix confirmed Critical, High and Medium (rule 4).
-4. **`pr-review <n>`** — the separate-agent review (rule 3). When it starts its reviewer subagent, add this parity checklist to the subagent's prompt:
+1. **Local gate:** `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, and the tests for what changed (`uv run pytest tests/<area> --no-cov`: the 95% gate measures the whole package, so a partial run with coverage on fails it). CI runs the full suite and the coverage gate (rule 7). Put CI's coverage figure in the PR body; where it is under 95%, say what is uncovered and why. Run the whole suite locally (`uv run pytest`) only to reproduce what CI can't show.
+2. **`pr-review <n>`** (rules 3 and 4) takes the PR the rest of the way; don't repeat its steps here. It runs the walkthrough and an independent reviewer on PRs of 250 or more changed lines (a self-review below that), `design-patterns` and `perf-review` on 250+ line PRs, one security pass (`security-review`, plus `owasp-llm-top10` for MCP, LLM or agent code, and `compliance-check`, `digital-regulation-check` or `ada-compatibility` when the diff triggers them), `documenter` on the touched code, the findings table, green CI and the squash-merge. Nothing merges with failing CI or an open Critical, High or Medium finding. Add this parity checklist to the review (the reviewer subagent's prompt, or your own self-review):
    - Compare each converted file with its Java source (give both paths). Any behaviour difference in the public contract, error handling, numeric semantics, ordering, null/None handling or defaults?
    - Any Java test without a Python counterpart, or a ported test that asserts less than the original?
    - Any Java security or resilience control missing in the port?
    - Non-idiomatic Python (Java-isms: getters/setters, static-only classes, manual resource closing, `== None`, index loops)?
-   `pr-review` fixes confirmed findings with tests, posts the findings table, waits for CI and squash-merges. Never merge with failing CI or an open High/Medium finding.
-5. Update the design doc and diagram if the PR changed behaviour, APIs, data or architecture.
-6. After the merge, increment the merged-PR counter in the project memory — every merged PR counts, including Dependabot and workflow-only PRs. When it reaches a multiple of 10, run `deep-review` on the whole codebase and ship it as its own PR through this same gate (rule 5) before starting the next module.
+3. **`post-merge-sync <n>`** after the merge: design doc and diagram, the merged-PR counters, branch and worktree cleanup. It owns the deep-review count (rule 5) and starts `deep-review` when one is due; that review ships as its own PR through this same gate, and merges before the next module starts.
 
-**Delegating PRs to agents:** a forked agent cannot start subagents, so it cannot run the independent review itself. The fork does steps 1–3 (gate, security and OWASP/compliance checks) up to a green CI, then **stops before merging and hands back**. The parent runs steps 4–6: `pr-review <n>` (which starts the reviewer, posts the findings table and merges; it may send the fixes back to the fork to make), then the doc/diagram update and the merged-PR counter.
+With `--no-merge`, run `pr-review <n> --no-merge` and skip step 3.
+
+**Delegating PRs to agents:** one agent per PR (rule 9). A forked agent can't start subagents, so it can't run the independent review. The fork writes the code, runs the local gate, opens the PR and waits for green CI, then **stops before merging and hands back** the PR number. The parent runs steps 2 and 3 (`pr-review` may send fixes back to the fork to make).
 
 After PR 1 merges and CI has run: set branch protection (`references/github-setup.md` §Branch protection) with the CI, CodeQL and security jobs as required checks.
 
+After the first module PR merges (the first real code, rule 4): run `compliance-check` and `digital-regulation-check` on the whole project and put their applicability tables and data maps in the design doc's Security section; run `owasp-llm-top10` on the whole project when the first MCP, LLM or agent module lands. Fixes go through a PR like any other.
+
 ## Phase 5 – Wrap up
 
-1. **Project memory:** bring it up to date (merged-PR count, open questions, links).
-2. If the port added the project's first LLM/agent feature, run **`owasp-llm-top10`** on the whole project; if it handles sensitive data, run **`owasp-top10`** (rule 4). Run **`compliance-check`** and **`digital-regulation-check`** on the whole new project and put their applicability tables and data maps in the design doc's Security/Compliance section.
-3. **Deep review** (rule 5): already run after every 10th merge in Phase 4; nothing extra here unless a multiple of 10 was reached by the last merge.
+1. **Project memory:** open questions and links up to date (`post-merge-sync` keeps the counters).
+2. If the port handles sensitive data, run **`owasp-top10`** on the whole project (rule 4).
+3. **Hand off to `port-parity`:** check both projects' memory carries the link and the parity baseline from Phase 3. If golden files were re-captured from a newer Java commit during the port, move the baseline to that commit. From now on Java changes reach the port through `port-parity`, never by re-running this skill.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 
 ## Final report to the user
 
 - New project path and how to open it in IntelliJ; the GitHub repo URL and visibility.
 - PRs opened/merged (number, title, merge SHA) and each one's review findings, condensed.
-- Parity: Java tests ported / dropped (with reasons), golden cases passing, intentional differences.
+- Parity: Java tests ported / dropped (with reasons), golden cases passing, intentional differences, and the parity baseline recorded for `port-parity`.
 - Coverage figure, CI status, security results.
 - Design doc and diagram links.
 - Anything waiting for the user's decision (Java bugs preserved, contract changes, settings that need a paid plan).
