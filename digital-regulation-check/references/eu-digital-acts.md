@@ -92,10 +92,12 @@ Overlaps: GDPR Art. 22 automated decisions, `owasp-llm-top10` for security of LL
 ## EAA — European Accessibility Act (Dir. 2019/882)
 
 For in-scope consumer services (e-commerce, consumer banking and payments, e-books, communications, transport booking) — websites, mobile apps, e-tickets, customer support:
-- Meet **EN 301 549** (web and app content → **WCAG 2.1 AA**; aim for **WCAG 2.2 AA**): text alternatives, captions, keyboard operability with visible focus, no keyboard traps, sufficient contrast (4.5:1 text), resizable text and reflow at 320 px, meaningful headings, labels and error messages tied to inputs, accessible names and roles for custom controls (ARIA only where native elements can't), no time limits without control, consistent navigation, accessible authentication (no cognitive tests without alternatives; allow paste and password managers — WCAG 2.2 3.3.8), target size (2.2 2.5.8), status messages announced.
-- Banking extras: identification, electronic signatures, security and payment methods perceivable, operable, understandable and robust; information understandable at a level not exceeding B2 (CEFR).
-- An **accessibility statement** (service conditions describing how the service meets the requirements), kept current.
-- Code checks: run axe-core / Pa11y / Lighthouse in CI on the core journeys; component-library-level fixes (buttons, dialogs, forms); keyboard-only and screen-reader (NVDA/VoiceOver) passes; colours from tokens checked for contrast.
+- **WCAG conformance** (EN 301 549 → WCAG 2.1 AA for web and app content; aim for 2.2 AA) is checked and fixed by `ada-compatibility`. Cite its findings as `EAA / EN 301 549 <clause>`; don't re-check the success criteria here. If it hasn't run on this change, recommend it and note "accessibility: not checked".
+- What the EAA adds on top:
+  - Banking extras: identification, electronic signatures, security and payment methods perceivable, operable, understandable and robust; information understandable at a level not exceeding B2 (CEFR).
+  - An **accessibility statement** (service conditions describing how the service meets the requirements), kept current.
+  - Support services (help desk, call centre) give information on the service's accessibility features and compatibility with assistive technology.
+  - EN 301 549 clauses beyond WCAG for non-web software and documentation (Clauses 11 and 12) where a native app or PDF documentation ships.
 
 ## CRA — Cyber Resilience Act (Reg. 2024/2847)
 

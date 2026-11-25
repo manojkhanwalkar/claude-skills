@@ -126,4 +126,4 @@ Each item names the article(s) to cite. Security controls for personal data (enc
 - CJEU C‑252/21 *Meta Platforms v Bundeskartellamt* (2023); C‑634/21 *SCHUFA* (2023); C‑311/18 *Schrems II* (2020); C‑673/17 *Planet49* (2019).
 - ICO guidance; UK Data (Use and Access) Act 2025.
 - Legiscope, "GDPR Article 25: Privacy by Design": https://www.legiscope.com/blog/gdpr-article-25-privacy-by-design.html ; Taylor Wessing DPbDD checklist: https://globaldatahub.taylorwessing.com/article/data-protection-by-design-and-default-checklist
-- Digital Omnibus status: https://acompli.ie/news/digital-omnibus-gdpr-cookies-status-september-2026/ ; https://usercentrics.com/knowledge-hub/eu-digital-omnibus-package/
+- Digital Omnibus status: https://acompli.ie/news/digital-omnibus-gdpr-cookies-status-september-2026/ ; https://usercentrics.com/knowledge-hub/eu-digital-omnibus-package/ ; Council mandate (21 Oct 2026): https://iapp.org/news/a/eu-member-states-finalize-digital-omnibus-negotiating-stance
