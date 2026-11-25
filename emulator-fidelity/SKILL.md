@@ -1,6 +1,6 @@
 ---
 name: emulator-fidelity
-description: Find where a local cloud emulator (AWS Emulator by default) behaves differently from the real service, prove each difference against the provider's documentation with a short repro on the newest release, and report it as one public issue per difference on the emulator's repository, filed as soon as it is confirmed and within a cap. Covers verifying and extracting the newest release without installing it, safe private emulators (at most two, lightly loaded, never memory-capped, cleaned up, never the user's own), what to probe, what is not a bug (documented limitations, known gaps, undocumented AWS behaviour, duplicates), the vendor's issue form, and private disclosure for anything security-looking. Use when the user asks to find, test or report bugs, gaps or discrepancies in AWS Emulator or another cloud-API emulator. Not for testing the user's own code, or for security testing of the emulator. Args - optional SERVICES, --cap N, --report-only, --version V.
+description: Find where a local cloud emulator (AWS Emulator by default) behaves differently from the real service, prove each difference against the provider's documentation with a short repro on the newest release, and file one public issue per difference on its repository as soon as it is confirmed, within a cap; --recheck re-runs the user's open issues on the newest release and closes only the verified-fixed ones. Covers verifying and extracting the newest release without installing it, safe private emulators (at most two, lightly loaded, never memory-capped, never the user's own), what is not a bug (documented limitations, known gaps, undocumented AWS behaviour, duplicates), the issue form and private disclosure for anything security-looking. Use when the user asks to find, test, report or re-check bugs or gaps in AWS Emulator or another cloud-API emulator. Not for testing the user's own code, or for security testing of the emulator. Args - optional SERVICES, --cap N, --report-only, --version V, --recheck.
 ---
 
 # Emulator Fidelity
@@ -16,7 +16,8 @@ It was written for [AWS Emulator](https://docs.aws.amazon.com/emulator/latest/us
 - **SERVICES** (optional): the services to probe, for example `s3 dynamodb ecs`. Default: the commonly used ones listed in Phase 3.
 - **`--cap N`**: the most issues to file in this run. With no cap given, ask; if the user leaves it to you, use 10 and say that it is your default.
 - **`--report-only`**: do Phases 1–4 up to step 3 (confirmed and minimised), file nothing, and report the candidates with their draft issues.
-- **`--version V`**: also reproduce on version V (for example the user's installed one). Filing always needs a reproduction on the newest release: the vendor's form asks whether it "still happens with the latest version".
+- **`--version V`**: also reproduce on version V (for example the user's installed one: run the installed `aws-emulator` on your private port, never the user's). Filing always needs a reproduction on the newest release: the vendor's form asks whether it "still happens with the latest version".
+- **`--recheck`**: instead of probing, re-run the user's own open issues on the newest release and close the ones that are fixed (see [Re-checking open issues](#re-checking-open-issues)). With `--report-only`, close and comment on nothing.
 
 ## Rules that always apply
 
@@ -52,9 +53,10 @@ Bugs are reported against the newest release, and the installed one may be older
    x/opt/aws-emulator/bin/aws-emulator -v               # must print the newest version
    ```
    Run `x/opt/aws-emulator/bin/aws-emulator`. **Not** `x/usr/bin/aws-emulator`: in the rpm it is an absolute symlink to `/opt/aws-emulator/bin/aws-emulator`, the *installed* binary, so it silently runs the old version.
-4. Start a private emulator on a port the user doesn't use (for example 9340–9349), with telemetry off and an idle timeout so a forgotten one stops by itself, and wait for it with a bound:
+4. Start a private emulator on a port the user doesn't use (for example 9340–9349), with telemetry off and an idle timeout so a forgotten one stops by itself, and wait for it with a bound. Check first that nothing listens on the port and it has no folder: cleanup deletes `~/.aws/emulator/$PORT`, so a port that collides with the user's would delete their data.
    ```bash
    EMU=x/opt/aws-emulator/bin/aws-emulator; PORT=9340
+   { [ -z "$(ss -Hltn "sport = :$PORT")" ] && [ ! -e ~/.aws/emulator/$PORT ]; } || { echo "port $PORT in use: pick another"; exit 1; }
    "$EMU" -p $PORT -t off --idle-timeout 600 > emu$PORT.log 2>&1 & echo $! > emu$PORT.pid
    D=~/.aws/emulator/$PORT
    ready=
@@ -174,12 +176,27 @@ Reproduced on fresh runs.
 
 Where the emulator is inconsistent with itself (Scheduler accepts a cron expression that EventBridge `PutRule` refuses; DynamoDB is regional but log groups are not), say so under Additional context: it shows the fix is local and makes the report easier to accept.
 
+## Re-checking open issues
+
+With `--recheck`, the job is to keep the user's issues honest, not to find new ones. Phase 1 as usual (the newest release, a private emulator), then:
+
+1. **List the user's open issues:** `gh issue list -R aws/aws-emulator --author @me --state open --limit 200 --json number,title,body,url`. Read each one's comments too (`gh issue view <n> --comments`): a maintainer may have asked a question, named a fix version or marked it as working as intended. Answer nothing on the user's behalf; list such replies in the report.
+2. **Re-run each repro on a fresh private emulator of the newest release.** The issue body starts `aws-emulator` on its own port: substitute `$EMU` and your private port, never the binary on `PATH` (the installed, possibly older one) or the user's port. Run every case in the issue, not only the first.
+3. **Classify** each issue: **fixed** (every case now matches the AWS behaviour the issue cites, confirmed on two fresh runs), **partly fixed** (some cases fixed, some not), or **still broken**.
+4. **Act, one issue at a time:**
+   - *Fixed:* close it with a comment: `gh issue close <n> -R aws/aws-emulator --comment "Verified fixed in <aws-emulator -v>: <the repro's new result, in a code block>"`.
+   - *Partly fixed:* leave it open and add one comment saying which cases now pass and which still fail, with the version.
+   - *Still broken:* leave it open, with no comment (a "still happens" comment on every issue is noise; the vendor's form already asked about the latest version).
+   - Closing and commenting are public actions under the user's name: show the first close comment and get a yes, as for filing. A background agent without that confirmation runs as `--report-only`.
+5. **Clean up** as the rules above say, between issues and at the end.
+
+Report a table: issue number and link, title, status (closed as fixed, partly fixed, still broken), the version checked, and any maintainer reply that needs the user. Then the cleanup line from the final report.
+
 ## Running it in the background
 
 A full pass takes hours. Run it in a background agent with this skill's rules in its prompt, plus the user's confirmed repository, cap and format, and keep working with the user:
 
-- **Watch, don't poll:** a monitor that lists the user's issues on the repository every minute and prints new ones, and counts `oom-kill` lines in `journalctl --user` since it started. Parse with `jq '.[] | ...'`, not `.[0] | ...`, which prints `null null` for an empty list and looks like a result.
-- **Relay each filing** to the user once (the agent's message and the monitor event are the same issue).
+- **One progress signal:** the agent's own message per filing (number, title, link, running count) is the signal; relay each to the user once. Don't add a monitor that also watches the issue list: it reports every filing twice. The agent itself checks `journalctl --user --since "<its start time>" | grep -c oom-kill` after each probe that starts containers or processes, and stops and reports if the count rises.
 - **Steering:** pass the user's changes (cap, scope, "file each immediately") to the agent with a message; it applies them at its next step.
 - **Usage limits:** an agent that stops on a rate limit keeps its work; resume it with a message once the limit resets, instead of starting a new one.
 
