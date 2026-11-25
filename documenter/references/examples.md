@@ -101,7 +101,7 @@ public List<Alert> findForUser(String userId) {
 
 ```java
 /**
- * Finds a user's alerts, newest first.
+ * Finds a user's alerts.
  *
  * @param userId the user's ID; {@code null} gives an empty list
  * @return the alerts, never {@code null}
@@ -138,7 +138,7 @@ When the right text isn't clear from the code, delete the false sentence, keep t
 
 ## Matching the house style
 
-CreditAgent's records document configuration in `@param` lines that are lower-case fragments, explain defaults and the reason for a limit, and use `{@code}` for property names and literals:
+One project's configuration records document their settings in `@param` lines that are lower-case fragments, explain defaults and the reason for a limit, and use `{@code}` for property names and literals:
 
 ```java
 /**
