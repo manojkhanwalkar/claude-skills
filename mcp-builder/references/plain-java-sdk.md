@@ -8,12 +8,12 @@ Use when the repo isn't Spring or the user wants minimal dependencies / fast sta
 <dependency>  <!-- core + Jackson 3 JSON mapper -->
   <groupId>io.modelcontextprotocol.sdk</groupId>
   <artifactId>mcp</artifactId>
-  <version><!-- latest GA from Maven Central, e.g. 2.1.0 --></version>
+  <version><!-- latest GA from Maven Central --></version>
 </dependency>
 <dependency>  <!-- slf4j-simple logs to stderr, keeping stdout clean -->
   <groupId>org.slf4j</groupId>
   <artifactId>slf4j-simple</artifactId>
-  <version>2.0.17</version>
+  <version><!-- latest 2.0.x GA, not a 2.1 alpha --></version>
 </dependency>
 ```
 
@@ -48,6 +48,10 @@ Runtime.getRuntime().addShutdownHook(new Thread(server::closeGracefully));
 ```
 
 Errors: `CallToolResult.builder().addTextContent(msg).isError(true).build()`.
+
+This is the handshake (2025-11-25) API. SDK 2.2+ adds the stateless 2026-07-28 API under
+`io.modelcontextprotocol.modern`; it may still change in minor releases until 3.0
+([release notes](https://github.com/modelcontextprotocol/java-sdk/releases)), so use it only when asked.
 
 ## Client
 
