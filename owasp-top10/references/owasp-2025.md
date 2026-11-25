@@ -97,7 +97,7 @@ manifest files · `<repository>|repositories \{|http://` · `curl .*\| *(ba)?sh|
 - IV/nonce reuse, static or zero IVs, GCM nonce reuse (catastrophic).
 - Non-CSPRNG for security values (`java.util.Random`, `Math.random`, Python `random`).
 - Hardcoded keys, passwords, salts; keys in source, config committed to repo, or logs.
-- Secrets in git history, not just HEAD: `git log --all --oneline -- '*.jks' '*.p12' '*.pem' '*.key' '.env'`, `git log -p -S'PRIVATE KEY'`, or `gitleaks` / `trufflehog` if installed. Deleting a file doesn't un-leak it.
+- Secrets in git history, not just HEAD: `git log --all --oneline -- '*.jks' '*.p12' '*.pem' '*.key' '.env'`, `git log -p -S'PRIVATE KEY'`, or `gitleaks` / `trufflehog` if installed. Deleting a file doesn't un-leak it. For a full scan of every branch, tag and PR ref with triage, recommend `secret-history-scan`.
 - Secrets or keys packaged into build artifacts (jar/war resources, Docker image layers, frontend bundles).
 - Password hashing without a slow KDF (bcrypt, scrypt, Argon2, PBKDF2 with high iterations).
 - Non-constant-time comparison of MACs/tokens (`equals`, `==`) — timing leaks.
@@ -128,7 +128,7 @@ Other stacks: Go `crypto/md5|crypto/sha1|crypto/des|math/rand|bytes\.Equal\(.*(m
 - `eval`, dynamic code loading from input.
 - ReDoS: user input matched against regexes with nested quantifiers, or user-supplied regexes.
 - Prototype pollution (JavaScript): deep `merge` / `Object.assign` / `_.set` with request data.
-- Prompt injection: untrusted text fed to an LLM whose output reaches tools, shell, SQL or HTML without validation.
+- Prompt injection: untrusted text fed to an LLM whose output reaches tools, shell, SQL or HTML without validation. Flag it here; the full LLM and agent checks belong to `owasp-llm-top10`.
 
 **Grep hints**
 `executeQuery|createQuery|createNativeQuery|Statement\b|\+ *".*(SELECT|WHERE|INSERT)|f"SELECT|format\(.*SELECT` ·
