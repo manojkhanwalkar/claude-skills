@@ -49,6 +49,7 @@ High when growth is unbounded and can reach `OutOfMemoryError` or the container'
 | A pool smaller than the concurrency it serves (DB, HTTP, thread) | Little's Law: in-flight = rate × time held | Pool is a deliberate limit (see `resiliency`) |
 | Thread-per-request blocking code at high concurrency on platform threads | Threads mostly wait on I/O | Concurrency is low |
 | Virtual threads pooled, or used for CPU-bound work | `Executors.newFixedThreadPool(n, Thread.ofVirtual().factory())` | — |
+| Virtual threads pinned: blocking inside `synchronized` (JDK 21 to 23), a native call or a static initializer | JFR `jdk.VirtualThreadPinned` events, or the JDK version and the blocking call under the lock | JDK 24+ and the lock is a plain `synchronized` |
 | CPU-heavy work (crypto with high cost factors, PDF, image, compression) on a request path | It runs per request rather than once | It is the point of the endpoint and bounded by a limit |
 | `parallelStream()` on request paths | It shares the common ForkJoinPool with everything else | Measured gain on large data, off the request path |
 | Contended `AtomicLong` counters | Very high update rate | Use `LongAdder` only if measured |
@@ -90,7 +91,7 @@ For UIs the project serves.
 
 ## Python
 
-- Profile: `python -m cProfile -s cumulative app.py` (on 3.15+ `profiling.tracing`; `cProfile` stays an alias); for a running process `py-spy record -o profile.svg --pid <pid>` or `py-spy top --pid <pid>` (needs ptrace rights; `--cap-add SYS_PTRACE` in Docker).
+- Profile: `python -m cProfile -s cumulative app.py` (on 3.15+ `profiling.tracing`; `cProfile` stays an alias); for a running process `py-spy record -o profile.svg --pid <pid>`, `py-spy top --pid <pid>` or, on 3.15+, the built-in sampler `profiling.sampling` (both need ptrace rights; `--cap-add SYS_PTRACE` in Docker).
 - Signs: `requests.get` per call (use a `Session`); blocking calls inside `async def` (use the async client or `run_in_executor`); `list` membership in loops; string `+=` in loops; ORM lazy loads in loops (`select_related`, `prefetch_related`); `json.loads` of large bodies; module-level caches with no bound (`functools.lru_cache(maxsize=None)`).
 
 ## Node
