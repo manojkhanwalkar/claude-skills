@@ -203,6 +203,7 @@ def added_lines(repo: Path, reflog: bool):
 
 
 def in_head(repo: Path, path: str, value: str) -> bool:
+    """True when the file at path in HEAD still holds value (the secret is in the current tree)."""
     shown = git(repo, "show", "--end-of-options", f"HEAD:{path}")
     return shown.returncode == 0 and value in shown.stdout
 
