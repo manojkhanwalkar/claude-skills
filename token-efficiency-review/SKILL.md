@@ -24,7 +24,7 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 
 1. Work out the period (Arguments). Then run the script once (add `--json` only if you need the raw numbers; `--context 1000000` when the sessions ran with a 1M-token context window):
    ```bash
-   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <time> --top 10
+   python3 -I ${CLAUDE_SKILL_DIR}/scripts/usage_report.py --since <time> --top 10
    ```
 2. Note the headline numbers: total tokens, the share spent by background agents, cache reads (re-reading a long conversation) and writes, output tokens, compactions, API errors (rate limits), polling commands (sleeps and checks calls that don't wait by themselves; one background `--watch` is the recommended pattern and isn't counted), the tools whose results took the most characters, results repeated with the same size (the **Times** column: usually the same guide or file loaded again), the skills and slash commands used, and the **Skill listing** section: how many characters the installed skills' descriptions take against Claude Code's listing budget (1% of the context window at about 4 characters per token, shared with built-in and plugin skills; over it, some skills are listed without a description and trigger worse).
 3. Read the previous report, `~/.claude/token-efficiency/reports/latest.md`, if it exists, before Phase 3 overwrites it, to see the trend.
@@ -74,9 +74,9 @@ The review is meant to run about every 10 days. It reads local files, so it runs
 
 ```bash
 claude -p "/token-efficiency-review --report-only" --allowedTools \
-  "Skill" "Read(~/.claude/skills/**)" "Read(~/.claude/token-efficiency/**)" "Read(~/.claude/CLAUDE.md)" \
-  "Bash(python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py *)" \
+  "Skill" "Read(<skills root>/**)" "Read(~/.claude/token-efficiency/**)" "Read(~/.claude/CLAUDE.md)" \
+  "Bash(python3 -I ${CLAUDE_SKILL_DIR}/scripts/usage_report.py *)" \
   "Edit(~/.claude/token-efficiency/**)" "Bash(notify-send *)"
 ```
 
-`Edit(...)` rules also cover Write. These permissions let it run only the report script (typed with the `~` path exactly as in Phase 1), read the skills and its own reports, and write inside `~/.claude/token-efficiency/`; it cannot read transcripts directly, run other code or touch the user's rules. The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.
+`<skills root>` is the folder that holds this skill's folder, written as an absolute path: `~/.claude/skills` for a clone, the parent of `${CLAUDE_SKILL_DIR}` for a plugin install. `Edit(...)` rules also cover Write. These permissions let it run only the report script (typed with exactly the path Phase 1 uses), read the skills and its own reports, and write inside `~/.claude/token-efficiency/`; it cannot read transcripts directly, run other code or touch the user's rules. The user then reads `latest.md` and runs `/token-efficiency-review` in a normal session to apply what they accept.

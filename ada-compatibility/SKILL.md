@@ -54,8 +54,8 @@ This is an engineering review, not a legal opinion or a certified audit (VPAT/AC
 2. Note the stack, the component library (whose accessibility you inherit, and whose misuse you check), and whether there are tests (unit, Testing Library, Playwright or Cypress) to extend.
 3. Run the lead finder from the repository root (git lists paths relative to it). It reads files as data, is stdlib only, and skips test files:
    ```bash
-   python3 -I ~/.claude/skills/ada-compatibility/scripts/scan_a11y.py <ui dirs>
-   git diff --name-only <base>...HEAD | python3 -I ~/.claude/skills/ada-compatibility/scripts/scan_a11y.py --files-from -
+   python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_a11y.py" <ui dirs>
+   git diff --name-only <base>...HEAD | python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_a11y.py" --files-from -
    ```
    It reports these kinds: `img-alt`, `input-label`, `button-name`, `link-name`, `html-lang`, `page-title`, `positive-tabindex`, `click-no-key`, `anchor-no-href`, `aria-hidden-focus`, `no-zoom`, `outline-none`, `autoplay`, `heading-skip`, `paste-blocked`. Every hit is a lead: names can come from script or `aria-labelledby` elsewhere. It understands Vue, Angular, Svelte and Thymeleaf bindings. It covers web code only; review mobile screens by reading them against checklist section 13.
 4. If you may run the app (Trust), also run an engine on the rendered pages, which sees what static reading can't: computed contrast, the accessibility tree, focus order.

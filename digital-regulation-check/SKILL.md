@@ -31,8 +31,8 @@ This is an engineering check, not legal advice. Applicability often depends on f
 1. Read `CLAUDE.md`, README, design doc, privacy policy, cookie policy, terms, DPIA or records of processing if present, and the project memory.
 2. Run the lead finders (they read files as data):
    ```bash
-   python3 -I ~/.claude/skills/digital-regulation-check/scripts/scan_trackers.py .     # trackers, cookies, storage, third-party scripts, fingerprinting, consent/GPC
-   python3 -I ~/.claude/skills/compliance-check/scripts/scan_sensitive.py .           # SSNs, card numbers, sensitive fields in logs
+   python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_trackers.py" .     # trackers, cookies, storage, third-party scripts, fingerprinting, consent/GPC
+   python3 -I "${CLAUDE_SKILL_DIR}/../compliance-check/scripts/scan_sensitive.py" .           # SSNs, card numbers, sensitive fields in logs
    ```
    With `--diff`, run from the repository root and pipe the changed files into each: `git diff --name-only --diff-filter=d <base>...HEAD | python3 -I <script> --files-from -`. An empty list scans nothing. Skip `scan_sensitive.py` when `compliance-check` runs in the same pass: it runs that scanner already. Scanners miss indirect calls (an injected storage object, a wrapper around an SDK): read the code too.
 3. Establish the facts (from docs, code, config, or by asking):

@@ -258,8 +258,9 @@ class ValidateSkillsTest(unittest.TestCase):
         d = self.repo.skill("paths", GOOD.format(name="paths") + (
             "Read `references/own.md`, then `scripts/run.py`; perf's `references/shared.md` too.\n"
             "Missing: `references/gone.md` and `scripts/gone.py`; `references/<x>.md` is a placeholder.\n"
-            "Run ~/.claude/skills/paths/scripts/run.py and ~/.claude/skills/templates/x.yml;\n"
-            "and ~/.claude/skills/other/scripts/nope.py.\n"))
+            "Run ${CLAUDE_SKILL_DIR}/scripts/run.py, \"${CLAUDE_SKILL_DIR}/../perf/references/shared.md\",\n"
+            "${CLAUDE_SKILL_DIR}/../templates/x.yml and ${CLAUDE_SKILL_DIR}/../other/scripts/nope.py;\n"
+            "a clone path breaks plugin installs even when it exists: ~/.claude/skills/paths/scripts/run.py.\n"))
         (d / "references").mkdir()
         (d / "references" / "own.md").write_text("x\n", encoding="utf-8")
         (d / "scripts").mkdir()
@@ -271,8 +272,10 @@ class ValidateSkillsTest(unittest.TestCase):
         self.assertEqual(sorted([
             "paths/SKILL.md: references/gone.md exists in no skill",
             "paths/SKILL.md: scripts/gone.py exists in no skill",
-            "paths/SKILL.md: ~/.claude/skills/templates/x.yml points at nothing in this repository",
-            "paths/SKILL.md: ~/.claude/skills/other/scripts/nope.py points at nothing in this repository",
+            "paths/SKILL.md: ${CLAUDE_SKILL_DIR}/../templates/x.yml points at nothing in this repository",
+            "paths/SKILL.md: ${CLAUDE_SKILL_DIR}/../other/scripts/nope.py points at nothing in this repository",
+            "paths/SKILL.md: ~/.claude/skills/paths/scripts/run.py only exists in a clone; a plugin install "
+            "puts the skills elsewhere (write ${CLAUDE_SKILL_DIR}/...)",
         ]), sorted(self.problems()))
 
     def test_quoted_paths_may_not_climb_out_of_the_skill_or_repository(self):
@@ -280,12 +283,12 @@ class ValidateSkillsTest(unittest.TestCase):
         self.addCleanup(lambda: outside.unlink(missing_ok=True))
         outside.write_text("x\n", encoding="utf-8")
         d = self.repo.skill("climb", GOOD.format(name="climb") + (
-            f"Read `references/../../../{outside.name}` and ~/.claude/skills/../{outside.name}.\n"))
+            f"Read `references/../../../{outside.name}` and ${{CLAUDE_SKILL_DIR}}/../../{outside.name}.\n"))
         (d / "references").mkdir()
         self.repo.readme("climb")
         self.assertEqual(sorted([
             f"climb/SKILL.md: references/../../../{outside.name} exists in no skill",
-            f"climb/SKILL.md: ~/.claude/skills/../{outside.name} points at nothing in this repository",
+            f"climb/SKILL.md: ${{CLAUDE_SKILL_DIR}}/../../{outside.name} points at nothing in this repository",
         ]), sorted(self.problems()))
 
     SECRET = {(hashlib.sha256(b"secretproj").hexdigest(), len("secretproj"))}
@@ -376,9 +379,10 @@ class ValidateSkillsTest(unittest.TestCase):
         self.repo.readme("alpha", "beta")
         self.repo.marketplace("./alpha", "./beta")
         self.assertEqual([], self.problems())
-        self.repo.marketplace("./alpha", "./alpha", "./gone", "beta", {"x": 1})
+        self.repo.marketplace("./alpha", "./alpha", "./gone", "./gone", "beta", {"x": 1}, {"x": 1})
         m = ".claude-plugin/marketplace.json"
         self.assertEqual([f"{m}: './alpha' is listed more than once",
+                          f"{m}: './gone' is listed more than once",
                           f"{m}: skill beta is not in a plugin's skills list (add \"./beta\")",
                           f"{m}: './gone' in a skills list is not a skill directory (write ./<dir>)",
                           f"{m}: 'beta' in a skills list is not a skill directory (write ./<dir>)",
@@ -391,8 +395,9 @@ class ValidateSkillsTest(unittest.TestCase):
         m = ".claude-plugin/marketplace.json"
         self.repo.marketplace("./solo", source="./plugins/x")
         self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
-        self.repo.marketplace(raw="[1, 2]")
-        self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
+        for raw in ("[1, 2]", '{"plugins": 5}'):
+            self.repo.marketplace(raw=raw)
+            self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
         self.repo.marketplace(raw="{not json")
         [problem] = self.problems()
         self.assertTrue(problem.startswith(f"{m}: not valid JSON"), problem)

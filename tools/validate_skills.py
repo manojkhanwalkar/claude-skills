@@ -11,9 +11,10 @@ For each top-level directory that holds a SKILL.md:
   - `description` is present, at most 1024 characters, has no `<` or `>` (read as XML tags) and has an
     `Args` part listing the arguments;
   - every relative Markdown link in the skill's .md files points at a file inside the repository, and
-    every `references/...` or `scripts/...` path quoted in SKILL.md (and every ~/.claude/skills/... path)
+    every `references/...` or `scripts/...` path quoted in SKILL.md (and every ${CLAUDE_SKILL_DIR}/... path)
     exists (and, `..` resolved, stays there), in the skill itself or, for a pointer to a sibling's file,
-    in another skill;
+    in another skill; a SKILL.md never names ~/.claude/skills/... (that is only where a clone lives: a
+    plugin install puts the skills elsewhere, so commands use ${CLAUDE_SKILL_DIR});
   - no private project name (PRIVATE_NAMES) appears in a tracked text file (git ls-files; outside git,
     every file but hidden folders and __pycache__); the repository is public.
 And for the README: every skill has a row linking to its SKILL.md and a change-log row naming it, and
@@ -56,9 +57,11 @@ PRIVATE_NAMES = {
 WORD = re.compile(r"[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*")
 SEPARATORS = re.compile(r"[-_.]")
 TEXT_SUFFIXES = {".md", ".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".txt"}
-# `references/x.md` or `scripts/x.py` quoted in a SKILL.md; ~/.claude/skills/<path> anywhere in it.
+# `references/x.md` or `scripts/x.py` quoted in a SKILL.md; ~/.claude/skills/<path> and
+# ${CLAUDE_SKILL_DIR}/<path> anywhere in it.
 QUOTED_PATH = re.compile(r"`((?:references|scripts)/[A-Za-z0-9_./-]+)`")
 SKILLS_PATH = re.compile(r"~/\.claude/skills/([A-Za-z0-9_./-]*[A-Za-z0-9_-])")
+SKILL_DIR_PATH = re.compile(r"\$\{CLAUDE_SKILL_DIR\}/([A-Za-z0-9_./-]*[A-Za-z0-9_-])")
 RESERVED = ("anthropic", "claude")
 ALLOWED_KEYS = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 # [text](target "title"), with the target optionally in <...>; titles in "", '' or ().
@@ -140,7 +143,8 @@ def inside(path: Path, base: Path) -> bool:
 
 
 def check_paths(directory: Path, root: Path, skills: list[Path]) -> list[str]:
-    """Quoted references/ and scripts/ paths, and ~/.claude/skills/ paths, in SKILL.md that point at nothing."""
+    """Quoted references/ and scripts/ paths and ${CLAUDE_SKILL_DIR}/ paths in SKILL.md that point at nothing
+    (or leave the repository), and any ~/.claude/skills/ path, which breaks a plugin install."""
     text = (directory / "SKILL.md").read_text(encoding="utf-8")
     where = f"{directory.name}/SKILL.md"
     problems = []
@@ -149,8 +153,11 @@ def check_paths(directory: Path, root: Path, skills: list[Path]) -> list[str]:
         if not any(inside(d / path, d) for d in [directory, *skills]):
             problems.append(f"{where}: {path} exists in no skill")
     for path in sorted(set(SKILLS_PATH.findall(text))):
-        if not inside(root / path, root):
-            problems.append(f"{where}: ~/.claude/skills/{path} points at nothing in this repository")
+        problems.append(f"{where}: ~/.claude/skills/{path} only exists in a clone; a plugin install puts "
+                        "the skills elsewhere (write ${CLAUDE_SKILL_DIR}/...)")
+    for path in sorted(set(SKILL_DIR_PATH.findall(text))):
+        if not inside(directory / path, root):
+            problems.append(f"{where}: ${{CLAUDE_SKILL_DIR}}/{path} points at nothing in this repository")
     return problems
 
 
@@ -262,7 +269,7 @@ def check_marketplace(root: Path, skills: list[str]) -> list[str]:
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         return [f"{where}: not valid JSON: {e}"]
     plugins = data.get("plugins") if isinstance(data, dict) else None
-    lists = [p["skills"] for p in plugins or [] if isinstance(p, dict) and p.get("source") in ("./", ".")
+    lists = [p["skills"] for p in (plugins if isinstance(plugins, list) else []) if isinstance(p, dict) and p.get("source") in ("./", ".")
              and isinstance(p.get("skills"), list)]
     if not lists:
         return [f"{where}: no plugin with \"source\": \"./\" has a skills list"]
@@ -272,8 +279,12 @@ def check_marketplace(root: Path, skills: list[str]) -> list[str]:
     wanted = {f"./{name}" for name in skills}
     problems += [f"{where}: skill {name} is not in a plugin's skills list (add \"./{name}\")"
                  for name in skills if f"./{name}" not in listed]
+    unknown = []
+    for entry in listed:
+        if (not isinstance(entry, str) or entry not in wanted) and entry not in unknown:
+            unknown.append(entry)
     problems += [f"{where}: {entry!r} in a skills list is not a skill directory (write ./<dir>)"
-                 for entry in listed if not isinstance(entry, str) or entry not in wanted]
+                 for entry in unknown]
     return problems
 
 
