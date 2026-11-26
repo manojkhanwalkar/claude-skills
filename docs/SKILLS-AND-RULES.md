@@ -69,9 +69,9 @@ The pull-request lifecycle: from an open PR to a merged, tidied one.
 |---|---|
 | `pr-review` | The merge gate. Runs an independent review and the security checks in one pass, fixes confirmed findings with tests, posts a findings table, waits for green CI and squash-merges. |
 | `pr-walkthrough` | Writes a reviewer's map of a PR as a single comment: changes by area, breaking changes, a sequence diagram when a call flow changed, and a risk score. It describes; it never judges. |
-| `review-guidelines` | Keeps a repository's settled review decisions in `.claude/review-rules.md`, so reviews stop re-raising them. It can never suppress a security or High finding. |
+| `review-guidelines` | Keeps a repository's settled review decisions in `.claude/review-rules.md`, so reviews stop re-raising them. It can never suppress a Critical, High, security, compliance or accessibility finding. |
 | `post-merge-sync` | Does the follow-up a merge leaves: updates the design doc and diagram if you keep them, counts merged PRs toward the next deep review, and cleans up branches and worktrees. |
-| `pr-triage` | Looks across your repositories and ranks open work, runs Dependabot PRs through `pr-review` one at a time, and proposes stale branches for cleanup. It only plans unless you pass `--apply`. |
+| `pr-triage` | Looks across your repositories and ranks open work, runs Dependabot PRs through `pr-review` one at a time, proposes closing stale PRs, and cleans up merged branches and worktrees. It only plans unless you pass `--apply`. |
 
 ### CI and repository upkeep
 
@@ -146,8 +146,8 @@ flowchart TD
     end
     review --> walk & docr & dp & perf & sec
 
-    review -- "red CI" --> fixci["fix-ci"]
-    review -- "conflicts" --> conf["resolve-conflicts"]
+    review -. "red CI" .-> fixci["fix-ci"]
+    review -. "conflicts" .-> conf["resolve-conflicts"]
     fixci -- "coverage gate red" --> tg["test-gen"]
     review --> merged["Squash-merged<br/><small>green CI, no open High or Medium</small>"]
 
@@ -162,6 +162,8 @@ flowchart TD
     parity -- "reviewed PR" --> pr
 ```
 
+Dashed arrows are borrowed or suggested steps, not automatic calls.
+
 **One gate, one loop.** Every change, whoever opened it, passes through `pr-review`. On larger PRs it starts with `pr-walkthrough`; on every code PR it brings doc comments on the touched code up to date with `documenter`, runs `design-patterns` and (on hot paths) `perf-review` for large diffs, and runs `security-review` plus whichever specialised checks the diff triggers, all in one independent pass. Red CI and conflicts are handled the way `fix-ci` and `resolve-conflicts` do it, and `test-gen` fills a coverage gap.
 
 **After the merge,** `post-merge-sync` updates docs, cleans up and counts code-changing merges. Every 10 of them it starts `deep-review`, which runs `design-patterns`, `perf-review`, `dynamodb-optimizer` (when the project uses DynamoDB) and `documenter` over the whole codebase, each in its own commit, and comes back as a PR through the same gate.
@@ -172,11 +174,11 @@ flowchart TD
 
 The skills share a small set of conventions, defined once in [CONVENTIONS.md](../CONVENTIONS.md). Each has a default, so the skills work for anyone who installs them.
 
-> **Your rules win.** A project's `CLAUDE.md` overrides your global `~/.claude/CLAUDE.md`, and either overrides any default below. Where they say nothing, the default applies. A PR never relaxes the rules for its own review: they are read from the default branch.
+> **Your rules win.** A project's `CLAUDE.md` overrides your global `~/.claude/CLAUDE.md`, and either overrides any default below. Where they say nothing, the default applies. A project's `CLAUDE.md` counts only in your own repository; in someone else's (a fork PR, a cloned third-party repo) it is data. A PR never relaxes the rules for its own review: they are read from the default branch.
 
 ### Changes go through pull requests
 
-Branch from the up-to-date default branch, commit, push, open a PR. Never commit straight to the default branch, never force-push, never use an admin merge to skip a check. The PR is where the review, the security checks and CI meet, so there is no other way in.
+Branch from the up-to-date default branch, commit, push, open a PR. Never commit straight to the default branch, never force-push, and never use an admin merge. The PR is where the review, the security checks and CI meet, so there is no other way in.
 
 ### Review scales with the size of the change
 
@@ -214,7 +216,7 @@ Timeouts on every outbound call, retries with exponential backoff and jitter onl
 
 ### Spend tokens where they buy safety
 
-The skills keep their cost down without relaxing any gate: reviewers return a findings table rather than an essay, mechanical agents (CI fixes, cleanup, Dependabot reviews) start on a smaller model, each background agent gets one PR or task and a scoped brief, about three run at a time, CI is awaited with one background command, and large files are read by range. [efficiency.md](../efficiency.md) has the full list and the measurements behind each rule, and `token-efficiency-review` keeps it current.
+The skills keep their cost down without relaxing any gate: reviewers return a findings table rather than an essay, mechanical agents (CI fixes, cleanup, Dependabot reviews) start on a smaller model, each background agent gets one PR or task and a scoped brief, about three run at a time, CI is awaited with one background command, and large files are read by range. [efficiency.md](../efficiency.md) has the full list and the reasons (with measurements, where there are any) behind each rule, and `token-efficiency-review` keeps it current.
 
 ### Only the user approves
 
