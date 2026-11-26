@@ -328,7 +328,7 @@ class ScanHistoryTest(unittest.TestCase):
     def test_key_file_is_tightened_validated_and_never_tracked(self):
         self.commit("a.txt", "x\n", "init")
         self.key_path.write_text("ab" * 32)
-        os.chmod(self.key_path, 0o644)
+        os.chmod(self.key_path, 0o640)
         code, out, err = self.run_main(str(self.repo))
         self.assertEqual(code, 0)
         self.assertEqual(self.key_path.stat().st_mode & 0o777, 0o600)
