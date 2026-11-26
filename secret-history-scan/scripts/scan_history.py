@@ -203,7 +203,7 @@ def added_lines(repo: Path, reflog: bool):
 
 
 def in_head(repo: Path, path: str, value: str) -> bool:
-    shown = git(repo, "show", f"HEAD:{path}")
+    shown = git(repo, "show", "--end-of-options", f"HEAD:{path}")
     return shown.returncode == 0 and value in shown.stdout
 
 
@@ -275,7 +275,9 @@ def context(repo: Path, spec: str, radius: int) -> str:
         center = int(line)
     except ValueError as error:
         raise ScanError("--context needs <commit>:<path>:<line>") from error
-    shown = git(repo, "show", f"{commit}:{path}")
+    # --end-of-options: a spec starting with "-" is a revision that doesn't exist, never an
+    # option such as --output=<file>, which would make git write a file.
+    shown = git(repo, "show", "--end-of-options", f"{commit}:{path}")
     if shown.returncode != 0:
         raise ScanError(f"cannot read {path} at {commit}")
     out, in_key = [], False
