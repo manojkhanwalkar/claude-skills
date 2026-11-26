@@ -1,6 +1,7 @@
 ---
 name: deep-review
 description: Deep review of an ENTIRE codebase - fix bugs, speed, duplication, readability, security and resilience in small verified commits; runs design-patterns, perf-review, dynamodb-optimizer and documenter. Use for "deep review the project", "clean up the codebase". Not for a PR, a diff or a few files (pr-review, code-review, simplify). Args - [path] [--report-only] [--focus LIST] [--out FILE].
+license: Apache-2.0
 ---
 
 # Deep Review

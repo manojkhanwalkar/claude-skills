@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import json
 import os
 import subprocess
 import tempfile
@@ -34,6 +35,14 @@ class SkillRepo:
         (self.root / "README.md").write_text("# Skills\n\n| Skill | What |\n|---|---|\n" + rows
                                              + "\n## Change log\n\n| Date | PR | Change |\n|---|---|---|\n"
                                              + changes, encoding="utf-8")
+
+    def marketplace(self, *entries, source="./", raw=None):
+        d = self.root / ".claude-plugin"
+        d.mkdir(exist_ok=True)
+        text = raw if raw is not None else json.dumps(
+            {"name": "m", "owner": {"name": "o"},
+             "plugins": [{"name": "p", "source": source, "strict": False, "skills": list(entries)}]})
+        (d / "marketplace.json").write_text(text, encoding="utf-8")
 
     def close(self):
         self._tmp.cleanup()
@@ -360,6 +369,38 @@ class ValidateSkillsTest(unittest.TestCase):
         with redirect_stdout(out):
             self.assertEqual(0, v.main(["validate_skills.py", str(self.repo.root)]))
         self.assertIn("1 skills checked, 0 problem(s), 0 warning(s)", out.getvalue())
+
+    def test_marketplace_must_list_every_skill_exactly(self):
+        for name in ("alpha", "beta"):
+            self.repo.skill(name)
+        self.repo.readme("alpha", "beta")
+        self.repo.marketplace("./alpha", "./beta")
+        self.assertEqual([], self.problems())
+        self.repo.marketplace("./alpha", "./alpha", "./gone", "beta", {"x": 1})
+        m = ".claude-plugin/marketplace.json"
+        self.assertEqual([f"{m}: './alpha' is listed more than once",
+                          f"{m}: skill beta is not in a plugin's skills list (add \"./beta\")",
+                          f"{m}: './gone' in a skills list is not a skill directory (write ./<dir>)",
+                          f"{m}: 'beta' in a skills list is not a skill directory (write ./<dir>)",
+                          f"{m}: {{'x': 1}} in a skills list is not a skill directory (write ./<dir>)"],
+                         self.problems())
+
+    def test_marketplace_without_a_root_skills_list_or_with_bad_json_fails(self):
+        self.repo.skill("solo")
+        self.repo.readme("solo")
+        m = ".claude-plugin/marketplace.json"
+        self.repo.marketplace("./solo", source="./plugins/x")
+        self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
+        self.repo.marketplace(raw="[1, 2]")
+        self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
+        self.repo.marketplace(raw="{not json")
+        [problem] = self.problems()
+        self.assertTrue(problem.startswith(f"{m}: not valid JSON"), problem)
+
+    def test_this_repository_marketplace_matches_its_skills(self):
+        root = Path(__file__).resolve().parent.parent
+        dirs = [d.name for d in v.skill_dirs(root)]
+        self.assertEqual([], v.check_marketplace(root, dirs))
 
 
 if __name__ == "__main__":

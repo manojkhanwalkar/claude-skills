@@ -1,6 +1,7 @@
 ---
 name: secret-history-scan
 description: Scan a repo's whole git history (branches, tags, PR refs) for committed secrets, check liveness only with approval, and report masked with rotation first. Use to scan for leaked secrets, before making a repo public or after a leak. Not for a diff (security-review) or a code audit (owasp-top10). Args - [repo] [--include-pr-refs] [--reflog] [--verify] [--out FILE].
+license: Apache-2.0
 ---
 
 # Secret History Scan

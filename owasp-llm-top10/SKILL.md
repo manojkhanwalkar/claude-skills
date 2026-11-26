@@ -1,6 +1,7 @@
 ---
 name: owasp-llm-top10
 description: Audit LLM and agent code against the OWASP Top 10 for LLM and Agentic Applications (2026) plus MCP checks, with file:line evidence and --fix. Use when code touches prompts, model calls, chatbots, guardrails, RAG, agent memory, tools, MCP or A2A; pr-review runs --diff. Not for classic web risks (owasp-top10; run both when both apply). Args - [path] [--diff [base]] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # OWASP Top 10 for LLM and Agentic Applications — Audit

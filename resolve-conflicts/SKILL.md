@@ -1,6 +1,7 @@
 ---
 name: resolve-conflicts
 description: Resolve a PR's merge conflicts keeping both sides' intent - merge the base in a scratch worktree (no rebase or force-push), keep both change-log rows, regenerate lockfiles, test and push; asks when intent is unclear. Use when a PR is conflicting (DIRTY) or pr-triage hands one over. Not for Dependabot (@dependabot rebase) or red checks (fix-ci). Args - [PR] [--report-only].
+license: Apache-2.0
 ---
 
 # Resolve Conflicts

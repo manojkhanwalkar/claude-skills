@@ -1,6 +1,7 @@
 ---
 name: digital-regulation-check
 description: Check code and product flows against GDPR, ePrivacy, DMA, DSA, AI Act, CCPA and similar laws - consent, cookies, user rights, automated decisions, dark patterns. Use when a change touches consent, tracking, ads, user content, AI features, UI or EU users; pr-review runs --diff. Not for PII security, PCI or SOX (compliance-check). Args - [path] [--diff [base]] [--laws LIST] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # GDPR, DMA, DSA, AI Act and Similar Regulations — Check

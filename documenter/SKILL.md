@@ -1,6 +1,7 @@
 ---
 name: documenter
 description: Add, standardise and refresh in-source doc comments (Javadoc first; KDoc, docstrings, TSDoc, Go) on classes, long methods and public APIs, changing comment lines only. Use for "add javadoc", "doc comments", "comment the code"; pr-review runs --diff, deep-review the whole project. Not for docs/ pages or the README (document). Args - [path] [--diff [base]] [--report-only] [--check] [--min-lines N].
+license: Apache-2.0
 ---
 
 # Documenter

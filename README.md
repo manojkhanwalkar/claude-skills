@@ -7,6 +7,21 @@
 - **Catalogue:** the owner keeps the same content in a private Claude doc, updated whenever a skill is added or changed.
 - **Efficiency:** [efficiency.md](efficiency.md) lists the rules that keep token use down without relaxing any gate.
 
+## Install
+
+This repository is a Claude Code plugin marketplace, `manoj-claude-skills`, with one plugin, `manoj-skills`, that holds all 27 skills. From your shell:
+
+```bash
+claude plugin marketplace add manojkhanwalkar/claude-skills
+claude plugin install manoj-skills@manoj-claude-skills
+```
+
+Or inside a Claude Code session: `/plugin marketplace add manojkhanwalkar/claude-skills`, then `/plugin install manoj-skills@manoj-claude-skills`.
+
+Installed skills are namespaced by the plugin: run `/manoj-skills:pr-review 30` rather than `/pr-review 30`. To pick up new versions, run `claude plugin update manoj-skills@manoj-claude-skills` (it refreshes the marketplace first), or turn on auto-update for the marketplace in `/plugin`. To use the skills without the prefix, clone the repository to `~/.claude/skills` instead (not both, or every skill is listed twice).
+
+License: [Apache 2.0](LICENSE) (see also [NOTICE](NOTICE)).
+
 ## Skills at a glance
 
 | Skill | What it does | Use when | Arguments |
@@ -119,7 +134,7 @@ Every pull request to this repo must pass these checks before it can merge; `mas
 
 | Check | What it enforces |
 |---|---|
-| Validate skills | Each `SKILL.md` has strict-YAML frontmatter with only upload-accepted keys; `name` equals its folder, uses lowercase letters, digits and hyphens (64 at most) and avoids "claude" and "anthropic"; the description is at most 1024 characters with no `<` or `>` and has an `Args` part (over 400 characters, the listing budget, is a warning); relative links and quoted `references/`, `scripts/` and `~/.claude/skills/` paths resolve inside the repo; no tracked file names a private project (a hashed denylist; hyphens, underscores and dots inside a name are ignored); this README has the skill's row and a change-log row naming it |
+| Validate skills | Each `SKILL.md` has strict-YAML frontmatter with only upload-accepted keys; `name` equals its folder, uses lowercase letters, digits and hyphens (64 at most) and avoids "claude" and "anthropic"; the description is at most 1024 characters with no `<` or `>` and has an `Args` part (over 400 characters, the listing budget, is a warning); relative links and quoted `references/`, `scripts/` and `~/.claude/skills/` paths resolve inside the repo; no tracked file names a private project (a hashed denylist; hyphens, underscores and dots inside a name are ignored); this README has the skill's row and a change-log row naming it; `.claude-plugin/marketplace.json` lists every skill folder exactly once as `./<dir>`, so a new skill can't ship uninstallable |
 | Script tests | Every bundled script's unit tests run under coverage, failing below 95% (98% today) or when a folder of Python code has no `test_*.py` beside it |
 | CodeQL | Static analysis of the Python scripts and the workflows |
 | Dependency review | Fails a PR that adds a dependency with a high or critical vulnerability |
@@ -143,6 +158,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-26 | this PR | Release: Apache 2.0 licence (`LICENSE`, `NOTICE`, `license: Apache-2.0` in every skill's frontmatter) and a plugin marketplace (`.claude-plugin/marketplace.json`: marketplace `manoj-claude-skills`, plugin `manoj-skills` listing all 27 skills); README Install section; the validator fails when the marketplace's skills list and the skill folders differ |
 | 2026-11-25 | this PR | Security: OWASP Top 10 re-run. secret-history-scan's `--context` spec can no longer be read as a git option (`--end-of-options`); the validator rejects quoted `references/`, `scripts/` and `~/.claude/skills/` paths that climb out with `..`; mcp-builder's stdio server logs to the user's home instead of the shared temp dir; the stale in-tree `security/OWASP-AUDIT.md` (2026-10-25) is removed and `security/` ignored, since reports for this public repo live outside the tree |
 | 2026-11-25 | this PR | `efficiency.md` matches the rule 9 and 10 changes: at most about 3 background agents at once, long references (the Docs `guide`) loaded once and passed in briefs, skill descriptions about 400 characters; review-history row for the skills deep review |
 | 2026-11-25 | this PR | Review tooling: the validator also requires an `Args` part in each description, a change-log row naming each skill, quoted `references/`, `scripts/` and `~/.claude/skills/` paths that exist, and no private project names in tracked files (hashed denylist; two examples made generic), and warns on descriptions over the 400-character listing budget; the artifact-cleanup template no longer treats a failed run lookup (rate limit, 5xx) as a deleted run, so it can't delete an in-progress run's artifacts, reads candidates in one `jq` pass, says artifacts are grouped by name, and is tested against a stub `gh` |

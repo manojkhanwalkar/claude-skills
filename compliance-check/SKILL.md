@@ -1,6 +1,7 @@
 ---
 name: compliance-check
 description: Check code and pipelines for SOX, PII and PCI DSS - audit trails, exact money, PII masking, no stored CVV - with file:line evidence and --fix. Use when a change touches personal data, payments, billing, ledgers or audit logs; pr-review runs --diff. Not for GDPR or EU laws (digital-regulation-check). Args - [path] [--diff [base]] [--frameworks sox,pii,pci] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # SOX, PII and PCI Compliance Check

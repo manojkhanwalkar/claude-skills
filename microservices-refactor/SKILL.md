@@ -1,6 +1,7 @@
 ---
 name: microservices-refactor
 description: Assess a codebase for microservices and extract them safely - find seams, rate each split now, later or never, then extract one service per PR with the Strangler Fig and branch by abstraction. Use to split a monolith, extract a service or review service boundaries. Not for a whole-code cleanup (deep-review) or only retries (resiliency). Args - [path] [--report-only] [--service NAME] [--out FILE].
+license: Apache-2.0
 ---
 
 # Microservices refactor
