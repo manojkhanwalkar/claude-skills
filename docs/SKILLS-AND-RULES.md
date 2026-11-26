@@ -91,7 +91,7 @@ Checks against named standards, each finding with `file:line` evidence, a severi
 |---|---|
 | `owasp-top10` | A whole-codebase audit against every OWASP Top 10 (2025) category, with verified fixes. |
 | `owasp-llm-top10` | Audits LLM and agent code (prompts, tools, RAG, agent memory, MCP servers and clients) against the OWASP Top 10 for LLM and Agentic Applications. |
-| `compliance-check` | SOX, PII security controls and PCI DSS: audit trails, exact money arithmetic, masked personal data, no stored card codes. |
+| `compliance-check` | SOX, PII security controls and PCI DSS: audit trails, exact money arithmetic, masked personal data, no stored card codes. For SOX it tests what an IT audit tests (who can merge and deploy, whether every change was reviewed and traced to production) and can gather that evidence for an audit period. |
 | `digital-regulation-check` | GDPR, ePrivacy, the EU's DMA, DSA and AI Act, CCPA and similar laws: consent, cookies, user rights and automated decisions. |
 | `ada-compatibility` | Reviews and fixes web and mobile UIs to WCAG 2.2 AA, with axe tests in CI. Never accessibility overlays. |
 | `secret-history-scan` | Scans a repository's whole git history for committed secrets, prints them masked, and puts rotation before any history rewrite. |

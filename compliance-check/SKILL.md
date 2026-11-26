@@ -1,6 +1,6 @@
 ---
 name: compliance-check
-description: Check code and pipelines for SOX, PII and PCI DSS - audit trails, exact money, PII masking, no stored CVV - with file:line evidence and --fix. Use when a change touches personal data, payments, billing, ledgers or audit logs; pr-review runs --diff. Not for GDPR or EU laws (digital-regulation-check). Args - [path] [--diff [base]] [--frameworks sox,pii,pci] [--fix] [--out FILE].
+description: Check code and repos for SOX ITGCs, PII and PCI DSS - audit trails, money, access and change evidence, PII masking, stored CVV - with file:line evidence. Use when a change touches personal data, payments, billing, ledgers or audit logs; pr-review runs --diff. Not for GDPR (digital-regulation-check). Args - [path] [--diff [base]] [--frameworks LIST] [--evidence --since DATE] [--fix] [--out FILE].
 license: Apache-2.0
 ---
 
@@ -8,7 +8,7 @@ license: Apache-2.0
 
 Check a project, or one change to it, against three sets of rules that engineers can break in code:
 
-- **SOX** (Sarbanes-Oxley §302/§404): IT general controls (ITGCs) over systems that feed financial reporting — access to programs and data, program change, program development, computer operations — plus the application controls in the code itself: accurate money handling, complete and immutable audit trails, maker-checker approval.
+- **SOX** (Sarbanes-Oxley §302/§404): IT general controls (ITGCs) over systems that feed financial reporting — access to programs and data, program change, program development, computer operations — checked the way an ITGC auditor tests them (who can merge, deploy and bypass; whether every production change has a PR, an independent approval and a traceable deploy; whether job failures and incidents are recorded; whether the evidence can still be produced and can't be tampered with), plus the application controls in the code itself: accurate money handling, complete and immutable audit trails, maker-checker approval. `--evidence` gathers that ITGC evidence from the GitHub API for an audit period.
 - **PII / privacy**: personal data protection as GDPR (Art. 5, 17, 25, 32, 33), CCPA/CPRA, GLBA Safeguards Rule, HIPAA (only if health data appears) and NIST SP 800-122 / 800-53 privacy controls expect it — inventory, minimisation, encryption, masking, logging, retention, erasure, access and consent.
 - **PCI DSS v4.0.1** (all future-dated requirements mandatory since 31 March 2025): cardholder data (PAN) and sensitive authentication data (CVV, track, PIN) — what may be stored, how it is rendered unreadable and masked, how it travels, who can reach it, payment-page scripts, keys, logging and scope.
 
@@ -23,6 +23,7 @@ As with every audit, the value is evidence. A finding needs a concrete `file:lin
 - A path or module → limit the scope to it.
 - `--diff [base]` → check only what changed against `base` (default `origin/<default branch>`, from `gh repo view --json defaultBranchRef` or `origin/HEAD`). Read enough surrounding code to trace each changed data flow end to end: a new field added to a DTO matters because of where that DTO is logged, stored and returned. This is the mode for PR reviews.
 - `--frameworks sox,pii,pci` → check only these. Default: every framework that Phase 1 finds applicable.
+- `--evidence --since <YYYY-MM-DD> [--until <date>]` → build a SOX ITGC evidence pack for that audit period instead of (or after) the code check: see "SOX evidence pack" below. Read-only; it never changes repository settings.
 - `--fix` → after the report, fix confirmed findings (Phase 5). Without it, never edit source files.
 - `--out <file>` → report path. Default: `security/COMPLIANCE-CHECK.md` in a private repo; outside the working tree for a public or unknown one (`~/.claude/security-reports/<repo>/COMPLIANCE-CHECK.md`). Check visibility with `gh repo view --json visibility`.
 - In `--diff` mode with no `--out`, return the report in the reply (or as part of the PR comment when the calling workflow asks) instead of writing a file.
@@ -58,7 +59,7 @@ As with every audit, the value is evidence. A finding needs a concrete `file:lin
 Read the reference for each applicable framework now (in `--diff` mode, only the frameworks the diff touches; each reference opens with a contents list, so read the sections you need):
 - `references/pci-dss.md` — PCI DSS v4.0.1 requirements that code and pipelines can break (3, 4, 6, 7, 8, 10, 11.6.1, 12.5.2, 12.8), with what to look for, grep hints and fixes.
 - `references/pii-privacy.md` — PII controls: inventory, minimisation, encryption, masking, logging, retention, erasure and access rights, consent, cross-border, breach readiness, test data, AI/LLM use of PII.
-- `references/sox.md` — ITGCs (change management, segregation of duties, access, operations) as GitHub and CI/CD settings, and application controls (money arithmetic, audit trail, maker-checker, completeness, reconciliation, retention).
+- `references/sox.md` — ITGCs (change management, segregation of duties, access management and reviews, operations and incidents) as GitHub and CI/CD settings with the tests an auditor runs on each, audit evidence (producible, retained, tamper-evident), and application controls (money arithmetic, audit trail, maker-checker, completeness, reconciliation, retention). For a whole-project SOX check, also run the evidence script (below) for the last quarter: its exceptions are findings with the same IDs.
 
 For each item:
 1. Use the hints to find candidates, then read the code. Follow each piece of regulated data from the inventory through every sink.
@@ -137,11 +138,34 @@ Follow `owasp-top10` Phase 5: check `git status`, take a baseline build, triage 
 - **Repository settings** (branch protection, required reviews, CODEOWNERS, environment approvals) are outward-facing changes: show the exact `gh api` call and ask before applying it. On a private repo on the free plan some settings aren't available; say so and name the compensating control.
 - Never "fix" by deleting the audit trail, the logs an assessor needs, or a test.
 
+## SOX evidence pack (--evidence)
+
+Auditors test ITGCs on a sample drawn from a population (every production change in the period, every person with access). The script builds that population and its exceptions from the GitHub API, so the evidence is machine-generated, not screenshots:
+
+```bash
+python3 -I "${CLAUDE_SKILL_DIR}/scripts/sox_evidence.py" --since <YYYY-MM-DD> [--until <YYYY-MM-DD>] \
+    [--repo OWNER/NAME] [--environment production] [--emergency-label hotfix] [--incident-label incident] \
+    --out <folder>
+```
+
+- **Where:** default `--out` follows the report rule above: `security/sox-evidence/<since>_<until>/` in a private repo, `~/.claude/security-reports/<repo>/sox-evidence/<since>_<until>/` for a public or unknown one. The pack names people by GitHub login, so never commit it to a public repo.
+- **What it gathers** (one JSON file per area, `summary.md`, `exceptions.json`, `MANIFEST.sha256`):
+  - *access*: admins, maintainers and writers (the list to sign off in an access review), teams, deploy keys with write access, ruleset bypass actors (`SOX-AC3`, `AC7`);
+  - *change*: branch protection and rulesets, every merged PR in the period with its approvers, whether the approval covered the merged commit, emergency changes and their retrospective reviews, and commits on the default branch that came from no PR (`SOX-CM1`–`CM3`, `CM7`, `CM8`);
+  - *deploy*: environments with their required reviewers, self-review and branch policy, and deployments in the period traced to a merged PR (`SOX-CM4`, `CM9`, `SOD1`);
+  - *operations*: workflow runs, with scheduled jobs whose latest run failed, and incident issues closed without a linked fix (`SOX-OPS1`, `OPS3`);
+  - *evidence*: Actions log retention against the period (`SOX-EVD2`), and unsigned commits (`EVD3`, Info).
+- **Gaps:** a call that needs a permission the token lacks (collaborators and rulesets need admin), backups and restore tests (in the cloud account, not GitHub), and anything over the caps are listed under "Gaps", never silently skipped. Name each gap in the report with where its evidence lives instead.
+- **Reading the exceptions:** each one is a finding with the ID from `references/sox.md`; read the code or setting before rating it. A repository with one maintainer can't have independent GitHub approvals, so every PR shows as `SOX-CM8` (and the branch as `SOX-CM1/CM2`; see `SOD5`). Report the setting once (not once per PR), and name the compensating control an auditor would test instead, such as a review by a separate agent or person recorded on each PR, then check a sample of PRs for that record.
+- **Tamper evidence:** the manifest holds a SHA-256 for every file. Tell the user to keep the folder in write-once storage for the retention period (`SOX-RET1`) and to check it with `sha256sum -c MANIFEST.sha256`.
+- **Report:** add an "ITGC evidence" section to the compliance report: the period, the counts of exceptions by severity, the exceptions after review, the gaps, and where the pack is.
+
 ## Use in reviews and new projects
 
 - **Every PR** (`pr-review` runs this): when the diff touches personal data, card or payment code, money, billing or subscriptions, ledgers or financial reports, audit logging, authentication or authorisation over such data, data retention or deletion, or the CI/CD and deployment controls of such a system, run `compliance-check --diff origin/<base>` next to `security-review`. Fold confirmed Critical, High and Medium findings into the review's fix list, and add the applicable summary rows to the PR's findings comment. If none of those are touched, say "compliance-check: not applicable (no regulated data or financial controls touched)" in the comment.
 - **New projects**: run `compliance-check` on the whole project once its first PR with real code lands (or when it is created from an existing codebase), record the applicability table and data inventory in the design doc's Security/Compliance section (if the project keeps one: the design-doc convention, `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`; otherwise in the report), and re-run it on the whole project when it first handles a new class of regulated data (first card payment, first SSN, first financial ledger) or when SOX scope changes.
 - **Whole-project re-checks**: on the triggers above, when the user asks, or before an audit or assessment. `deep-review` doesn't run this skill.
+- **Audit periods**: when SOX applies, run `--evidence` for each quarter (or the period the auditor names) and before an audit, so evidence is gathered while the logs still exist.
 - **Sibling skill**: when the same change touches consent, tracking, user rights, AI decisions, user-generated content or EU users, also run `digital-regulation-check` (same `--diff` mode).
 
 ## References
@@ -150,3 +174,4 @@ Follow `owasp-top10` Phase 5: check `git status`, take a baseline build, triage 
 - `references/pii-privacy.md` — personal data protection controls.
 - `references/sox.md` — SOX ITGCs and application controls.
 - `scripts/scan_sensitive.py` — lead finder for PANs, SSNs, SAD fields and sensitive values in log calls (stdlib only, masked output).
+- `scripts/sox_evidence.py` — read-only SOX ITGC evidence pack from the GitHub API through `gh` (stdlib only).
