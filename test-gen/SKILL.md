@@ -1,6 +1,6 @@
 ---
 name: test-gen
-description: Raise unit-test coverage to the target (95% by default) with tests that check behaviour, not padding - measure with the stack's own tool (JaCoCo, coverage.py, c8, go cover, cargo llvm-cov), rank uncovered lines and branches by risk, write tests in the project's style that assert real outcomes and error paths, prove they bite with a mutation check, and report before and after with what stays uncovered and why. Use when asked to add tests, raise or fix coverage, meet a coverage gate or "get to 95%", for a project, a module or a branch's changes; fix-ci calls it for a red coverage gate. Not for fixing failing tests (fix-ci), only listing test gaps, or reviewing a PR (pr-review). Args - optional path/module, --target PERCENT (default 95, or the project's gate if higher), --diff [base] for changed code only, --no-mutation.
+description: Raise unit-test coverage to the target (95% default) with tests that check behaviour - measure, rank gaps by risk, write tests that prove they bite with a mutation check. Use to add tests, raise coverage, meet a coverage gate or "get to 95%"; fix-ci calls it for a red gate. Not for failing tests (fix-ci). Args - [path] [--target PERCENT] [--diff [base]] [--no-mutation].
 ---
 
 # Test Generation

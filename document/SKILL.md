@@ -1,6 +1,6 @@
 ---
 name: document
-description: Analyze a project's source code and write documentation that lets a newcomer understand it quickly - one doc per source file covering its purpose and every function/method, plus an overall summary file that is also merged into the existing README (or a new README if none exists). Re-runs update only the pages whose source changed and remove pages for deleted files. Use when the user asks to document a codebase, explain every file/function, generate code docs, or write/update a project summary or README. For in-source doc comments only (Javadoc, docstrings), use documenter. Args - optional path/module to limit scope, optional --inline to also add doc comments in the source files (done by the documenter skill), optional --out DIR for the docs directory (default docs/), optional --full to rebuild every page instead of only changed ones.
+description: Write docs that let a newcomer understand a project - one page per source file plus a summary merged into the README; re-runs update only changed pages. Use to document a codebase, explain every file or function, or write a project summary or README. Not for in-source doc comments (documenter). Args - [path] [--inline] [--out DIR] [--full].
 ---
 
 # Document

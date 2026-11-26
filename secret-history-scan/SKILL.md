@@ -1,6 +1,6 @@
 ---
 name: secret-history-scan
-description: Scan a repository's entire git history (every branch, tag and, for GitHub, pull-request ref - not just new pushes) for committed secrets such as API keys, tokens, private keys and passwords; triage each finding (real or false positive, still in HEAD, which refs and forks carry it, public exposure); optionally check with the user's approval whether a secret is still live, against its own provider only; and report with values masked, rotation first and history rewriting only on the user's explicit decision. Uses gitleaks or trufflehog when installed, otherwise a bundled stdlib scanner. Use when the user asks to scan history or a repo for secrets or leaked credentials, before making a repo public, after a suspected leak, or for a periodic audit of a public repo. Not for reviewing a diff (security-review) or a code audit (owasp-top10). Args - optional repo path (default the current repo), --include-pr-refs, --reflog, --verify (ask before any liveness check), --out FILE.
+description: Scan a repo's whole git history (branches, tags, PR refs) for committed secrets, check liveness only with approval, and report masked with rotation first. Use to scan for leaked secrets, before making a repo public or after a leak. Not for a diff (security-review) or a code audit (owasp-top10). Args - [repo] [--include-pr-refs] [--reflog] [--verify] [--out FILE].
 ---
 
 # Secret History Scan

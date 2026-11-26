@@ -1,6 +1,6 @@
 ---
 name: pr-walkthrough
-description: Write a walkthrough of a pull request for the people who will review it - what changed by area, behaviour and breaking changes, a Mermaid sequence diagram when a call flow changed, a risk and effort score with reasons, whether the PR does what its linked issues ask (each acceptance criterion met, partial or not met, with evidence), and suggested reviewers - and post it as one PR comment that is updated in place on later runs. Use when the user asks to summarise, explain or walk through a PR, to check a PR against its issue, or to estimate review effort; pr-review runs it on PRs of 250+ changed lines. Not a code review (no bug findings; use pr-review, or code-review --comment to post findings). Args - optional PR number (default the PR of the current branch), optional --no-post to print instead of posting, optional --no-diagram.
+description: Write a PR walkthrough for reviewers - changes by area, breaking changes, a Mermaid diagram when a call flow changed, risk and effort, and linked-issue criteria met - as one PR comment updated in place. Use to summarise or walk through a PR or check it against its issue; pr-review runs it on 250+ line PRs. Not a code review (pr-review). Args - [PR] [--no-post] [--no-diagram].
 ---
 
 # PR Walkthrough

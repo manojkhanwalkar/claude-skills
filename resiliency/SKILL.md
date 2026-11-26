@@ -1,6 +1,6 @@
 ---
 name: resiliency
-description: Make a multi-service codebase resilient to failures between its services - bound every outbound call with timeouts that fit the caller's budget, add retries with exponential backoff and jitter on recoverable errors (only when safe to repeat, idempotency keys kept on an unknown outcome, one retry layer per call), and limit incoming load on every service with a token bucket (rate) plus a concurrency cap (in-flight requests), returning 429/503 with Retry-After that callers back off on. Owns the timeout, retry and limit checklist that deep-review, perf-review, dynamodb-optimizer, microservices-refactor and mcp-builder point to. Use when asked to add timeouts, retries, backoff, jitter, rate limiting, throttling, a token bucket, concurrency limits, bulkheads, load shedding, or to make services "resilient" or "fault tolerant". Not for reviewing a PR (pr-review), a whole-code cleanup (deep-review) or speed (perf-review). Args - optional path/module, optional --retries-only or --limits-only, optional --report-only.
+description: Make services resilient to each other's failures - timeouts on every outbound call, retries with backoff and jitter only when safe, and a token bucket plus concurrency cap returning 429/503 with Retry-After; owns the checklist other skills cite. Use for timeouts, retries, rate limiting, throttling. Not for speed (perf-review). Args - [path] [--retries-only|--limits-only] [--report-only].
 ---
 
 # Resiliency

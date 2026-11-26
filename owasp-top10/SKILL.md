@@ -1,6 +1,6 @@
 ---
 name: owasp-top10
-description: Audit a whole codebase against every OWASP Top 10 (2025) category and write a markdown report of findings with file:line evidence, severity, and concrete fixes; optionally apply the fixes with --fix and verify them with the project's build, tests, and live checks. Use whenever the user asks for an OWASP audit, OWASP Top 10 check, security audit, appsec review, "is this code secure", or a security review of a whole project or module, and when a project starts handling sensitive data, even if they don't say "OWASP" explicitly. Whole-project only - for the current diff or a PR use security-review; for LLM and agent code also run owasp-llm-top10; for secrets across git history use secret-history-scan; not for container images or infrastructure. Args - optional path/module to limit scope, optional --fix to apply fixes after reporting, optional --out FILE for the report path (default security/OWASP-AUDIT.md for a private repo, outside the working tree for a public one).
+description: Audit a whole codebase against every OWASP Top 10 (2025) category, with file:line evidence, severity and fixes; --fix applies and verifies them. Use for an OWASP or security audit, "is this code secure", or when a project starts handling sensitive data. Not for a diff (security-review), LLM code (owasp-llm-top10) or git-history secrets (secret-history-scan). Args - [path] [--fix] [--out FILE].
 ---
 
 # OWASP Top 10 (2025) Audit

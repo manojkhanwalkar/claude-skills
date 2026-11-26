@@ -1,6 +1,6 @@
 ---
 name: review-guidelines
-description: Keep a repository's review rules - the decisions and team preferences that reviews should remember - in `.claude/review-rules.md`, so pr-review, deep-review and the skills they call stop re-raising findings the owner already settled (a quirk kept on purpose, a refactor declined, a known gap already tracked, a convention to enforce). Add a rule, learn proposed rules from a merged PR's findings table or from decisions in the project memory and design doc (the user picks which to keep), list them, or prune stale ones; every change goes through a reviewed PR. Owns the Limits that every reviewing skill applies - rules never hide a Critical, High, security, compliance or accessibility finding, and only the user accepts a Medium. Use when the user says "remember this for future reviews", "stop flagging X", "add a review rule", "learn from PR N", or asks what the review rules are. Not for reviewing code (pr-review, deep-review, code-review). Args - add "RULE" [--scope GLOB], learn [PR_NUMBER], list, or prune.
+description: Keep a repo's review rules in .claude/review-rules.md so reviews stop re-raising settled findings - add, learn, list or prune, each by PR; owns the Limits every reviewer applies. Use for "remember this for future reviews", "stop flagging X", "add a review rule", "learn from PR N". Not for reviewing code (pr-review). Args - add "RULE" [--scope GLOB] | learn [PR] | list | prune.
 ---
 
 # Review Guidelines

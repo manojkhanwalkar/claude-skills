@@ -1,6 +1,6 @@
 ---
 name: perf-review
-description: Review code for performance and fix what is proven - find hot paths first, then inefficiencies with file:line evidence (N+1 calls and queries, scans instead of queries, unbounded memory or caches, expensive objects built per request, blocking event loops, sequential calls that could run in parallel, missing pagination, logging cost, no connection reuse, large payloads), estimate each cost in numbers, prove it with JMH, JFR, async-profiler or a load test, and --fix applies small behaviour-preserving changes with tests. Java first-class; also DynamoDB, SQL, Python, Node, web. Use for "performance review", "make it faster", "reduce latency", "memory usage", "optimise", "slow endpoint", "inefficient code", "perf". Not for timeouts, retries and limits (resiliency), design (design-patterns), bugs (pr-review, code-review) or a whole-code cleanup (deep-review, which calls this skill for perf). Args - [path] [--diff [base]] [--report-only] [--fix] [--focus LIST] [--out FILE].
+description: Review code for performance and fix what is proven - hot paths, N+1 calls, scans, unbounded memory, blocking calls - with cost estimates and JMH or load-test proof; --fix with tests. Use for "performance review", "make it faster", "latency", "perf". Not for retries (resiliency) or design (design-patterns). Args - [path] [--diff [base]] [--report-only] [--fix] [--focus LIST] [--out FILE].
 ---
 
 # Performance review
@@ -86,7 +86,7 @@ For each candidate:
 - **Low**: everything else.
 - **Effort**: S (under an hour, one file), M (a few files, one PR), L (a schema, API or infrastructure change; list it under "Needs a decision").
 
-Review rules apply as in `pr-review`: a Low matching a `suppress` rule becomes "Suppressed by R<n>"; a Medium that matches one stays open until the owner accepts it in the session. Critical and High findings are never suppressed. When called by another skill, report such a Medium as Open ("matches R<n>, owner to accept") and let the caller ask.
+Review rules apply as `review-guidelines` **Limits** items 1-4 say; under a caller, return a matching Medium as Open ("matches R<n>, owner to accept") and let the caller ask (item 4).
 
 With `--report-only` (or `--diff` without `--fix`), go to Phase 5.
 

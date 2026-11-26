@@ -1,6 +1,6 @@
 ---
 name: pr-triage
-description: Triage the open work across one or more of the user's GitHub repos - rank open pull requests by what needs doing first (red default-branch CI, security updates, ready to merge, failing checks, conflicts, waiting on review, stale), batch Dependabot PRs through pr-review one at a time, propose duplicate, superseded or abandoned PRs for closing, and clean up merged branches, leftover local branches and orphaned worktrees (archiving uncommitted work first). Reports a plan by default; acts only with --apply and the user's confirmation. Use when the user asks what is pending or open, to triage or tidy PRs and branches, to clear the Dependabot queue, or to clean up stale branches and worktrees. Not for reviewing one PR (pr-review) or cleaning up after a single merge (post-merge-sync). Args - optional owner/repo list (default the current repo), optional --all for every repo the user pushed to in the last 90 days, optional --apply, optional --stale-days N (default 30).
+description: Triage open work across the user's GitHub repos - rank open PRs, batch Dependabot PRs through pr-review, and clean up merged branches and orphaned worktrees; acts only with --apply. Use for "what is pending", tidying PRs and branches, or clearing the Dependabot queue. Not for one PR (pr-review) or one merge (post-merge-sync). Args - [owner/repo ...] [--all] [--apply] [--stale-days N].
 ---
 
 # PR Triage

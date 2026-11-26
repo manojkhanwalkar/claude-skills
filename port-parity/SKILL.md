@@ -1,6 +1,6 @@
 ---
 name: port-parity
-description: Keep a port or mirror in step with the project it copies - for a linked pair of repos (for example a Java project and its Python port, or a server and its client SDK) find the source changes since the last parity baseline that alter the shared contract (tool results, schemas, error texts, CLI output, exit codes, wire behaviour from dependency bumps), re-capture the golden files from the current source build, port the intended changes to the target in a reviewed PR, and record the new baseline. Use when the user asks to sync or check parity between a project and its port, port a change to the other repo, or re-capture golden files, or when memory or post-merge-sync records a parity backlog. Not for a first-time conversion (javatopython-converter) or for reviewing a single PR (pr-review). Args - optional --source PATH and --target PATH (default from project memory), optional --since SHA (default the recorded baseline), optional --report-only to measure and classify the drift without changing anything.
+description: Keep a port or mirror in step with its source - find source changes since the parity baseline that alter the shared contract, port them in a reviewed PR and record the new baseline. Use to sync or check parity with a port, or port a change to the other repo. Not for a first conversion (javatopython-converter). Args - [--source PATH] [--target PATH] [--since SHA] [--report-only].
 ---
 
 # Port Parity

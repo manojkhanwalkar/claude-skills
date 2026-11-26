@@ -1,6 +1,6 @@
 ---
 name: design-patterns
-description: Review and refactor code design with the Gang of Four catalogue, Fowler's Refactoring and enterprise patterns, Kerievsky, DDD, SOLID, GRASP and Effective Java - find design smells with file:line evidence (type switches, copied algorithms, telescoping constructors, hard-wired dependencies, god classes, primitive obsession, anemic models, leaking external APIs, copied cross-cutting code, flag-soup state, nulls, shared mutable state, missing test seams), judge whether a pattern, a modern Java idiom or a simpler design removes a real problem, flag pattern overuse, and --fix refactors in small tested steps. Use for "design patterns", "Gang of Four", "SOLID", "refactor the design", "code smells", "clean up the architecture of X", "review the design". Not for a bug hunt (pr-review), a whole-code cleanup (deep-review, which calls this skill for design) or service boundaries (microservices-refactor, which calls it per service). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
+description: Review and refactor code design with GoF, Fowler, DDD, SOLID and Effective Java - smells with file:line evidence; --fix refactors in small tested steps. Use for "design patterns", "SOLID", "code smells", "refactor the design". Not for bugs (pr-review) or service boundaries (microservices-refactor). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
 ---
 
 # Design patterns
@@ -82,7 +82,7 @@ For each candidate, answer before writing it down:
 - **High or Critical** only when the design flaw **causes** a correctness or security defect, shown with a failing scenario (for example a mutable shared object that leaks one user's data to another). Report it as that defect, which review rules never suppress; the design fix is its remedy.
 - **Effort**: S (under an hour, one file), M (a few files, one PR), L (several PRs or a public API change; list it under "Needs a decision").
 
-Review rules apply as in `pr-review`: a Low matching a `suppress` rule becomes "Suppressed by R<n>"; a Medium that matches one stays open until the owner accepts it in the session. When called by another skill, report such a Medium as Open ("matches R<n>, owner to accept") and let the caller ask.
+Review rules apply as `review-guidelines` **Limits** items 1-4 say; under a caller, return a matching Medium as Open ("matches R<n>, owner to accept") and let the caller ask (item 4).
 
 With `--report-only` (or `--diff` without `--fix`), go to Phase 5.
 

@@ -1,6 +1,6 @@
 ---
 name: owasp-llm-top10
-description: Audit code that uses LLMs or AI agents against the OWASP Top 10 for LLM Applications (2026, LLM01–LLM10) and the OWASP Top 10 for Agentic Applications (2026, ASI01–ASI10), plus MCP server and client checks (token passthrough and audience, Origin and DNS rebinding, confused deputy, tool poisoning, untrusted tool annotations) - and write a report with file:line evidence, severity and fixes; optionally apply fixes with --fix. Use whenever a change or project touches prompts, model calls, chatbots, guardrails, RAG or embeddings, agent memory, MCP or A2A servers and clients, tool definitions or LLM-generated output, and as part of every security review of such code, even if the user doesn't say "OWASP" or "LLM". Use with --diff for a PR or branch (pr-review runs it next to security-review), or without it for a whole project. Not a substitute for owasp-top10 (classic web risks) - run both when both apply. Args - optional path/module scope, optional --diff [base], optional --fix, optional --out FILE.
+description: Audit LLM and agent code against the OWASP Top 10 for LLM and Agentic Applications (2026) plus MCP checks, with file:line evidence and --fix. Use when code touches prompts, model calls, chatbots, guardrails, RAG, agent memory, tools, MCP or A2A; pr-review runs --diff. Not for classic web risks (owasp-top10; run both when both apply). Args - [path] [--diff [base]] [--fix] [--out FILE].
 ---
 
 # OWASP Top 10 for LLM and Agentic Applications — Audit
