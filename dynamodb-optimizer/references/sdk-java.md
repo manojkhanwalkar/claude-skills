@@ -5,7 +5,7 @@
 - `DynamoDbClient` (low-level, `Map<String, AttributeValue>`) and `DynamoDbEnhancedClient` (maps classes with `TableSchema`, the successor of v1's `DynamoDBMapper`; also an Enhanced Document API for schemaless items). Both are fine; mixing them for one table is a smell only when the two disagree on attribute names or types.
 - Clients are thread-safe and hold their own connection pool: build **one per application** (a Spring bean), close it on shutdown. A client per request leaks pools and pays TLS handshakes.
 - Build each `TableSchema` (`fromBean`, `fromImmutableClass`) and `DynamoDbTable` once; they use reflection.
-- **Timeouts**: the SDK sets no default `apiCallTimeout` (whole call, all attempts) or `apiCallAttemptTimeout` (one attempt). Set both in `ClientOverrideConfiguration`. The values and the retry budget belong to the `resiliency` skill.
+- **Timeouts**: the SDK sets no default `apiCallTimeout` (whole call, all attempts) or `apiCallAttemptTimeout` (one attempt). Set both in `ClientOverrideConfiguration`. The values and the retry budget belong to the `resiliency` skill (its checklist, and the AWS SDK section of its `references/platforms.md`).
 - **Retries**: since SDK 2.58.0 the default mode is `standard`: for DynamoDB 4 attempts, 25 ms base delay, backoff with jitter on throttling and transient errors. `legacy` (the earlier default) makes 9 attempts. `adaptive` adds client-side rate limiting; use one client per table with it. Configure with `overrideConfiguration(o -> o.retryStrategy(RetryMode.STANDARD))`, `AWS_RETRY_MODE`, or `aws.retryMode`; `AWS_MAX_ATTEMPTS` caps attempts.
 - `TransactionCanceledException` is a client error the SDK doesn't retry; handle it by its cancellation reasons (see Transactions).
 

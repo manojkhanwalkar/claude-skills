@@ -61,7 +61,7 @@ Skip `target/`, `build/`, `node_modules/` and generated code.
 - Client built per call or per request (`DynamoDbClient.create()`, `builder()...build()`, `boto3.client(...)`, `new DynamoDBClient(...)` inside a method) → one shared client.
 - Enhanced `TableSchema.fromBean`/`fromImmutableClass` built per call (reflection) → build once.
 - No `apiCallTimeout` / `apiCallAttemptTimeout` (the SDK sets none) → point to `resiliency`.
-- Retry mode: legacy (pre-2.58.0 default, 9 attempts for DynamoDB) or custom unbounded retries; standard and adaptive make 4 attempts. Note it; `resiliency` owns the change.
+- Retry mode: legacy (pre-2.58.0 default, 9 attempts for DynamoDB) or custom unbounded retries; standard and adaptive make 4 attempts. Note it; `resiliency` owns the change (the SDK's retries are the call's one retry layer, so no extra wrapper).
 - Provisioned mode without auto scaling on spiky traffic, or on-demand on a steady, high, predictable load → note for "Needs a decision" with the arithmetic (`costs.md`).
 - DAX: only for read-heavy, eventually consistent, repeated reads (hit rate above about 90%); not for write-heavy or strongly consistent work. Top-level attribute names that are unbounded (timestamps or ids as names) exhaust DAX memory.
 - Parallel scan on a small table, or more than one segment per about 2 GB, or on a request path.
