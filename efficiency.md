@@ -1,6 +1,6 @@
 # Token efficiency
 
-Thirteen rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8 and 9), in the skills below, and in each repo's `.github/dependabot.yml`.
+Sixteen rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8, 9 and 10), in the skills below, and in each repo's `.github/dependabot.yml`.
 
 ## The rules
 
@@ -16,9 +16,12 @@ Thirteen rules cut the tokens spent on each change without relaxing any safety g
 | 8 | Wait for CI with one background command that reports once, not repeated status checks | Rule 9; pr-review, fix-ci | Polling and logs added up across a dozen PRs |
 | 9 | Mechanical agents (Dependabot reviews, CI fixes, cleanup, watchers) start with `model: sonnet` by default; only code and security reviews use the strongest | Rule 9; pr-review, pr-triage | Mechanical work doesn't need the strongest model |
 | 10 | Batch small housekeeping (docs and wording fixes) into one PR per repo | Rule 9 | Every PR has a fixed cost: CI, a findings table, a merge |
-| 11 | Read only what's needed: files over about 300 lines by range or after a grep; a long reference (a connector's guide, a skill's references) loaded once per session; command output trimmed to its tail, docs by outline or changes since the last read | Rule 9 | Keeps large dumps out of context |
+| 11 | Read only what's needed: files over about 300 lines by range or after a grep; a long reference (a connector's guide such as the Docs `guide`, a skill's references) loaded once per session (see row 15); command output trimmed to its tail, docs by outline or changes since the last read | Rule 9 | Keeps large dumps out of context |
 | 12 | Start a fresh session for each major task; memory, PRs and docs carry the state | Rule 9 | A long session is compacted, and every later step re-reads a bigger context |
 | 13 | One background agent per PR or task, with a scoped brief; never one agent working through a batch of PRs | Rule 9; pr-review, pr-triage, fix-ci | A batch agent re-reads every earlier PR's context; the largest one used about 110M tokens |
+| 14 | Run at most about 3 background agents at a time | Rule 9 | A 2026-11 session hit 15 rate-limit errors running many Opus agents at once, and agents lost work when they were cut off |
+| 15 | Load a long reference once, naming the Docs connector `guide`; pass the parts an agent needs in its brief instead of having each agent reload them | Rule 9 | The same session loaded the 46k-character Docs guide 16 times, about 750k characters |
+| 16 | Keep each skill description to about 400 characters so Claude Code's skill listing fits its budget (about 1% of the context window, around 8,000 characters at 200k) | Rule 10 | 27 descriptions of about 1,000 characters each overflowed it, and seven skills showed with blank descriptions |
 
 Already in place before these: PRs under 250 changed lines get a self-review instead of a separate review agent (rule 3, [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27)).
 
@@ -31,6 +34,7 @@ Already in place before these: PRs under 250 changed lines get a self-review ins
 | Date | Changes |
 |---|---|
 | 2026-11-21 | First `token-efficiency-review` run: about 31% of tokens went to background agents, all on the strongest model; about 97% of input was cache re-reads. Rows 9 and 11 sharpened, row 13 added |
+| 2026-11-25 | Skills deep review (375M tokens in the session, 47% of them from 67 background agents): rows 14, 15 and 16 added, row 11 points to 15 |
 
 ## What stays the same
 
