@@ -171,6 +171,7 @@ def scanned_files(root: Path) -> list[Path]:
 
 
 def check_private(root: Path) -> list[str]:
+    """Files that name a private project, one problem per file with the words found."""
     problems = []
     for path in scanned_files(root):
         words = private_names(path.read_text(encoding="utf-8", errors="replace"))
@@ -219,6 +220,7 @@ def check_links(md: Path, root: Path) -> list[str]:
 
 
 def check_readme(root: Path, skills: list[str]) -> list[str]:
+    """README problems: a missing file, skill-table row, change-log section or change-log row naming a skill."""
     readme = root / "README.md"
     if not readme.exists():
         return ["README.md is missing"]
@@ -238,10 +240,12 @@ def check_readme(root: Path, skills: list[str]) -> list[str]:
 
 
 def skill_dirs(root: Path) -> list[Path]:
+    """Top-level directories that hold a SKILL.md, sorted."""
     return sorted(p for p in root.iterdir() if p.is_dir() and (p / "SKILL.md").is_file())
 
 
 def validate(root: Path) -> list[str]:
+    """Every hard problem in the repository; an empty list means the CI gate passes."""
     dirs = skill_dirs(root)
     problems = []
     for directory in dirs:
@@ -263,6 +267,7 @@ def warnings(root: Path) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    """Print problems and warnings for REPO_ROOT (argv[1], default .); exit 1 on any problem."""
     root = Path(argv[1] if len(argv) > 1 else ".").resolve()
     problems = validate(root)
     for problem in problems:

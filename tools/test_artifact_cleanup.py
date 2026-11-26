@@ -16,6 +16,7 @@ COPY = ROOT / ".github" / "workflows" / "artifact-cleanup.yml"
 
 
 def artifact(id_, run, branch="main", name="coverage", expired=False):
+    """One artifact as the list-artifacts API returns it (JSON text, the fields the step reads)."""
     return (f'{{"id":{id_},"name":"{name}","expired":{str(expired).lower()},'
             f'"workflow_run":{{"id":{run},"head_repository_id":5,"head_branch":"{branch}"}}}}')
 
@@ -41,8 +42,10 @@ esac
 
 @unittest.skipUnless(shutil.which("jq") and shutil.which("bash"), "needs jq and bash")
 class ArtifactCleanupTest(unittest.TestCase):
+    """The template's delete step, run in bash with a stub gh first on PATH."""
 
     def run_step(self, artifacts):
+        """Run the step over ARTIFACTS; return the process result and the sorted ids it deleted."""
         script = yaml.safe_load(TEMPLATE.read_text(encoding="utf-8"))["jobs"]["cleanup"]["steps"][0]["run"]
         with tempfile.TemporaryDirectory() as tmp:
             gh = Path(tmp) / "gh"
@@ -73,6 +76,7 @@ class ArtifactCleanupTest(unittest.TestCase):
 
     def test_repo_copy_matches_the_template_except_its_workflows_list(self):
         def body(path):
+            """The file's lines without its workflows: list."""
             return [line for line in path.read_text(encoding="utf-8").splitlines()
                     if not line.strip().startswith("workflows:")]
         self.assertEqual(body(TEMPLATE), body(COPY))
