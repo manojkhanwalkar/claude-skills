@@ -54,9 +54,12 @@ MARKUP = (".html", ".htm", ".jsx", ".tsx", ".vue", ".svelte", ".astro", ".jsp", 
 SCRIPT = (".js", ".mjs", ".ts", ".jsx", ".tsx", ".vue", ".svelte")
 STYLE = (".css", ".scss", ".sass", ".less")
 
-TAG = re.compile(r"<(img|iframe|script)\b([^>]*)>", re.IGNORECASE | re.DOTALL)
-ATTR = re.compile(r"""(?:^|\s)(?:v-bind:|:|\[(?:attr\.)?)?([a-zA-Z_][\w-]*)\]?\s*(?:=\s*("[^"]*"|'[^']*'|\{[^}]*\}|[^\s>]+))?""")
+TAG = re.compile(r"""<(img|iframe|script)\b((?:"[^"]*"|'[^']*'|\{[^}]*\}|[^>"'{])*)>""", re.IGNORECASE | re.DOTALL)
+COMPONENT_FILES = (".jsx", ".tsx", ".vue", ".svelte", ".astro")
+ATTR = re.compile(r"""(?:^|\s)(?:v-bind:|v-on:|:|@|#|\*|\(|\[\(?(?:attr\.)?)?([a-zA-Z_][\w.-]*)\)?\]?\s*(?:=\s*("[^"]*"|'[^']*'|\{[^}]*\}|[^\s>]+))?""")
 CSS_IMPORT = re.compile(r"^\s*@import\s", re.MULTILINE)
+# Sass and Less inline @import at build time; only url(), .css and remote targets stay runtime requests.
+PRE_IMPORT = re.compile(r"""^\s*@import\s+(?:url\(|["'][^"']*\.css["']|["']https?:)""", re.MULTILINE)
 FONT_FACE = re.compile(r"@font-face\s*\{([^}]*)\}", re.IGNORECASE)
 WHOLE_LIB = re.compile(
     r"""^\s*import\s+(?:\*\s+as\s+\w+|\w+)\s+from\s+['"](lodash|moment|rxjs|date-fns|@mui/icons-material|antd)['"]"""
@@ -78,7 +81,8 @@ def is_test(path: str) -> bool:
 def attrs(text: str) -> dict:
     found = {}
     for m in ATTR.finditer(text):
-        value = (m.group(2) or "").strip("\"'{}").strip()
+        raw = m.group(2) or ""
+        value = raw.strip("\"'{}").strip() if raw[:1] in "\"'{" else raw.rstrip("/")
         found[m.group(1).lower()] = value.lower()
     return found
 
@@ -89,7 +93,10 @@ def line_of(text: str, pos: int) -> int:
 
 def scan_markup(path: str, text: str) -> list[Hit]:
     hits = []
+    components = path.lower().endswith(COMPONENT_FILES)
     for m in TAG.finditer(text):
+        if components and m.group(1)[0].isupper():
+            continue  # a framework component such as next/script <Script> or <Img>, not the HTML tag
         name, a = m.group(1).lower(), attrs(m.group(2))
         line = line_of(text, m.start())
         if name == "img":
@@ -107,8 +114,9 @@ def scan_markup(path: str, text: str) -> list[Hit]:
 
 
 def scan_style(path: str, text: str) -> list[Hit]:
+    pattern = PRE_IMPORT if path.lower().endswith((".scss", ".sass", ".less")) else CSS_IMPORT
     hits = [Hit(path, line_of(text, m.start()), "css-import", "inline it in the build or use <link>")
-            for m in CSS_IMPORT.finditer(text)]
+            for m in pattern.finditer(text)]
     for m in FONT_FACE.finditer(text):
         if "font-display" not in m.group(1).lower():
             hits.append(Hit(path, line_of(text, m.start()), "font-display", "add font-display: swap (or optional)"))

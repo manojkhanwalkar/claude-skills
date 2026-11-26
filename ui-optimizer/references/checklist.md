@@ -39,7 +39,7 @@ Never defer: scripts the first paint needs, inline configuration read by later s
 | Problem | Fix |
 |---|---|
 | Large render-blocking CSS | Critical CSS inlined by the framework or build (Next.js, Nuxt, Astro, Angular `inlineCritical`); the rest loaded after first paint; unused CSS removed (Tailwind content globs, PurgeCSS) |
-| `@import` chains (`css-import`) | Bundle them in the build, or separate `<link>` tags |
+| `@import` chains in plain CSS (`css-import`) | Bundle them in the build, or separate `<link>` tags. In Sass and Less, `@import` of partials is inlined at build time and is fine; only `url()`, `.css` and remote targets stay runtime requests |
 | Web fonts block text (`font-display`) | `font-display: swap` (or `optional` for non-essential fonts); WOFF2 only; subset; preload at most the one or two fonts used above the fold; self-host where licensing allows |
 | Font-swap layout shift | `size-adjust`, `ascent-override` on a fallback `@font-face`, or framework font tools (`next/font`, `@nuxtjs/fontaine`) |
 | Long below-the-fold sections | `content-visibility: auto; contain-intrinsic-size: auto 800px;` on section containers (check find-in-page and anchor links still work) |

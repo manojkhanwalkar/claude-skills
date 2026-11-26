@@ -70,14 +70,14 @@ Ask before adding it: it is a new dev dependency and a new workflow.
     },
     "assert": {
       "assertions": {
-        "categories:performance": ["error", { "minScore": 0.9 }],
-        "categories:accessibility": ["error", { "minScore": 0.9 }],
-        "largest-contentful-paint": ["error", { "maxNumericValue": 2500 }],
-        "total-blocking-time": ["error", { "maxNumericValue": 200 }],
-        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1 }],
-        "resource-summary:script:size": ["error", { "maxNumericValue": 300000 }],
-        "resource-summary:image:size": ["warn", { "maxNumericValue": 500000 }],
-        "resource-summary:total:size": ["error", { "maxNumericValue": 1200000 }]
+        "categories:performance": ["error", { "minScore": 0.9, "aggregationMethod": "median-run" }],
+        "categories:accessibility": ["error", { "minScore": 0.9, "aggregationMethod": "median-run" }],
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2500, "aggregationMethod": "median-run" }],
+        "total-blocking-time": ["error", { "maxNumericValue": 200, "aggregationMethod": "median-run" }],
+        "cumulative-layout-shift": ["error", { "maxNumericValue": 0.1, "aggregationMethod": "median-run" }],
+        "resource-summary:script:size": ["error", { "maxNumericValue": 300000, "aggregationMethod": "median-run" }],
+        "resource-summary:image:size": ["warn", { "maxNumericValue": 500000, "aggregationMethod": "median-run" }],
+        "resource-summary:total:size": ["error", { "maxNumericValue": 1200000, "aggregationMethod": "median-run" }]
       }
     },
     "upload": { "target": "filesystem", "outputDir": "./.lighthouseci" }
@@ -87,7 +87,7 @@ Ask before adding it: it is a new dev dependency and a new workflow.
 
 - A server-rendered app uses `"startServerCommand": "npm run start"` and full URLs instead of `staticDistDir`.
 - Set each limit just under today's median so the build passes now, then tighten as fixes land; a budget that fails on day one gets switched off.
-- `aggregationMethod` defaults to the median for performance assertions when `numberOfRuns` > 1.
+- `aggregationMethod` defaults to `optimistic` (the best of the runs), which would let a regression in the median pass; the template sets `median-run` on every assertion so budgets are checked against the median run, as in Phase 2.
 - `upload.target: "temporary-public-storage"` publishes reports to a public URL: only with the user's approval.
 - Add `.lighthouseci/` to `.gitignore`.
 

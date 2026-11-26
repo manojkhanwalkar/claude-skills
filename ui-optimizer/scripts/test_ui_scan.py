@@ -45,6 +45,15 @@ class MarkupTest(unittest.TestCase):
         hits = u.scan_text("C.tsx", "const a = 1;\n\n<img src={x} width={1} height={2} />")
         self.assertEqual([(h.line, h.kind) for h in hits], [(3, "img-loading-unset")])
 
+    def test_framework_components_and_tricky_attributes(self):
+        self.assertEqual(kinds('<Script src="/a.js" strategy="afterInteractive" />', "p.tsx"), [])
+        self.assertEqual(kinds('<SCRIPT src="/a.js"></SCRIPT>', "p.html"), ["script-blocking"])
+        self.assertEqual(kinds('<img onLoad={() => f()} width={1} height={1} loading="lazy" />', "c.jsx"), [])
+        self.assertEqual(kinds('<img alt="a > b" width="1" height="1" loading="lazy">'), [])
+        self.assertEqual(kinds('<img @load="onLoad width" src=a loading=lazy height=1>', "c.vue"), ["img-no-size"])
+        self.assertEqual(kinds('<img (load)="x width" src=a loading=lazy height=1>'), ["img-no-size"])
+        self.assertEqual(kinds('<img src=a width=1 height=1 loading=lazy fetchpriority=high/>'), ["lazy-and-high"])
+
     def test_markup_not_scanned_in_plain_scripts(self):
         self.assertEqual(kinds('const s = "<img src=a>";', "a.js"), [])
 
@@ -54,6 +63,11 @@ class StyleAndScriptTest(unittest.TestCase):
         css = '@import "x.css";\n@font-face { font-family: A; src: url(a.woff2); }\n' \
               '@font-face { font-family: B; font-display: swap; }'
         self.assertEqual(kinds(css, "s.css"), ["css-import", "font-display"])
+
+    def test_preprocessor_imports_are_build_time(self):
+        scss = '@import "variables";\n@import url("https://fonts.example/a.css");\n@import "vendor/reset.css";\n@use "x";'
+        self.assertEqual([h.line for h in u.scan_text("s.scss", scss)], [2, 3])
+        self.assertEqual(kinds('@import "mixins";', "s.less"), [])
 
     def test_inline_style_in_html_only_checks_fonts(self):
         html = '<style>@import "x.css"; @font-face { font-family: A; }</style>'
