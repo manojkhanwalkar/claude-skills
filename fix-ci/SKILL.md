@@ -11,7 +11,7 @@ A red check is information. The job is to find out what it says and fix that, no
 ## Arguments
 
 - A PR number → that PR's checks. None → the PR of the current branch.
-- `--default-branch` → red CI on the repository's default branch. Fixes go through a new branch and PR, never a direct push (the user's rule 1).
+- `--default-branch` → red CI on the repository's default branch. Fixes go through a new branch and PR, never a direct push (the PR policy, `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`; the user's `CLAUDE.md` overrides it).
 - `--max-attempts <n>` → push-and-watch cycles before stopping to report. Reruns count as attempts. Default 3.
 - `--report-only` → diagnose and report; change nothing.
 
@@ -36,7 +36,7 @@ These are legitimate: running the project's formatter, regenerating a lockfile f
 
 **Workflow files** (`.github/workflows/*`) change only when the workflow itself is the bug (a wrong path, an action version that no longer exists), within the rules above, and the report says so.
 
-**Reruns and manual dispatches** are only for idempotent workflows (build, test, lint, analysis). A workflow that publishes, releases or deploys is never rerun or dispatched (`workflow_dispatch`, from any branch) without asking: a rerun can publish twice or finish a half-done release (the user's rule 6: retry only what is safe to repeat).
+**Reruns and manual dispatches** are only for idempotent workflows (build, test, lint, analysis). A workflow that publishes, releases or deploys is never rerun or dispatched (`workflow_dispatch`, from any branch) without asking: a rerun can publish twice or finish a half-done release (the resilience convention: retry only what is safe to repeat).
 
 **Name the repository** in every `gh` call (`-R <owner>/<repo>`), so a PR or run number never resolves against the wrong repository.
 

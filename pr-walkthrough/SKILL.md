@@ -16,7 +16,7 @@ It describes the change; it doesn't judge it. Bugs and fixes belong to `pr-revie
 - `--no-post` → print the walkthrough; post nothing.
 - `--no-diagram` → skip the sequence diagram.
 
-**Under a caller** (`pr-review`): the caller already chose to run it, so don't re-judge the 250-line rule. It changes no files and commits nothing, so a dirty tree doesn't matter. Write no report file; return the caller's format (see Final report).
+**Under a caller** (`pr-review`): the caller already chose to run it, so don't re-judge the review threshold. It changes no files and commits nothing, so a dirty tree doesn't matter. Write no report file; return the caller's format (see Final report).
 
 ## Phase 1 – Gather
 
