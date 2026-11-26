@@ -1,5 +1,5 @@
-# Checks every skill (frontmatter, names, links, README rows) and runs the skill scripts' tests
-# with a coverage gate. Actions are pinned to commit SHAs (tag in the comment); Dependabot updates them.
+# Checks every skill (frontmatter, names, links, README rows) and the plugin manifest, and runs the
+# skill scripts' tests with a coverage gate. Actions are pinned to commit SHAs (tag in the comment); Dependabot updates them.
 name: CI
 
 on:
@@ -24,6 +24,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          fetch-depth: 2 # a PR's merge commit and its base, for the version check
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
@@ -32,6 +33,43 @@ jobs:
       - run: python3 -m pip install -r tools/requirements.txt
       - name: Frontmatter, names, descriptions, links and README rows
         run: python3 tools/validate_skills.py .
+      - name: Plugin manifest (claude plugin validate --strict)
+        env:
+          # The Linux build of the Claude Code CLI, pinned by version and by the npm tarball's sha512
+          # (npm view @anthropic-ai/claude-code-linux-x64@<version> dist.integrity). npm pack runs no
+          # install scripts, and the command needs no login or secret.
+          CLAUDE_CODE_VERSION: "2.1.319"
+          CLAUDE_CODE_INTEGRITY: "sha512-FO4Sd23BO1VCQPiJe5vG3bNnmV5+YiTau7o1lqK3Fr5VlE4TLdKiyYpwQRwEXO91kE2l12Ep2i7J19T8Md2oOQ=="
+          DISABLE_AUTOUPDATER: "1"
+          CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1"
+        run: |
+          cli="$RUNNER_TEMP/claude-cli"
+          mkdir -p "$cli"
+          tgz="$(cd "$cli" && npm pack --silent "@anthropic-ai/claude-code-linux-x64@$CLAUDE_CODE_VERSION")"
+          got="sha512-$(openssl dgst -sha512 -binary "$cli/$tgz" | base64 -w0)"
+          if [ "$got" != "$CLAUDE_CODE_INTEGRITY" ]; then
+            echo "::error::Claude Code $CLAUDE_CODE_VERSION tarball does not match its pinned sha512"
+            exit 1
+          fi
+          tar -xzf "$cli/$tgz" -C "$cli"
+          "$cli/package/claude" plugin validate --strict .
+      - name: Plugin version raised when what the plugin ships changes
+        if: github.event_name == 'pull_request'
+        run: |
+          # HEAD is the PR's merge commit; HEAD^1 is the base branch it merges into. Everything in the
+          # repository ships with the plugin except the README (the listing reads it, no install needs
+          # it), docs/, the validator and CI.
+          changed="$(git diff --name-only HEAD^1 HEAD -- . ':(exclude)README.md' ':(exclude)docs' ':(exclude)tools' ':(exclude).github')"
+          old="$(git show HEAD^1:.claude-plugin/plugin.json 2>/dev/null | jq -r '.version // empty' || true)"
+          new="$(jq -r '.version' .claude-plugin/plugin.json)"
+          if [ -z "$changed" ] || [ -z "$old" ]; then
+            echo "No shipped change, or no earlier version: nothing to compare"
+          elif [ "$old" = "$new" ] || [ "$(printf '%s\n' "$old" "$new" | sort -V | tail -1)" != "$new" ]; then
+            echo "::error file=.claude-plugin/plugin.json::The plugin's shipped files changed; raise version above $old (now $new) so installs update"
+            exit 1
+          else
+            echo "version $old -> $new"
+          fi
 
   tests:
     name: Script tests

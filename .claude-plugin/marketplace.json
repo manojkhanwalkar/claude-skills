@@ -7,39 +7,8 @@
   "plugins": [
     {
       "name": "manoj-skills",
-      "description": "PR review and merge, security and compliance audits, accessibility, performance, resilience, CI fixes and codebase upkeep skills",
       "source": "./",
-      "strict": false,
-      "license": "Apache-2.0",
-      "skills": [
-        "./ada-compatibility",
-        "./compliance-check",
-        "./deep-review",
-        "./design-patterns",
-        "./digital-regulation-check",
-        "./document",
-        "./documenter",
-        "./dynamodb-optimizer",
-        "./emulator-fidelity",
-        "./fix-ci",
-        "./javatopython-converter",
-        "./mcp-builder",
-        "./microservices-refactor",
-        "./owasp-llm-top10",
-        "./owasp-top10",
-        "./perf-review",
-        "./port-parity",
-        "./post-merge-sync",
-        "./pr-review",
-        "./pr-triage",
-        "./pr-walkthrough",
-        "./resiliency",
-        "./resolve-conflicts",
-        "./review-guidelines",
-        "./secret-history-scan",
-        "./test-gen",
-        "./token-efficiency-review"
-      ]
+      "license": "Apache-2.0"
     }
   ]
 }

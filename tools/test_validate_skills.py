@@ -44,6 +44,13 @@ class SkillRepo:
              "plugins": [{"name": "p", "source": source, "strict": False, "skills": list(entries)}]})
         (d / "marketplace.json").write_text(text, encoding="utf-8")
 
+    def manifest(self, *entries, raw=None, **fields):
+        d = self.root / ".claude-plugin"
+        d.mkdir(exist_ok=True)
+        text = raw if raw is not None else json.dumps(
+            {"name": "p", "version": "1.0.0", "skills": list(entries), **fields})
+        (d / "plugin.json").write_text(text, encoding="utf-8")
+
     def close(self):
         self._tmp.cleanup()
 
@@ -399,6 +406,50 @@ class ValidateSkillsTest(unittest.TestCase):
             self.repo.marketplace(raw=raw)
             self.assertEqual([f'{m}: no plugin with "source": "./" has a skills list'], self.problems())
         self.repo.marketplace(raw="{not json")
+        [problem] = self.problems()
+        self.assertTrue(problem.startswith(f"{m}: not valid JSON"), problem)
+
+    def test_plugin_json_lists_every_skill_and_the_marketplace_defers_to_it(self):
+        for name in ("alpha", "beta"):
+            self.repo.skill(name)
+        self.repo.readme("alpha", "beta")
+        p, m = ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"
+        self.repo.manifest("./alpha", "./beta")
+        self.assertEqual([], self.problems())
+        self.repo.manifest("./alpha", "./alpha", "./gone", version="1.0")
+        self.assertEqual([f"{p}: version '1.0' is not MAJOR.MINOR.PATCH",
+                          f"{p}: './alpha' is listed more than once",
+                          f"{p}: skill beta is not in a plugin's skills list (add \"./beta\")",
+                          f"{p}: './gone' in a skills list is not a skill directory (write ./<dir>)"],
+                         self.problems())
+        self.repo.manifest("./alpha", "./beta")
+        self.repo.marketplace("./alpha", "./beta")  # name "p", strict false, a skills list
+        self.assertEqual([f"{m}: entry 'p' lists skills; with a plugin.json, list them there only",
+                          f"{m}: entry 'p' sets strict: false; with a plugin.json, leave strict at its default"],
+                         self.problems())
+        self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "q", "source": "./"},
+                                                          {"name": "x", "source": "./x", "skills": []}]}))
+        self.assertEqual([f"{m}: no entry with \"source\": \"./\" is named 'p', so the plugin can't be installed "
+                          "from the marketplace", f"{m}: entry 'q' is not named like plugin.json ('p')"], self.problems())
+        self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "p", "source": "./x"}]}))
+        self.assertEqual([f"{m}: no entry with \"source\": \"./\" is named 'p', so the plugin can't be installed "
+                          "from the marketplace"], self.problems())
+        self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "p", "source": "./"}]}))
+        self.assertEqual([], self.problems())
+
+    def test_plugin_json_that_is_broken_or_has_no_skills_list_fails(self):
+        self.repo.skill("solo")
+        self.repo.readme("solo")
+        p, m = ".claude-plugin/plugin.json", ".claude-plugin/marketplace.json"
+        self.repo.manifest(raw='{"name": "p", "version": 3}')
+        self.assertEqual([f"{p}: version 3 is not MAJOR.MINOR.PATCH", f"{p}: no skills list"], self.problems())
+        self.repo.manifest(raw="[1]")
+        self.assertEqual([f"{p}: not a JSON object"], self.problems())
+        self.repo.manifest(raw="{oops")
+        [problem] = self.problems()
+        self.assertTrue(problem.startswith(f"{p}: not valid JSON"), problem)
+        self.repo.manifest("./solo")
+        self.repo.marketplace(raw="{oops")
         [problem] = self.problems()
         self.assertTrue(problem.startswith(f"{m}: not valid JSON"), problem)
 
