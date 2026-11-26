@@ -77,7 +77,7 @@ Also report which scanner ran, GitHub secret-scanning and push-protection status
 
 Recommend, in this order, and do none of it unasked:
 1. **Rotate or revoke** every real finding at its issuer, starting with Critical. This is the only step that makes a leaked secret harmless; rewriting history doesn't, because clones, forks, caches and PR refs keep it.
-2. **Remove from HEAD** through a normal PR (rule 1), after rotation: move the value to an environment variable or secret store, and add a test-looking placeholder if the code needs one. In a public repository, the commit message and PR body describe the config change only (the rules).
+2. **Remove from HEAD** through a normal PR (the PR policy, `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`), after rotation: move the value to an environment variable or secret store, and add a test-looking placeholder if the code needs one. In a public repository, the commit message and PR body describe the config change only (the rules).
 3. **Prevent recurrence:** turn on secret scanning and push protection; add a pre-commit hook (gitleaks); keep confirmed false positives in an allow-list with a comment each (`.gitleaksignore`, or the fingerprint file the bundled scanner reads).
 4. **History rewrite**, only if the user decides it is worth it after rotation: `git filter-repo --replace-text` on a fresh clone, then a coordinated force-push of every branch and tag. Explain the cost first: every collaborator must re-clone, open PRs break, forks and existing clones keep the secret, and GitHub keeps cached views and PR refs until GitHub Support removes them.
 
