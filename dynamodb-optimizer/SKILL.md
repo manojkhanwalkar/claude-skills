@@ -1,6 +1,6 @@
 ---
 name: dynamodb-optimizer
-description: Review how a codebase uses Amazon DynamoDB and improve it - inventory every table (keys, GSIs, LSIs, projections, TTL, streams, readers and writers), list every access pattern with file:line, then find scans that should be queries, filters that should be sort-key range conditions, unused or over-projected indexes, LSIs where a GSI fits, sparse-index chances, hot partition keys, ignored pagination, dropped unprocessed batch items, races without conditions, needless transactions or strong reads, large items, wrong TTL types and expired items still read; estimate RCU and WCU cost, and --fix applies small tested changes, listing irreversible schema changes for approval. Use for "dynamodb review", "optimise dynamo", "DynamoDB indexes", "GSI", "TTL", "scan vs query", "hot partition"; deep-review runs it on projects that use DynamoDB (not run on every PR). Not for other databases (perf-review) or only timeouts and retries (resiliency). Args - [path] [--report-only] [--fix] [--focus LIST] [--out FILE].
+description: Review and improve Amazon DynamoDB use - scans that should be queries, unused indexes, hot partitions, dropped batch items, TTL mistakes, RCU and WCU cost; --fix in small tested steps. Use for "dynamodb review", "GSI", "TTL", "scan vs query"; deep-review runs it. Not for other databases (perf-review). Args - [path] [--report-only] [--fix] [--focus LIST] [--out FILE].
 ---
 
 # DynamoDB optimizer
@@ -87,7 +87,7 @@ Never invent a figure: an estimate is labelled as one, with its inputs.
 - **Low**: everything else.
 - **Effort**: S (under an hour, one file), M (a few files, one PR), L (a schema or key change with a migration; list it under "Needs a decision").
 
-Review rules apply as in `pr-review`: a Low matching a `suppress` rule becomes "Suppressed by R<n>"; a Medium that matches one stays open until the owner accepts it in the session. Critical and High findings are never suppressed. When called by another skill, report such a Medium as Open ("matches R<n>, owner to accept") and let the caller ask.
+Review rules apply as `review-guidelines` **Limits** items 1-4 say; under a caller, return a matching Medium as Open ("matches R<n>, owner to accept") and let the caller ask (item 4).
 
 With `--report-only`, go to Phase 5.
 

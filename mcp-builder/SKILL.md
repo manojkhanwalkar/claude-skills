@@ -1,6 +1,6 @@
 ---
 name: mcp-builder
-description: Create a new MCP (Model Context Protocol) server, client, or server+client pair - scaffold the project, implement tools, wire the transport (stdio by default, or Streamable HTTP), add an end-to-end test that launches the real server, and write a README with run and connect commands. Defaults to Java with Spring Boot + Spring AI MCP starters; also covers the plain MCP Java SDK and points to the Python/TypeScript SDKs. Use whenever the user asks to build, scaffold, wrap something as, or add tools to an MCP server or MCP client, expose an API/library/CLI to Claude or another LLM over MCP, or "make an MCP for X", even if they don't say "server" or "client" explicitly. Not for a security audit of an existing MCP server (owasp-llm-top10). Args - free-text description of what to wrap, optional --lang java|python|typescript, optional --plain-sdk (Java without Spring), optional --http (Streamable HTTP instead of stdio), optional --server-only / --client-only.
+description: Create an MCP server, client or both - tools, stdio or HTTP transport, an end-to-end test and a README. Java with Spring AI by default; Python and TypeScript follow Anthropic's mcp-builder skill. Use to build an MCP server or client, or "make an MCP for X". Not for audits (owasp-llm-top10). Args - [what to wrap] [--lang java|python|typescript] [--plain-sdk] [--http] [--server-only|--client-only].
 ---
 
 # MCP builder
@@ -227,17 +227,13 @@ If the repo has a top-level README or CI matrix listing modules, add the new pro
 
 ## Other languages
 
-Names as of 2026-11 ([official SDK guides](https://modelcontextprotocol.io/docs/sdk)); check them against the version you pick:
-- **Python**: `mcp` 2.x. Server `from mcp.server import MCPServer` (`FastMCP` in 1.x),
-  `@mcp.tool()` decorators, `mcp.run(transport="stdio")`; client `mcp.Client` with
-  `mcp.client.stdio.stdio_client` (the low-level `ClientSession` still exists). Use `uv` for the project.
-- **TypeScript**: v2 splits the SDK into `@modelcontextprotocol/server` and
-  `@modelcontextprotocol/client` (`@modelcontextprotocol/sdk` is the 1.x line). Server `McpServer` +
-  `server.registerTool(...)` with zod schemas, started with `serveStdio` from
-  `@modelcontextprotocol/server/stdio`, which answers both 2026-07-28 and handshake clients
-  (`server.connect(new StdioServerTransport())` serves handshake clients only); client `Client` +
-  `StdioClientTransport` from `@modelcontextprotocol/client/stdio`, with
-  `versionNegotiation: { mode: "auto" }` to reach either kind of server.
+For `--lang python` or `--lang typescript`, follow Anthropic's `mcp-builder` skill
+([anthropics/skills](https://github.com/anthropics/skills/tree/main/skills/mcp-builder)): its
+`reference/python_mcp_server.md` and `reference/node_mcp_server_v2.md` cover the SDKs, and
+`reference/mcp_best_practices.md` and `reference/evaluation.md` the tool design and evals. If it
+isn't installed, read those files from the repository (`gh api repos/anthropics/skills/contents/skills/mcp-builder/<file>`).
+It is server-focused: for a client, use the SDK's own client guide ([official SDK guides](https://modelcontextprotocol.io/docs/sdk)).
+Check its package names against the version you pick in step 1.
 
 Same rules everywhere: nothing on stdout but protocol, log to stderr/file, current versions
 from the registry, end-to-end test against the real server, README with start/connect commands.

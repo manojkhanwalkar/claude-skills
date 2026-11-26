@@ -1,6 +1,6 @@
 ---
 name: javatopython-converter
-description: Convert a Java project (Maven or Gradle; plain Java, Spring Boot, Spring AI, MCP servers or clients, CLIs, libraries) into an idiomatic, behaviour-equivalent Python project in a new IntelliJ project and GitHub repository, with the standard process - PRs only, a 95% coverage gate, CodeQL and scanning, Dependabot, branch protection, design doc and diagram, golden-file parity tests captured from the Java build, every PR through pr-review and post-merge-sync - then hands the pair to port-parity. Use when the user asks to port, convert, migrate, rewrite or translate a Java project, module or service to Python, even without saying "converter". Not for a snippet in chat, or for keeping an existing port in step (port-parity). Args - optional Java project path (default the current directory), optional --name PYTHON_NAME (default Java name plus Py), optional --dir PARENT_DIR (default ~/IdeaProjects), optional --public (default private), optional --module PATH (one module), optional --no-merge (stop with PRs open).
+description: Convert a Java project (Spring Boot, MCP, CLI or library) into a behaviour-equivalent Python project in a new repo, with golden-file parity tests, a 95% coverage gate and every PR through pr-review. Use to port, convert or migrate Java to Python. Not for a chat snippet or keeping a port in step (port-parity). Args - [JAVA_PATH] [--name NAME] [--dir DIR] [--public] [--module PATH] [--no-merge].
 ---
 
 # Java → Python converter

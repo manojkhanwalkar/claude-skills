@@ -1,6 +1,6 @@
 ---
 name: documenter
-description: Add, standardise and refresh in-source doc comments so people understand code quickly - a Javadoc-style comment on every class, interface, record and enum (its role, collaborators, invariants, thread safety) and on every method longer than N lines of code (default 10) and public API a reader needs (what and why, @param, @return, @throws, side effects, edge cases); converts loose comments to the standard format, fixes or removes stale ones, and changes comment lines only, verified by a build and a comment-only diff check. Java first-class; Kotlin KDoc, Python docstrings, TypeScript and JavaScript TSDoc or JSDoc, Go doc comments. Use for "add javadoc", "document the classes", "comment the code", "doc comments", "explain this class in comments", "standardise comments"; pr-review runs it with --diff on every PR and deep-review on the whole project. Not for docs/ pages or the README (document), or a design review (design-patterns). Args - [path] [--diff [base]] [--report-only] [--check] [--min-lines N].
+description: Add, standardise and refresh in-source doc comments (Javadoc first; KDoc, docstrings, TSDoc, Go) on classes, long methods and public APIs, changing comment lines only. Use for "add javadoc", "doc comments", "comment the code"; pr-review runs --diff, deep-review the whole project. Not for docs/ pages or the README (document). Args - [path] [--diff [base]] [--report-only] [--check] [--min-lines N].
 ---
 
 # Documenter

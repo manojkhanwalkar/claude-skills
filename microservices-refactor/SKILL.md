@@ -1,6 +1,6 @@
 ---
 name: microservices-refactor
-description: Review a codebase and refactor it toward microservices safely - map its modules, data stores, call graph and shared tables, find the seams (bounded contexts, change frequency, scaling and security needs, ownership), produce a candidate table that says split now, later or never with reasons, plan by value and risk, then extract one service per PR with the Strangler Fig and branch by abstraction (interface, remote client behind a flag, cut over, remove old code), with its own data, API and contract tests, service-to-service auth, timeouts, retries and limits, health checks, container and CI wiring and docs. Stack-neutral, with Java and Spring Boot first-class. Use when the user asks to split into microservices, extract a service, break up the monolith, make X its own service, or review service boundaries. Not for reviewing one PR (pr-review), a whole-code cleanup (deep-review), or only adding retries and limits (resiliency). Args - optional path/module scope, --report-only, --service NAME, --out FILE.
+description: Assess a codebase for microservices and extract them safely - find seams, rate each split now, later or never, then extract one service per PR with the Strangler Fig and branch by abstraction. Use to split a monolith, extract a service or review service boundaries. Not for a whole-code cleanup (deep-review) or only retries (resiliency). Args - [path] [--report-only] [--service NAME] [--out FILE].
 ---
 
 # Microservices refactor

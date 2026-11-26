@@ -1,6 +1,6 @@
 ---
 name: fix-ci
-description: Get a pull request's (or the default branch's) failing CI checks green by fixing the real cause - read the failed jobs' logs, classify each failure (test, build, lint, dependency bump, coverage, security, flaky, infrastructure, workflow config, fork or Dependabot secrets and permissions, a renamed or added required check), tell real failures from what only looks red (a gh network error while watching, Docker tests skipped locally), reproduce, fix on the branch with a test where behaviour changed, push, and watch CI again, within an attempt limit. Never weakens CI - no skipped tests, re-recorded snapshots, retries, lowered gates, loosened linters, dismissed alerts, widened permissions or dropped required checks. Use when CI is red, "fix the build", or pr-review or pr-triage hands over failing checks. Not for reviewing a PR (pr-review) or merge conflicts (resolve-conflicts). Args - optional PR number (default the current branch's), --default-branch, --max-attempts N (default 3), --report-only.
+description: Get a PR's or the default branch's failing CI green by fixing the real cause - read logs, classify, reproduce, fix with a test, push, watch - without weakening CI. Use when CI is red, "fix the build", or pr-review or pr-triage hands over failing checks. Not for reviewing a PR (pr-review) or merge conflicts (resolve-conflicts). Args - [PR] [--default-branch] [--max-attempts N] [--report-only].
 ---
 
 # Fix CI

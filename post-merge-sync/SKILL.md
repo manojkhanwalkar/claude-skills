@@ -1,6 +1,6 @@
 ---
 name: post-merge-sync
-description: After pull requests are merged, do the follow-up work the user's rules ask for - update the project's design doc and system diagram when a PR changed behaviour, APIs, data or architecture; keep the merged-PR counters in the project memory and start deep-review when it is due; record linked-repo follow-ups (such as a language port); and clean up merged branches and worktrees, archiving uncommitted work first. Use right after a merge (pr-review ends by suggesting it), or when the user says "post-merge", "sync the docs after the merge", "update the design doc and diagram for PR N", or "clean up after merging". Not for reviewing or merging a PR (pr-review) or for porting a change to a linked repo (port-parity). Args - optional PR number (default every PR merged since the last sync), optional --dry-run to list what would change without changing anything, optional --no-docs or --no-cleanup to skip those steps.
+description: Follow-up after PRs merge - update the design doc and system diagram, keep merged-PR counters and start deep-review when due, record port follow-ups, and clean up merged branches and worktrees. Use right after a merge, "post-merge", "sync the docs after the merge". Not for reviewing or merging (pr-review) or porting (port-parity). Args - [PR] [--dry-run] [--no-docs] [--no-cleanup].
 ---
 
 # Post-Merge Sync

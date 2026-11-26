@@ -1,6 +1,6 @@
 ---
 name: resolve-conflicts
-description: Resolve a pull request's merge conflicts by keeping both sides' intent - merge the base into the conflicting branch in a scratch worktree (never rebase or force-push a shared branch), resolve each file from what both sides meant (read from their commits), keep both rows when parallel PRs each added one to a change log or table, regenerate lockfiles and generated files with their tools, renumber clashing migrations, build and test what both sides touched to catch semantic conflicts, and push. Asks, or hands back to its caller, when intent is unclear. Use when a PR is conflicting (DIRTY), the user asks to resolve conflicts, or pr-triage hands over a conflicting PR. Not for a branch only behind (gh pr update-branch, as pr-review does), a Dependabot conflict (@dependabot rebase first), red checks (fix-ci) or reviewing a PR (pr-review). Args - optional PR number (default the current branch's PR), optional --report-only (list conflicts and proposed resolutions, change nothing).
+description: Resolve a PR's merge conflicts keeping both sides' intent - merge the base in a scratch worktree (no rebase or force-push), keep both change-log rows, regenerate lockfiles, test and push; asks when intent is unclear. Use when a PR is conflicting (DIRTY) or pr-triage hands one over. Not for Dependabot (@dependabot rebase) or red checks (fix-ci). Args - [PR] [--report-only].
 ---
 
 # Resolve Conflicts

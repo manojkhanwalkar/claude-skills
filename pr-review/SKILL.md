@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub pull request end to end - a walkthrough, one independent pass that reviews the diff for bugs, design, performance, resilience and test gaps and runs the security checks that apply, then fix the confirmed problems on the PR branch with tests, bring doc comments on the touched code up to date (documenter), post a findings table on the PR, wait for CI to pass, and squash-merge it into main. Handles PRs written by agents, out-of-date branches and flaky checks. Use when the user asks to review a PR and merge it, "review, fix and merge", "/pr-review NUMBER", or to finish a PR. Not for reviewing a whole codebase (use deep-review), only commenting without merging (use code-review --comment), or only fixing red CI (use fix-ci). Args - PR number (default the PR of the current branch), optional --no-merge to stop after the fixes are pushed and CI passes, optional --max-findings N.
+description: Review a GitHub PR end to end and merge it - walkthrough, one independent review (built-in code-review for bugs, plus design, perf, tests and security), fix findings with tests, post a findings table, green CI, squash-merge. Use for "review and merge PR N" or to finish a PR. Not for a whole codebase (deep-review), or red CI (fix-ci). Args - [PR] [--no-merge] [--max-findings N].
 ---
 
 # PR Review
@@ -57,6 +57,7 @@ Who reviews depends on the PR:
 
 **250 or more changed lines: one agent, one pass.** Start one subagent, with the strongest model, that did not write the code. It runs the checklist below and the security checks in one pass. That is both what rule 3 asks (an independent agent reviews the diff) and what rule 4 asks (one agent runs `security-review` and the checks that apply), and the diff is read once. Split the security checks into a second agent only when the diff is too large for one agent to read in full, and say so in the findings comment. One review agent per PR, never one agent for several PRs (its context grows with each). The agent reports and doesn't edit; Phase 3 makes the fixes. Give it:
 - the PR number, the branch or worktree, the base, and the build and test commands;
+- the **bug pass**: run the built-in `code-review` skill on the PR at `high` effort (`/code-review high <pr>`; from an agent, the Skill tool with skill `code-review` and args `high <pr>`). It hunts correctness bugs and CLAUDE.md violations (Claude Code v2.1.329 and later), not design, performance, resilience or compliance, so it covers the checklist's **Correctness** item only; its rows go into the table with source `code-review`, verified like any other row. If the agent can't call it (no Skill tool, or a background agent where the built-in won't run), it does **Correctness** by hand and says so in its "checked and fine" line;
 - the checklist below, including its **Design** item (`design-patterns --diff origin/<base> --report-only`) and its **Performance** item (`perf-review --diff origin/<base> --report-only` when it applies);
 - the **Security checks** below;
 - the review rules from Phase 1 step 4, with the **Limits** section of the `review-guidelines` skill;
@@ -69,7 +70,7 @@ If you can't start a subagent, run the `code-review` skill on the PR, or review 
 **Dependabot.** A grouped Dependabot PR of minor and patch bumps that is green, and whose release notes show nothing breaking, takes the self-review path at any size; lockfiles inflate the count. A major version, a breaking change, a failing check or a security advisory gets the full review. Any agent it needs starts with `model: sonnet`.
 
 Checklist: read every changed file in full, not only the hunks.
-- **Correctness:**
+- **Correctness** (the bug pass above; by hand when it can't run):
   - logic errors, off-by-ones, null handling;
   - wrong error mapping (for example a 500 where a 503 or 4xx belongs);
   - concurrency and races;
@@ -106,7 +107,7 @@ For each finding record:
 
 Verify each finding by reproducing it with a test or tracing the code, and drop anything speculative. A called skill's **Plausible** row is verified the same way: if it is confirmed, it is a normal finding; if it is ruled out, mark it **Not a bug**. If it still can't be settled, list it as Plausible and Open, with what would settle it. It doesn't block the merge, unless it is Critical or High; then ask the user.
 
-**Review rules.** Removed and superseded rules are never applied. A Low finding that matches a `suppress` rule becomes a "Suppressed by R<n>" row in the findings table instead of being fixed. Rules never suppress, waive or downgrade a Critical or High finding, or a security, compliance or accessibility finding of any severity; those are reported in full with "related: R<n>". A `suppress` rule settles only a Low finding on its own; a Medium finding that matches one stays open (it blocks the merge) until the user confirms in this session that the rule covers it, and its row then says "Accepted by owner per R<n>, <date>". A called skill reports such a Medium as Open ("matches R<n>, owner to accept"); ask the user. If the PR changes `.claude/review-rules.md`, each added, changed or removed rule is a Medium finding that blocks the merge until the owner approves it in this session ("Approved by owner, <date>"). If the `review-guidelines` flow that made the PR ran in this session, the user's confirmation there counts; otherwise ask. Also check that each added rule id isn't already used on the default branch (another rules PR may have merged first); if it is, renumber on the PR branch.
+**Review rules.** Apply them as `review-guidelines` **Limits** items 1-4 say; a matching Medium blocks the merge until accepted (item 4). pr-review is the caller that asks: when a called skill returns a Medium as Open ("matches R<n>, owner to accept"), ask the user. If the PR changes `.claude/review-rules.md`, each added, changed or removed rule is a Medium finding that blocks the merge until the owner approves it in this session ("Approved by owner, <date>"). If the `review-guidelines` flow that made the PR ran in this session, the user's confirmation there counts; otherwise ask. Also check that each added rule id isn't already used on the default branch (another rules PR may have merged first); if it is, renumber on the PR branch.
 
 ### Security checks
 

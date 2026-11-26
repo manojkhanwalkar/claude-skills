@@ -1,6 +1,6 @@
 ---
 name: digital-regulation-check
-description: Check code and product flows against GDPR/UK GDPR, ePrivacy cookies, DMA, DSA, AI Act, Data Act, Accessibility Act, CRA, NIS2, DORA and similar laws (CCPA and US state laws, COPPA, LGPD, DPDP, PIPL, UK Online Safety) - lawful basis, consent, user rights, automated decisions, transfers, dark patterns, moderation, ads, AI disclosure, accessibility - reporting file:line evidence, the article broken, severity and fixes; --fix applies them. Use whenever a change or project touches personal data use, consent, cookies, analytics, ads or third-party SDKs, sign-up or account deletion, data export, user content or moderation, recommendations, AI features or automated decisions, user-facing UI, or EU or other regulated-region users, or the user asks about GDPR, DMA, DSA, AI Act or privacy law. Use --diff for a PR (pr-review runs it), or no flag for a whole or new project. For PII security controls, PCI and SOX, use compliance-check. Not legal advice. Args - [path] [--diff [base]] [--laws LIST] [--fix] [--out FILE].
+description: Check code and product flows against GDPR, ePrivacy, DMA, DSA, AI Act, CCPA and similar laws - consent, cookies, user rights, automated decisions, dark patterns. Use when a change touches consent, tracking, ads, user content, AI features, UI or EU users; pr-review runs --diff. Not for PII security, PCI or SOX (compliance-check). Args - [path] [--diff [base]] [--laws LIST] [--fix] [--out FILE].
 ---
 
 # GDPR, DMA, DSA, AI Act and Similar Regulations — Check

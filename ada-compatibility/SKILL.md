@@ -1,6 +1,6 @@
 ---
 name: ada-compatibility
-description: Review and fix UI code for ADA accessibility - WCAG 2.2 Level AA (which covers the WCAG 2.1 AA that courts and the DOJ Title II rule use, Section 508 and EN 301 549) - semantics, names and labels, keyboard and focus, contrast, zoom and reflow, forms and errors, dynamic content, media, motion, authentication and touch targets, for web (HTML, templates, React/JSX, Vue, Svelte, Angular, CSS) and mobile UIs. Reports file:line findings with the success criterion broken and fixes, then applies fixes with tests (--fix). Use whenever a change touches user-facing UI (markup, components, styles, client JS, emails, PDFs generated for users), when a project with a UI is modified for the first time since this skill existed (to fix the existing code too), and when the user asks about ADA, accessibility, a11y, WCAG, Section 508, screen readers or keyboard access. Use --diff for a PR (pr-review runs it), or no flag for a whole project. Args - [path] [--diff [base]] [--fix] [--out FILE].
+description: Review and fix UI code for WCAG 2.2 AA (ADA, Section 508) - labels, keyboard, focus, contrast, reflow, forms, motion - in web and mobile UIs. Use when a change touches user-facing UI, a UI project's first change, or for accessibility, a11y, WCAG; pr-review runs --diff. Not for accessibility law (digital-regulation-check). Args - [path] [--diff [base]] [--fix] [--out FILE].
 ---
 
 # ADA Compatibility (WCAG 2.2 AA)
