@@ -5,3 +5,6 @@ __pycache__/
 .coverage
 .coverage.*
 htmlcov/
+# Security audit reports stay out of this public repository (owasp-top10 writes them under
+# ~/.claude/security-reports/<repo>/).
+security/
