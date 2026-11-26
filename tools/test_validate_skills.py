@@ -1,14 +1,18 @@
 """Tests for validate_skills.py: each rule fails on a broken skill and passes on a good one."""
 
+import hashlib
 import io
+import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 import validate_skills as v
 
-GOOD = "---\nname: {name}\ndescription: Does one thing. Use when asked. Not for other things.\n---\n\n# Body\n"
+GOOD = "---\nname: {name}\ndescription: Does one thing. Use when asked. Not for other things. Args - none.\n---\n\n# Body\n"
 
 
 class SkillRepo:
@@ -24,9 +28,12 @@ class SkillRepo:
         (d / "SKILL.md").write_text(text if text is not None else GOOD.format(name=name), encoding="utf-8")
         return d
 
-    def readme(self, *names):
+    def readme(self, *names, log=None):
         rows = "".join(f"| [`{n}`]({n}/SKILL.md) | ... |\n" for n in names)
-        (self.root / "README.md").write_text("# Skills\n\n| Skill | What |\n|---|---|\n" + rows, encoding="utf-8")
+        changes = "".join(f"| 2026-11-25 | #1 | Add {n} |\n" for n in (names if log is None else log))
+        (self.root / "README.md").write_text("# Skills\n\n| Skill | What |\n|---|---|\n" + rows
+                                             + "\n## Change log\n\n| Date | PR | Change |\n|---|---|---|\n"
+                                             + changes, encoding="utf-8")
 
     def close(self):
         self._tmp.cleanup()
@@ -73,7 +80,7 @@ class ValidateSkillsTest(unittest.TestCase):
         self.assertIn("tags/SKILL.md: description contains < or >", text)
 
     def test_exactly_1024_characters_is_allowed(self):
-        self.repo.skill("edge", "---\nname: edge\ndescription: " + "x" * 1024 + "\n---\n")
+        self.repo.skill("edge", "---\nname: edge\ndescription: Args - none " + "x" * 1012 + "\n---\n")
         self.repo.readme("edge")
         self.assertEqual([], self.problems())
 
@@ -92,7 +99,7 @@ class ValidateSkillsTest(unittest.TestCase):
     def test_every_skill_needs_a_readme_row(self):
         self.repo.skill("listed")
         self.repo.skill("forgotten")
-        self.repo.readme("listed")
+        self.repo.readme("listed", log=["listed", "forgotten"])
         self.assertEqual(["README.md: no row for skill forgotten (a link to forgotten/SKILL.md)"], self.problems())
 
     def test_a_missing_readme_is_a_problem(self):
@@ -148,8 +155,8 @@ class ValidateSkillsTest(unittest.TestCase):
         self.assertIn("name 'my-anthropic-tool' contains a reserved word", text)
 
     def test_only_keys_accepted_on_upload_are_allowed(self):
-        self.repo.skill("extra", "---\nname: extra\ndescription: x\nversion: 2\n---\n")
-        self.repo.skill("ok-keys", "---\nname: ok-keys\ndescription: x\nlicense: MIT\nallowed-tools: Read\n"
+        self.repo.skill("extra", "---\nname: extra\ndescription: Args - x\nversion: 2\n---\n")
+        self.repo.skill("ok-keys", "---\nname: ok-keys\ndescription: Args - x\nlicense: MIT\nallowed-tools: Read\n"
                                    "metadata: {a: b}\ncompatibility: any\n---\n")
         self.repo.readme("extra", "ok-keys")
         self.assertEqual(["extra/SKILL.md: frontmatter keys ['version'] are not accepted on upload "
@@ -162,7 +169,7 @@ class ValidateSkillsTest(unittest.TestCase):
         self.assertIn("tagged/SKILL.md: frontmatter is not valid YAML", "\n".join(self.problems()))
 
     def test_a_byte_order_mark_and_crlf_line_endings_are_fine(self):
-        self.repo.skill("bom", "\ufeff---\r\nname: bom\r\ndescription: x\r\n---\r\n")
+        self.repo.skill("bom", "\ufeff---\r\nname: bom\r\ndescription: Args - x\r\n---\r\n")
         self.repo.readme("bom")
         self.assertEqual([], self.problems())
 
@@ -175,7 +182,7 @@ class ValidateSkillsTest(unittest.TestCase):
     def test_link_forms_and_code_are_handled(self):
         d = self.repo.skill("forms", GOOD.format(name="forms") + (
             "[t1](ok.md 'single') [t2](ok.md (paren)) [t3](<ok.md>) [t4](file(1).md) [t5](ok%20two.md)\n"
-            "[t6](ok.md?raw=1) [t7](HTTPS://x) [t8](//cdn.example.com/a) [t9](ftp://x) [t10](~/x.md)\n"
+            "[t6](ok.md?raw=1) [t6b](?raw=1) [t7](HTTPS://x) [t8](//cdn.example.com/a) [t9](ftp://x) [t10](~/x.md)\n"
             "`[code](nope.md)` and ```[inline](nope.md)``` stay examples; [t11](<repo url>) is a placeholder\n"
             "- item\n    - [nested](gone4.md)\n"
             "[ref]: missing-ref.md\n"
@@ -211,6 +218,119 @@ class ValidateSkillsTest(unittest.TestCase):
         self.repo.readme("indented")
         self.assertEqual(["indented/SKILL.md: no frontmatter (a `---` line, YAML, then a `---` line)"], self.problems())
 
+    def test_descriptions_need_an_args_part(self):
+        self.repo.skill("no-args", "---\nname: no-args\ndescription: Does a thing. Arguments vary.\n---\n")
+        self.repo.skill("args-none", "---\nname: args-none\ndescription: Does a thing. Args - none.\n---\n")
+        self.repo.readme("no-args", "args-none")
+        self.assertEqual(['no-args/SKILL.md: description has no Args part (end it with "Args - [PR] [--flag]" '
+                          'or "Args - none")'], self.problems())
+
+    def test_every_skill_needs_a_change_log_row_naming_it_as_a_whole_word(self):
+        self.repo.skill("doc")
+        self.repo.skill("doc-tool")
+        self.repo.skill("logged")
+        # "doc-tool" and "docs" don't name "doc"; the skill table above the log doesn't count.
+        self.repo.readme("doc", "doc-tool", "logged", log=["doc-tool and docs", "`logged`"])
+        self.assertEqual(["README.md: no change-log row names skill doc"], self.problems())
+
+    def test_a_readme_without_a_change_log_section_is_a_problem(self):
+        self.repo.skill("solo")
+        (self.repo.root / "README.md").write_text("| [`solo`](solo/SKILL.md) |\n", encoding="utf-8")
+        self.assertEqual(['README.md: no "## Change log" section'], self.problems())
+
+    def test_the_change_log_ends_at_the_next_section(self):
+        self.repo.skill("late")
+        (self.repo.root / "README.md").write_text(
+            "| [`late`](late/SKILL.md) |\n\n## Change log\n\n| Date | PR | Change |\n\n## Later\n\n| x | late |\n",
+            encoding="utf-8")
+        self.assertEqual(["README.md: no change-log row names skill late"], self.problems())
+
+    def test_quoted_reference_and_script_paths_must_exist_here_or_in_a_sibling(self):
+        d = self.repo.skill("paths", GOOD.format(name="paths") + (
+            "Read `references/own.md`, then `scripts/run.py`; perf's `references/shared.md` too.\n"
+            "Missing: `references/gone.md` and `scripts/gone.py`; `references/<x>.md` is a placeholder.\n"
+            "Run ~/.claude/skills/paths/scripts/run.py and ~/.claude/skills/templates/x.yml;\n"
+            "and ~/.claude/skills/other/scripts/nope.py.\n"))
+        (d / "references").mkdir()
+        (d / "references" / "own.md").write_text("x\n", encoding="utf-8")
+        (d / "scripts").mkdir()
+        (d / "scripts" / "run.py").write_text("x = 1\n", encoding="utf-8")
+        sibling = self.repo.skill("perf")
+        (sibling / "references").mkdir()
+        (sibling / "references" / "shared.md").write_text("x\n", encoding="utf-8")
+        self.repo.readme("paths", "perf")
+        self.assertEqual(sorted([
+            "paths/SKILL.md: references/gone.md exists in no skill",
+            "paths/SKILL.md: scripts/gone.py exists in no skill",
+            "paths/SKILL.md: ~/.claude/skills/templates/x.yml points at nothing in this repository",
+            "paths/SKILL.md: ~/.claude/skills/other/scripts/nope.py points at nothing in this repository",
+        ]), sorted(self.problems()))
+
+    SECRET = {(hashlib.sha256(b"secretproj").hexdigest(), len("secretproj"))}
+    SUFFIX = " (this repo is public: use a generic example)"
+
+    def write(self, *rels, text="# from secretproj\n"):
+        for rel in rels:
+            f = self.repo.root / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding="utf-8")
+
+    def test_private_project_names_are_refused_in_every_file_outside_git_but_hidden_folders(self):
+        self.repo.skill("leaky", GOOD.format(name="leaky") + "Ported SecretProj to SecretProjPy.\n")
+        self.repo.readme("leaky")
+        self.write("templates/a.yml", ".github/workflows/c.yml", "notes.md", "security/audit.md")
+        self.write(".venv/d.md", "leaky/e.png", "leaky/__pycache__/f.txt")
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
+            problems = self.problems()
+        self.assertEqual(sorted([
+            ".github/workflows/c.yml: private project name in secretproj" + self.SUFFIX,
+            "leaky/SKILL.md: private project name in SecretProj, SecretProjPy" + self.SUFFIX,
+            "notes.md: private project name in secretproj" + self.SUFFIX,
+            "security/audit.md: private project name in secretproj" + self.SUFFIX,
+            "templates/a.yml: private project name in secretproj" + self.SUFFIX,
+        ]), sorted(problems))
+
+    def test_in_a_git_checkout_only_tracked_files_are_scanned(self):
+        self.repo.skill("clean")
+        self.repo.readme("clean")
+        self.write("tracked.md", "synced/untracked.md")
+        subprocess.run(["git", "init", "-q", str(self.repo.root)], check=True)
+        subprocess.run(["git", "-C", str(self.repo.root), "add", "tracked.md", "clean", "README.md"], check=True)
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
+            self.assertEqual(["tracked.md: private project name in secretproj" + self.SUFFIX], self.problems())
+
+    def test_hyphens_underscores_and_dots_inside_a_name_are_ignored_but_spaces_are_not(self):
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
+            self.assertEqual(["Secret_Proj", "secret-proj", "secret.projPy"],
+                             v.private_names("secret-proj, Secret_Proj and secret.projPy; secret proj is prose"))
+
+    def test_the_built_in_denylist_is_well_formed(self):
+        self.assertTrue(v.PRIVATE_NAMES)
+        for digest, length in v.PRIVATE_NAMES:
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertGreater(length, 3)
+
+    def test_descriptions_over_the_listing_budget_warn_but_do_not_fail(self):
+        self.repo.skill("wordy", "---\nname: wordy\ndescription: Args - none " + "x" * 390 + "\n---\n")
+        self.repo.skill("at-budget", "---\nname: at-budget\ndescription: Args - none " + "x" * 388 + "\n---\n")
+        self.repo.skill("broken", "---\nname: broken\ndescription: Args: a: b\n---\n")
+        self.repo.skill("bare", "# no frontmatter\n")
+        self.repo.readme("wordy", "at-budget", "broken", "bare")
+        self.assertEqual(["wordy/SKILL.md: description is 402 characters, over the 400-character listing budget "
+                          "(keep the whole skill listing small)"], v.warnings(self.repo.root))
+        self.repo.skill("broken", "---\nname: broken\n---\n")
+        self.assertEqual(1, len(v.warnings(self.repo.root)))
+
+    def test_main_prints_warnings_as_github_annotations_in_actions(self):
+        self.repo.skill("wordy", "---\nname: wordy\ndescription: Args - none " + "x" * 390 + "\n---\n")
+        self.repo.readme("wordy")
+        for env, prefix in [("true", "::warning::wordy"), ("", "warning: wordy")]:
+            out = io.StringIO()
+            with patch.dict(os.environ, {"GITHUB_ACTIONS": env}), redirect_stdout(out):
+                self.assertEqual(0, v.main(["validate_skills.py", str(self.repo.root)]))
+            self.assertIn(prefix, out.getvalue())
+            self.assertIn("1 skills checked, 0 problem(s), 1 warning(s)", out.getvalue())
+
     def test_main_prints_problems_and_exits_non_zero(self):
         self.repo.skill("bad_one", GOOD.format(name="bad_one"))
         self.repo.readme("bad_one")
@@ -218,7 +338,7 @@ class ValidateSkillsTest(unittest.TestCase):
         with redirect_stdout(out):
             code = v.main(["validate_skills.py", str(self.repo.root)])
         self.assertEqual(1, code)
-        self.assertIn("1 skills checked, 1 problem(s)", out.getvalue())
+        self.assertIn("1 skills checked, 1 problem(s), 0 warning(s)", out.getvalue())
 
     def test_main_exits_zero_when_all_is_well(self):
         self.repo.skill("fine")
@@ -226,7 +346,7 @@ class ValidateSkillsTest(unittest.TestCase):
         out = io.StringIO()
         with redirect_stdout(out):
             self.assertEqual(0, v.main(["validate_skills.py", str(self.repo.root)]))
-        self.assertIn("1 skills checked, 0 problem(s)", out.getvalue())
+        self.assertIn("1 skills checked, 0 problem(s), 0 warning(s)", out.getvalue())
 
 
 if __name__ == "__main__":
