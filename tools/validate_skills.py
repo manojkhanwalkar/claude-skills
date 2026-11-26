@@ -12,7 +12,8 @@ For each top-level directory that holds a SKILL.md:
     `Args` part listing the arguments;
   - every relative Markdown link in the skill's .md files points at a file inside the repository, and
     every `references/...` or `scripts/...` path quoted in SKILL.md (and every ~/.claude/skills/... path)
-    exists, in the skill itself or, for a pointer to a sibling's file, in another skill;
+    exists (and, `..` resolved, stays there), in the skill itself or, for a pointer to a sibling's file,
+    in another skill;
   - no private project name (PRIVATE_NAMES) appears in a tracked text file (git ls-files; outside git,
     every file but hidden folders and __pycache__); the repository is public.
 And for the README: every skill has a row linking to its SKILL.md and a change-log row naming it, and
@@ -130,6 +131,11 @@ def description_length(directory: Path) -> int:
     return len(description) if isinstance(description, str) else 0
 
 
+def inside(path: Path, base: Path) -> bool:
+    """True when path exists and, with `..` and symlinks resolved, stays inside base."""
+    return path.exists() and path.resolve().is_relative_to(base.resolve())
+
+
 def check_paths(directory: Path, root: Path, skills: list[Path]) -> list[str]:
     """Quoted references/ and scripts/ paths, and ~/.claude/skills/ paths, in SKILL.md that point at nothing."""
     text = (directory / "SKILL.md").read_text(encoding="utf-8")
@@ -137,10 +143,10 @@ def check_paths(directory: Path, root: Path, skills: list[Path]) -> list[str]:
     problems = []
     for path in sorted(set(QUOTED_PATH.findall(text))):
         # Its own file, or a pointer to a sibling's ("perf-review's `references/data-access.md`").
-        if not any((d / path).exists() for d in [directory, *skills]):
+        if not any(inside(d / path, d) for d in [directory, *skills]):
             problems.append(f"{where}: {path} exists in no skill")
     for path in sorted(set(SKILLS_PATH.findall(text))):
-        if not (root / path).exists():
+        if not inside(root / path, root):
             problems.append(f"{where}: ~/.claude/skills/{path} points at nothing in this repository")
     return problems
 

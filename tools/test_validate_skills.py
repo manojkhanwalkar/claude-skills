@@ -266,6 +266,19 @@ class ValidateSkillsTest(unittest.TestCase):
             "paths/SKILL.md: ~/.claude/skills/other/scripts/nope.py points at nothing in this repository",
         ]), sorted(self.problems()))
 
+    def test_quoted_paths_may_not_climb_out_of_the_skill_or_repository(self):
+        outside = Path(self.repo.root).parent / f"{Path(self.repo.root).name}-outside.md"
+        self.addCleanup(lambda: outside.unlink(missing_ok=True))
+        outside.write_text("x\n", encoding="utf-8")
+        d = self.repo.skill("climb", GOOD.format(name="climb") + (
+            f"Read `references/../../../{outside.name}` and ~/.claude/skills/../{outside.name}.\n"))
+        (d / "references").mkdir()
+        self.repo.readme("climb")
+        self.assertEqual(sorted([
+            f"climb/SKILL.md: references/../../../{outside.name} exists in no skill",
+            f"climb/SKILL.md: ~/.claude/skills/../{outside.name} points at nothing in this repository",
+        ]), sorted(self.problems()))
+
     SECRET = {(hashlib.sha256(b"secretproj").hexdigest(), len("secretproj"))}
     SUFFIX = " (this repo is public: use a generic example)"
 
