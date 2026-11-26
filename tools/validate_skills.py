@@ -18,9 +18,12 @@ For each top-level directory that holds a SKILL.md:
   - no private project name (PRIVATE_NAMES) appears in a tracked text file (git ls-files; outside git,
     every file but hidden folders and __pycache__); the repository is public.
 And for the README: every skill has a row linking to its SKILL.md and a change-log row naming it, and
-every skill link resolves. And when .claude-plugin/marketplace.json exists: it is valid JSON and the
-`skills` lists of its root plugins ("source": "./") name every skill directory exactly once, as
-./<dir>, and nothing else, so a new skill can't ship without being installable.
+every skill link resolves. And for the plugin: when .claude-plugin/plugin.json exists, it is valid JSON
+with a MAJOR.MINOR.PATCH `version`, and its `skills` list names every skill directory exactly once, as
+./<dir>, and nothing else, so a new skill can't ship without being installable; the marketplace's root
+entries ("source": "./") then carry its `name` and no `skills` or `strict: false` (with a plugin.json,
+an entry's skills are appended to the manifest's, and `strict: false` beside them is a load conflict).
+Without a plugin.json, the `skills` lists of the marketplace's root entries are checked the same way.
 
 Warnings (printed, never failing): a description over LISTING_BUDGET characters, the per-skill share
 that keeps the whole skill listing within Claude Code's budget.
@@ -256,24 +259,27 @@ def check_readme(root: Path, skills: list[str]) -> list[str]:
 
 
 MARKETPLACE = Path(".claude-plugin/marketplace.json")
+PLUGIN = Path(".claude-plugin/plugin.json")
+SEMVER = re.compile(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)")
 
 
-def check_marketplace(root: Path, skills: list[str]) -> list[str]:
-    """Problems with the plugin marketplace's skill list; none when the repository has no marketplace."""
-    path = root / MARKETPLACE
-    if not path.is_file():
-        return []
-    where = str(MARKETPLACE)
+def load_json(root: Path, rel: Path) -> tuple[object, list[str]]:
+    """The parsed file and no problems, or None and the one problem that stops the check."""
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        return json.loads((root / rel).read_text(encoding="utf-8")), []
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        return [f"{where}: not valid JSON: {e}"]
+        return None, [f"{rel}: not valid JSON: {e}"]
+
+
+def root_entries(data: object) -> list[dict]:
+    """The marketplace's plugin entries whose source is the repository root."""
     plugins = data.get("plugins") if isinstance(data, dict) else None
-    lists = [p["skills"] for p in (plugins if isinstance(plugins, list) else []) if isinstance(p, dict) and p.get("source") in ("./", ".")
-             and isinstance(p.get("skills"), list)]
-    if not lists:
-        return [f"{where}: no plugin with \"source\": \"./\" has a skills list"]
-    listed = [entry for entries in lists for entry in entries]
+    return [p for p in (plugins if isinstance(plugins, list) else [])
+            if isinstance(p, dict) and p.get("source") in ("./", ".")]
+
+
+def check_skill_list(where: str, listed: list, skills: list[str]) -> list[str]:
+    """Problems with a skills list: each skill directory exactly once as ./<dir>, and nothing else."""
     problems = [f"{where}: {entry!r} is listed more than once"
                 for entry in sorted({e for e in listed if isinstance(e, str) and listed.count(e) > 1})]
     wanted = {f"./{name}" for name in skills}
@@ -286,6 +292,55 @@ def check_marketplace(root: Path, skills: list[str]) -> list[str]:
     problems += [f"{where}: {entry!r} in a skills list is not a skill directory (write ./<dir>)"
                  for entry in unknown]
     return problems
+
+
+def check_manifest(root: Path, skills: list[str]) -> list[str]:
+    """Problems with plugin.json, and with marketplace root entries that would clash with it."""
+    where = str(PLUGIN)
+    data, problems = load_json(root, PLUGIN)
+    if problems:
+        return problems
+    if not isinstance(data, dict):
+        return [f"{where}: not a JSON object"]
+    version = data.get("version")
+    if not (isinstance(version, str) and SEMVER.fullmatch(version)):
+        problems.append(f"{where}: version {version!r} is not MAJOR.MINOR.PATCH")
+    listed = data.get("skills")
+    if isinstance(listed, list):
+        problems += check_skill_list(where, listed, skills)
+    else:
+        problems.append(f"{where}: no skills list")
+    if not (root / MARKETPLACE).is_file():
+        return problems
+    market, bad = load_json(root, MARKETPLACE)
+    if bad:
+        return problems + bad
+    for entry in root_entries(market):
+        label = f"{MARKETPLACE}: entry {entry.get('name')!r}"
+        if entry.get("name") != data.get("name"):
+            problems.append(f"{label} is not named like plugin.json ({data.get('name')!r})")
+        if "skills" in entry:
+            problems.append(f"{label} lists skills; with a plugin.json, list them there only")
+        if entry.get("strict") is False:
+            problems.append(f"{label} sets strict: false; with a plugin.json, leave strict at its default")
+    return problems
+
+
+def check_marketplace(root: Path, skills: list[str]) -> list[str]:
+    """Problems with the plugin's skill list: plugin.json's when it exists, else the marketplace's;
+    none when the repository has neither."""
+    if (root / PLUGIN).is_file():
+        return check_manifest(root, skills)
+    if not (root / MARKETPLACE).is_file():
+        return []
+    where = str(MARKETPLACE)
+    data, problems = load_json(root, MARKETPLACE)
+    if problems:
+        return problems
+    lists = [p["skills"] for p in root_entries(data) if isinstance(p.get("skills"), list)]
+    if not lists:
+        return [f"{where}: no plugin with \"source\": \"./\" has a skills list"]
+    return check_skill_list(where, [entry for entries in lists for entry in entries], skills)
 
 
 def skill_dirs(root: Path) -> list[Path]:

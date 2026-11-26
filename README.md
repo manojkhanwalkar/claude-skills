@@ -21,7 +21,23 @@ Or inside a Claude Code session: `/plugin marketplace add manojkhanwalkar/claude
 
 Installed skills are namespaced by the plugin: run `/manoj-skills:pr-review 30` rather than `/pr-review 30`. Where a skill tells you to run another (`/post-merge-sync 30`), add the same prefix. Bundled scripts are found through `${CLAUDE_SKILL_DIR}`, so they run from the plugin cache as well as from a clone. To pick up new versions, run `claude plugin update manoj-skills@manoj-claude-skills` (it refreshes the marketplace first), or turn on auto-update for the marketplace in `/plugin`. To use the skills without the prefix, clone the repository to `~/.claude/skills` instead (not both, or every skill is listed twice).
 
-License: [Apache 2.0](LICENSE) (see also [NOTICE](NOTICE)).
+**Versions:** `.claude-plugin/plugin.json` sets `version` (semver, from `1.0.0`), and every PR that changes a skill raises it, so `claude plugin update` and the directory pick the change up. CI fails a PR that changes a skill without raising it.
+
+License: [Apache 2.0](LICENSE) (see also [NOTICE](NOTICE)). Support: [GitHub issues](https://github.com/manojkhanwalkar/claude-skills/issues).
+
+### Claude plugin directory
+
+The plugin is prepared for [Anthropic's plugin directory](https://claude.ai/directory) (`manoj-skills`, submitted from the repository root, tracking `master`); [docs/DIRECTORY-SUBMISSION.md](docs/DIRECTORY-SUBMISSION.md) has the pre-submission checklist, the portal steps and which skills work where. The skills are built for Claude Code: claude.ai and Cowork load them, but most need git, the GitHub CLI (`gh`), a shell and a local checkout, which only Claude Code has.
+
+## Privacy and data handling
+
+The plugin is instructions and a few local scripts. It has no hooks, MCP servers, executables or telemetry, sends nothing to its author, and stores nothing outside your machine and your own repositories.
+
+- **Runs:** Claude runs `git`, `gh`, your project's build and test tools, and the bundled Python scripts (standard library only; they read files as data and print masked results), with Claude Code's normal permission prompts.
+- **Sends:** only what you ask for, through your own logged-in `gh`: pull requests, PR comments, merges and branch deletions on your repositories. `emulator-fidelity` files public issues on the emulator's repository only after you approve the first one (otherwise `--report-only`). `secret-history-scan` sends a found secret only to its own issuer, for a liveness check you approve with `--verify`.
+- **Fetches:** public documentation and registry metadata (for example Maven Central versions in `mcp-builder`); `npx` accessibility tools in `ada-compatibility` only if you agree, pinned to an exact version.
+- **Stores:** reports in your scratchpad or the path you give, review rules in your repository's `.claude/review-rules.md`, counters in Claude Code's project memory. `token-efficiency-review` reads your local Claude Code transcripts and prints only numbers and names.
+- **Credentials:** none are bundled or requested; secrets found by scans are always masked.
 
 ## Skills at a glance
 
@@ -135,7 +151,7 @@ Every pull request to this repo must pass these checks before it can merge; `mas
 
 | Check | What it enforces |
 |---|---|
-| Validate skills | Each `SKILL.md` has strict-YAML frontmatter with only upload-accepted keys; `name` equals its folder, uses lowercase letters, digits and hyphens (64 at most) and avoids "claude" and "anthropic"; the description is at most 1024 characters with no `<` or `>` and has an `Args` part (over 400 characters, the listing budget, is a warning); relative links and quoted `references/`, `scripts/` and `~/.claude/skills/` paths resolve inside the repo; no tracked file names a private project (a hashed denylist; hyphens, underscores and dots inside a name are ignored); this README has the skill's row and a change-log row naming it; `.claude-plugin/marketplace.json` lists every skill folder exactly once as `./<dir>`, so a new skill can't ship uninstallable; a `SKILL.md` runs bundled files through `${CLAUDE_SKILL_DIR}` (which must resolve) and never names the clone path `~/.claude/skills/`, which a plugin install doesn't have |
+| Validate skills | Each `SKILL.md` has strict-YAML frontmatter with only upload-accepted keys; `name` equals its folder, uses lowercase letters, digits and hyphens (64 at most) and avoids "claude" and "anthropic"; the description is at most 1024 characters with no `<` or `>` and has an `Args` part (over 400 characters, the listing budget, is a warning); relative links and quoted `references/`, `scripts/` and `~/.claude/skills/` paths resolve inside the repo; no tracked file names a private project (a hashed denylist; hyphens, underscores and dots inside a name are ignored); this README has the skill's row and a change-log row naming it; `.claude-plugin/plugin.json` has a semver `version` and lists every skill folder exactly once as `./<dir>`, so a new skill can't ship uninstallable, and the marketplace entry defers to it (same name, no skills list, default `strict`); `claude plugin validate --strict .` (the pinned Claude Code CLI) passes; a PR that changes a skill raises `version`; a `SKILL.md` runs bundled files through `${CLAUDE_SKILL_DIR}` (which must resolve) and never names the clone path `~/.claude/skills/`, which a plugin install doesn't have |
 | Script tests | Every bundled script's unit tests run under coverage, failing below 95% (98% today) or when a folder of Python code has no `test_*.py` beside it |
 | CodeQL | Static analysis of the Python scripts and the workflows |
 | Dependency review | Fails a PR that adds a dependency with a high or critical vulnerability |
@@ -159,6 +175,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-26 | this PR | Release: plugin manifest and directory submission prep. `.claude-plugin/plugin.json` (`manoj-skills` 1.0.0, description, author, homepage, repository, license, keywords, icon, support and privacy links, the 27 skills), and the marketplace entry defers to it (`strict` default); `docs/DIRECTORY-SUBMISSION.md` (checklist, surface compatibility, portal steps); README privacy and data-handling section; CI runs `claude plugin validate --strict` with a pinned CLI and fails a skill change that doesn't raise `version`; the validator checks plugin.json; ada-compatibility pins `npx` tools to an exact version |
 | 2026-11-26 | [#71](https://github.com/manojkhanwalkar/claude-skills/pull/71) | Shared conventions, part 3 (the rest): javatopython-converter, token-efficiency-review, deep-review, fix-ci, pr-review, test-gen, port-parity, resiliency, microservices-refactor, design-patterns and perf-review cite conventions from `CONVENTIONS.md` instead of the owner's rule numbers; javatopython-converter creates a design doc and diagram only when the user's rules ask for them (otherwise it asks); token-efficiency-review proposes skill changes as a PR only with a clone the user maintains, and updates docs only when the project memory names them; efficiency.md points to `CONVENTIONS.md` |
 | 2026-11-26 | [#70](https://github.com/manojkhanwalkar/claude-skills/pull/70) | Shared conventions, part 2 (security and compliance skills): owasp-top10, secret-history-scan, compliance-check and digital-regulation-check cite the PR policy, security-checks and design-doc conventions from `CONVENTIONS.md` instead of the owner's rule numbers; compliance-check and digital-regulation-check keep their applicability tables in the report when the project has no design doc |
 | 2026-11-26 | [#69](https://github.com/manojkhanwalkar/claude-skills/pull/69) | Shared conventions, part 1 (review and CI skills): `CONVENTIONS.md` defines each convention once with a default, and the user's `CLAUDE.md` overrides it; pr-review, post-merge-sync, pr-triage, pr-walkthrough, fix-ci and review-guidelines cite conventions by name instead of the owner's rule numbers; post-merge-sync's design doc, diagram and catalogue doc are used only when the project memory or the user's rules name them |

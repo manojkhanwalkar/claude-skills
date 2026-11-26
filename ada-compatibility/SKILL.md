@@ -60,7 +60,7 @@ This is an engineering review, not a legal opinion or a certified audit (VPAT/AC
    It reports these kinds: `img-alt`, `input-label`, `button-name`, `link-name`, `html-lang`, `page-title`, `positive-tabindex`, `click-no-key`, `anchor-no-href`, `aria-hidden-focus`, `no-zoom`, `outline-none`, `autoplay`, `heading-skip`, `paste-blocked`. Every hit is a lead: names can come from script or `aria-labelledby` elsewhere. It understands Vue, Angular, Svelte and Thymeleaf bindings. It covers web code only; review mobile screens by reading them against checklist section 13.
 4. If you may run the app (Trust), also run an engine on the rendered pages, which sees what static reading can't: computed contrast, the accessibility tree, focus order.
    - Prefer the project's own Playwright or Cypress with `@axe-core/playwright` / `cypress-axe`.
-   - Otherwise use `npx @axe-core/cli <url>` or `npx pa11y <url>`, if the user agrees to the tools.
+   - Otherwise use `npx @axe-core/cli@<version> <url>` or `npx pa11y@<version> <url>`, pinned to the newest release's exact version, if the user agrees to the tools (npx downloads them from npm).
    - Use the `run` skill to start the app.
 
 ## Phase 2 – Review against the checklist
