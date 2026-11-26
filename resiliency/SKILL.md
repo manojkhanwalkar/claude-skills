@@ -167,7 +167,7 @@ Run alone, report concisely:
 
 They read **The checklist** above and `references/platforms.md`; they don't run the phases. The resilience convention (`${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`) names this checklist.
 
-- **deep-review**, area 3 (Resilience): checks each outbound dependency against the checklist, fixes the worst gaps, and lists `/resiliency` under Needs a decision when retries or limits are missing across the board.
+- **deep-review**, area 4 (Resilience): checks each outbound dependency against the checklist, fixes the worst gaps, and lists `/resiliency` under Needs a decision when retries or limits are missing across the board.
 - **perf-review**: reports a missing timeout here; flags only the thread or connection it holds.
 - **dynamodb-optimizer**: flags missing `apiCallTimeout` / `apiCallAttemptTimeout` and the SDK retry mode; the values and the retry budget come from the AWS SDK section of `references/platforms.md`.
 - **microservices-refactor**: applies the checklist between each extracted service and its callers.

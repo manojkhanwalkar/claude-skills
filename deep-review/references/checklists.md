@@ -22,7 +22,7 @@ Leads for the areas this skill reviews itself, not findings. Confirm each one by
 - **Null and missing values.** Dereferences of values that can be null, None or undefined: map lookups, optional fields, the result of a find, parsed input.
 - **Comparisons and arithmetic.** Off-by-one bounds, `==` vs `.equals` (Java), `is` vs `==` (Python), integer overflow and truncating division, float equality, and locale- or case-sensitive string comparisons that should not be.
 - **Error handling.** Swallowed exceptions, catch blocks that are too broad, the wrong exception type for the caller's contract, and error paths that leave half-updated state.
-- **Shared state.** Mutable fields shared across threads or requests without synchronization, and static mutable caches. Check-then-act races, lazy initialization and in-flight-vs-delete races are under Resilience "Concurrency"; file each race under one area only.
+- **Shared state.** Races, unsafe publication, check-then-act, lazy initialization and executor misuse belong to the Concurrency area (`concurrency-audit`); file each race under one area only.
 - **Intent drift.** Code that contradicts its name, its comments, its docs or its tests. Decide which side is right before fixing either.
 - Usually fine: defensive null checks the type system already rules out (remove them only as readability, not as a bug); behaviour that looks odd but is pinned by a test or a documented compatibility rule (for example, matching another implementation byte for byte).
 
@@ -37,7 +37,7 @@ Leads for the areas this skill reviews itself, not findings. Confirm each one by
   - Recursion depth and batch sizes are bounded.
   - Scheduled jobs can't overlap or pile up.
 - **Cleanup.** Resources are closed on every path (try-with-resources, `with`, `defer`). Partial writes are rolled back or made idempotent, and a multi-step write either uses a transaction or is designed so a re-run finishes it.
-- **Concurrency.** No check-then-act races on shared state (use conditional writes, atomics or locks). Lazy initialization is thread-safe. A request that is in flight during a delete or logout can't resurrect what was deleted.
+- **In-flight work.** A request that is in flight during a delete or logout can't resurrect what was deleted. (Races on shared state are the Concurrency area's, through `concurrency-audit`.)
 - **Lifecycle.**
   - Services start in any order (lazy connections, reconnect after failure).
   - Health and readiness reflect real dependencies where it matters.
@@ -46,9 +46,9 @@ Leads for the areas this skill reviews itself, not findings. Confirm each one by
 - **Tests.** Each failure mode that matters has a test that simulates it: a mock server returning 5xx or a delay, a thrown IOException, a full queue.
 - Usually fine: demo or CLI tools where a crash is acceptable (say so); retries skipped deliberately for non-idempotent calls.
 
-## Performance, DynamoDB, design and doc comments
+## Concurrency, performance, DynamoDB, API, modernization, design and doc comments
 
-Owned by `perf-review`, `dynamodb-optimizer`, `design-patterns` and `documenter`, which carry their own checklists. Don't repeat their checks here.
+Owned by `concurrency-audit`, `perf-review`, `dynamodb-optimizer`, `api-audit`, `java-modernizer`, `design-patterns` and `documenter`, which carry their own checklists. Don't repeat their checks here.
 
 ## Duplication
 
