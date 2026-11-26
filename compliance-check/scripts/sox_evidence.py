@@ -143,6 +143,7 @@ def branch_controls(protection: dict | None, rules: list | None) -> dict:
 
 
 def check_branch_controls(pack: Pack, branch: str, c: dict):
+    """Flag the change-management gaps in the merged branch controls from `branch_controls`."""
     item = f"branch {branch}"
     if not c["pr_required"] or c["approvals"] < 1:
         pack.flag("SOX-CM1/CM2", "High", item, "no pull request with at least one approval required")
@@ -458,6 +459,8 @@ def gather_all(gh: Gh, repo: str, since: str, until: str, environment: str | Non
 # ---------- output ----------
 
 def render_summary(pack: Pack, repo: str, since: str, until: str, generated: str) -> str:
+    """Render summary.md: exceptions most severe first, the access listing, deploy access, the PR
+    population, the gaps and how to keep the pack."""
     ex = sorted(pack.exceptions, key=lambda e: (SEVERITY_ORDER.get(e["severity"], 9), e["id"]))
     counts = {s: sum(e["severity"] == s for e in ex) for s in SEVERITY_ORDER}
     lines = [f"# SOX ITGC evidence pack — {repo}", "",
@@ -488,6 +491,8 @@ def render_summary(pack: Pack, repo: str, since: str, until: str, generated: str
 
 
 def write_pack(pack: Pack, out: pathlib.Path, summary: str) -> list[pathlib.Path]:
+    """Write one JSON file per area, exceptions.json and summary.md into `out` (created if needed), then
+    MANIFEST.sha256 over them; returns the files the manifest covers."""
     out.mkdir(parents=True, exist_ok=True)
     files = []
     for area, data in sorted(pack.evidence.items()):
@@ -503,6 +508,8 @@ def write_pack(pack: Pack, out: pathlib.Path, summary: str) -> list[pathlib.Path
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
+    """Parse and validate the command line; dates, repo, labels and bot logins are checked against
+    allow-lists because they end up in API paths and gh arguments. Exits through argparse on bad input."""
     ap = argparse.ArgumentParser(description="Gather a read-only SOX ITGC evidence pack from GitHub.")
     ap.add_argument("--repo", help="OWNER/NAME (default: the current directory's repo)")
     ap.add_argument("--since", required=True, help="period start, YYYY-MM-DD")
@@ -542,6 +549,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 
 def main(argv: list[str] | None = None, gh: Gh | None = None, today: dt.date | None = None) -> int:
+    """Run the pack end to end and print a one-line summary; returns the exit status (0 written, 2 bad
+    arguments or gh unable to read the repository). `gh` and `today` are injectable for tests."""
     try:
         args = parse_args(sys.argv[1:] if argv is None else argv)
     except SystemExit as exc:
