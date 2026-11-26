@@ -1,6 +1,7 @@
 ---
 name: compliance-check
 description: Check code and pipelines for SOX, PII and PCI DSS - audit trails, exact money, PII masking, no stored CVV - with file:line evidence and --fix. Use when a change touches personal data, payments, billing, ledgers or audit logs; pr-review runs --diff. Not for GDPR or EU laws (digital-regulation-check). Args - [path] [--diff [base]] [--frameworks sox,pii,pci] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # SOX, PII and PCI Compliance Check
@@ -37,8 +38,8 @@ As with every audit, the value is evidence. A finding needs a concrete `file:lin
 1. Read `CLAUDE.md`, the README, architecture, security, privacy and design docs, and the project memory. Note any stated compliance scope (e.g. "SAQ A", "SOX in scope from FY27", "GDPR: EU users") — treat it as a claim to verify against the code.
 2. Run the scanner for leads (it reads files as data and prints only masked values):
    ```bash
-   python3 -I ~/.claude/skills/compliance-check/scripts/scan_sensitive.py .                    # whole project
-   git diff --name-only --diff-filter=d <base>...HEAD | python3 -I ~/.claude/skills/compliance-check/scripts/scan_sensitive.py --files-from -   # --diff
+   python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_sensitive.py" .                    # whole project
+   git diff --name-only --diff-filter=d <base>...HEAD | python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_sensitive.py" --files-from -   # --diff
    ```
    Run both from the repository root (git prints root-relative paths). An empty list scans nothing.
    Kinds: `pan`, `test-pan`, `ssn`, `example-ssn`, `sad` (CVV/track/PIN field names), `log-pii` (a log call naming a sensitive field). Hits in test paths are tagged `[test]`. Every hit is a lead: read the code.

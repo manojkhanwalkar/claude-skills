@@ -1,6 +1,7 @@
 ---
 name: perf-review
 description: Review code for performance and fix what is proven - hot paths, N+1 calls, scans, unbounded memory, blocking calls - with cost estimates and JMH or load-test proof; --fix with tests. Use for "performance review", "make it faster", "latency", "perf". Not for retries (resiliency) or design (design-patterns). Args - [path] [--diff [base]] [--report-only] [--fix] [--focus LIST] [--out FILE].
+license: Apache-2.0
 ---
 
 # Performance review

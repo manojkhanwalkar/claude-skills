@@ -1,6 +1,7 @@
 ---
 name: fix-ci
 description: Get a PR's or the default branch's failing CI green by fixing the real cause - read logs, classify, reproduce, fix with a test, push, watch - without weakening CI. Use when CI is red, "fix the build", or pr-review or pr-triage hands over failing checks. Not for reviewing a PR (pr-review) or merge conflicts (resolve-conflicts). Args - [PR] [--default-branch] [--max-attempts N] [--report-only].
+license: Apache-2.0
 ---
 
 # Fix CI

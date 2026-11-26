@@ -280,7 +280,8 @@ publishing setup on pypi.org); don't add it unasked.
 
 ## `.github/workflows/artifact-cleanup.yml`
 
-Copy `~/.claude/skills/templates/artifact-cleanup.yml` and replace `__WORKFLOWS__` with the exact
+Copy `templates/artifact-cleanup.yml` from the claude-skills repo (`~/.claude/skills/templates/` in a
+clone; the `templates/` folder beside this skill's folder in a plugin install) and replace `__WORKFLOWS__` with the exact
 names of this repo's workflows that upload artifacts (here: `CI, CodeQL, Release, Security`).
 Whenever one of them finishes a run, it deletes older runs' artifacts and keeps only the newest
 completed run's, per artifact kind, branch and source repository (rule 8). Keep the list in sync

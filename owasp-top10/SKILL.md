@@ -1,6 +1,7 @@
 ---
 name: owasp-top10
 description: Audit a whole codebase against every OWASP Top 10 (2025) category, with file:line evidence, severity and fixes; --fix applies and verifies them. Use for an OWASP or security audit, "is this code secure", or when a project starts handling sensitive data. Not for a diff (security-review), LLM code (owasp-llm-top10) or git-history secrets (secret-history-scan). Args - [path] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # OWASP Top 10 (2025) Audit

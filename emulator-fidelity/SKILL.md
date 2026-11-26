@@ -1,6 +1,7 @@
 ---
 name: emulator-fidelity
 description: Find where a cloud emulator (AWS Emulator by default) differs from the real service, prove each against the provider's docs on the newest release, and file one public issue each, within a cap; --recheck closes verified fixes. Use to find, report or re-check emulator bugs. Not for testing the user's own code or security testing. Args - [SERVICES] [--cap N] [--report-only] [--version V] [--recheck].
+license: Apache-2.0
 ---
 
 # Emulator Fidelity

@@ -1,6 +1,7 @@
 ---
 name: javatopython-converter
 description: Convert a Java project (Spring Boot, MCP, CLI or library) into a behaviour-equivalent Python project in a new repo, with golden-file parity tests, a 95% coverage gate and every PR through pr-review. Use to port, convert or migrate Java to Python. Not for a chat snippet or keeping a port in step (port-parity). Args - [JAVA_PATH] [--name NAME] [--dir DIR] [--public] [--module PATH] [--no-merge].
+license: Apache-2.0
 ---
 
 # Java → Python converter

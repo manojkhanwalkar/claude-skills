@@ -1,6 +1,7 @@
 ---
 name: ada-compatibility
 description: Review and fix UI code for WCAG 2.2 AA (ADA, Section 508) - labels, keyboard, focus, contrast, reflow, forms, motion - in web and mobile UIs. Use when a change touches user-facing UI, a UI project's first change, or for accessibility, a11y, WCAG; pr-review runs --diff. Not for accessibility law (digital-regulation-check). Args - [path] [--diff [base]] [--fix] [--out FILE].
+license: Apache-2.0
 ---
 
 # ADA Compatibility (WCAG 2.2 AA)
@@ -53,8 +54,8 @@ This is an engineering review, not a legal opinion or a certified audit (VPAT/AC
 2. Note the stack, the component library (whose accessibility you inherit, and whose misuse you check), and whether there are tests (unit, Testing Library, Playwright or Cypress) to extend.
 3. Run the lead finder from the repository root (git lists paths relative to it). It reads files as data, is stdlib only, and skips test files:
    ```bash
-   python3 -I ~/.claude/skills/ada-compatibility/scripts/scan_a11y.py <ui dirs>
-   git diff --name-only <base>...HEAD | python3 -I ~/.claude/skills/ada-compatibility/scripts/scan_a11y.py --files-from -
+   python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_a11y.py" <ui dirs>
+   git diff --name-only <base>...HEAD | python3 -I "${CLAUDE_SKILL_DIR}/scripts/scan_a11y.py" --files-from -
    ```
    It reports these kinds: `img-alt`, `input-label`, `button-name`, `link-name`, `html-lang`, `page-title`, `positive-tabindex`, `click-no-key`, `anchor-no-href`, `aria-hidden-focus`, `no-zoom`, `outline-none`, `autoplay`, `heading-skip`, `paste-blocked`. Every hit is a lead: names can come from script or `aria-labelledby` elsewhere. It understands Vue, Angular, Svelte and Thymeleaf bindings. It covers web code only; review mobile screens by reading them against checklist section 13.
 4. If you may run the app (Trust), also run an engine on the rendered pages, which sees what static reading can't: computed contrast, the accessibility tree, focus order.

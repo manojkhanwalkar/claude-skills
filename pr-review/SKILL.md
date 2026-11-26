@@ -1,6 +1,7 @@
 ---
 name: pr-review
 description: Review a GitHub PR end to end and merge it - walkthrough, one independent review (built-in code-review for bugs, plus design, perf, tests and security), fix findings with tests, post a findings table, green CI, squash-merge. Use for "review and merge PR N" or to finish a PR. Not for a whole codebase (deep-review), or red CI (fix-ci). Args - [PR] [--no-merge] [--max-findings N].
+license: Apache-2.0
 ---
 
 # PR Review

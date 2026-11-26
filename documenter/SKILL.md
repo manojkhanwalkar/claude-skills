@@ -1,6 +1,7 @@
 ---
 name: documenter
 description: Add, standardise and refresh in-source doc comments (Javadoc first; KDoc, docstrings, TSDoc, Go) on classes, long methods and public APIs, changing comment lines only. Use for "add javadoc", "doc comments", "comment the code"; pr-review runs --diff, deep-review the whole project. Not for docs/ pages or the README (document). Args - [path] [--diff [base]] [--report-only] [--check] [--min-lines N].
+license: Apache-2.0
 ---
 
 # Documenter
@@ -73,7 +74,7 @@ See `references/examples.md` for good and bad comments, and `references/formats.
 1. **Comments only.** Check **your own edits only**: against `START`, the commit you began from (Phase 0), never against the `--diff` base. The base only picks the scope; diffing against it would show the PR author's code changes, which are not yours to revert. Show `git diff --stat $START`, then run the bundled check (before or after committing; it sees committed, staged, unstaged and new untracked source files):
 
    ```bash
-   python3 -I ~/.claude/skills/documenter/scripts/comment_only_check.py "$START"
+   python3 -I "${CLAUDE_SKILL_DIR}/scripts/comment_only_check.py" "$START"
    ```
 
    It must end `COMMENT-ONLY CHECK: PASS`. For Java, Kotlin, TypeScript, JavaScript, Go, Rust, C# and Swift it strips comments (not strings, raw strings or JavaScript regex literals) from the old and new versions and compares the code line by line; for Python it compares the syntax trees with docstrings removed; in every language, directive comments must not change. A new file passes only as a package doc file holding comments and its package clause; a rename, a deletion or an unsupported file fails. Each `FAIL` line names a file and the first changed code line: revert that change. `NOTE` lines name untracked non-source files it skipped: leave them out of the commit. It doesn't lex nested block comments (Rust, Kotlin, Swift), so in a file with one, also read the hunks.

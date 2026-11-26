@@ -1,6 +1,7 @@
 ---
 name: pr-walkthrough
 description: Write a PR walkthrough for reviewers - changes by area, breaking changes, a Mermaid diagram when a call flow changed, risk and effort, and linked-issue criteria met - as one PR comment updated in place. Use to summarise or walk through a PR or check it against its issue; pr-review runs it on 250+ line PRs. Not a code review (pr-review). Args - [PR] [--no-post] [--no-diagram].
+license: Apache-2.0
 ---
 
 # PR Walkthrough

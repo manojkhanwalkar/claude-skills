@@ -1,6 +1,7 @@
 ---
 name: review-guidelines
 description: Keep a repo's review rules in .claude/review-rules.md so reviews stop re-raising settled findings - add, learn, list or prune, each by PR; owns the Limits every reviewer applies. Use for "remember this for future reviews", "stop flagging X", "add a review rule", "learn from PR N". Not for reviewing code (pr-review). Args - add "RULE" [--scope GLOB] | learn [PR] | list | prune.
+license: Apache-2.0
 ---
 
 # Review Guidelines
