@@ -7,18 +7,25 @@ Sarbanes-Oxley §404 requires management (and, for accelerated filers, the exter
 
 SOX scope is a business decision (public company or pre-IPO, financially significant system). If unknown, check as good practice and lower severities one step (SKILL.md, Phase 1). Each item has an ID to cite.
 
+**How an ITGC auditor tests.** For each control they ask three things, and the check should answer each one with evidence:
+1. **Design:** does the setting or code enforce the control? (Branch protection requires an approval.)
+2. **Operation over the period:** did it work every time? They take the *population* (every merged change, every deploy, every account) and test a sample: 25 to 60 items for a control that runs many times a day, fewer for one that runs quarterly.
+3. **Evidence:** can it be produced now, complete, for the whole period, from a source that couldn't have been edited after the fact?
+
+`scripts/sox_evidence.py` (SKILL.md, "SOX evidence pack") builds the populations and flags the exceptions for the items marked **[pack]** below.
+
 ## Contents
 - SOX-CM Change management (program change)
 - SOX-SOD Segregation of duties
-- SOX-AC Access to programs and data
-- SOX-OPS Computer operations (jobs, backups, interfaces)
+- SOX-AC Access management (programs and data)
+- SOX-OPS Computer operations (jobs, backups, incidents)
 - SOX-AT Audit trail of financial data
 - SOX-CALC Accuracy of financial calculations
 - SOX-MC Maker-checker and authorisation
 - SOX-INT Interfaces and completeness
 - SOX-RPT Reports and end-user computing
 - SOX-RET Record retention
-- SOX-EVD Evidence
+- SOX-EVD Audit evidence (producible, retained, tamper-evident)
 - Sources
 
 ---
@@ -33,7 +40,9 @@ Auditors pick a sample of production changes and ask: was each one requested, te
 - **CM4 — deployment only by pipeline** from the protected branch, with an environment protection rule (required reviewers, `main`-only deployment branches) for production; no manual `kubectl apply`, console edits, or SSH changes. Deploy workflows use OIDC, not long-lived cloud keys.
 - **CM5 — traceability**: PR ↔ ticket/requirement ↔ commit ↔ build ↔ deployed artifact (immutable image digest or signed release). A PR template that records reason, risk, testing and rollback.
 - **CM6 — database and configuration changes are changes too**: schema migrations (Flyway, Liquibase, Alembic) versioned in the repo and applied by the pipeline; no ad-hoc SQL in production; feature flags and config that change financial behaviour (prices, fees, interest rules, tax) are version-controlled and approved, or their admin UI is audited and permissioned.
-- **CM7 — emergency changes**: a documented break-glass path that still produces a retrospective review and approval.
+- **CM7 — emergency changes** **[pack]**: a documented break-glass path (a label such as `hotfix` or `emergency`, a named approver group) that still produces a retrospective review and approval within a set time, such as two business days. Test: every PR with the emergency label has an approval, before or after merge; an admin bypass or direct push with no label is not an emergency change, it's an exception.
+- **CM8 — change population is complete** **[pack]**: every commit on the production branch in the period maps to a merged PR (squash merge commit, or the PR a rebased commit belongs to). A commit with no PR is a direct push: High, whatever its content. Every merged PR has an approval by someone other than the author, given on the commit that was merged (`dismiss_stale_reviews` or `require_last_push_approval` makes that hold by design).
+- **CM9 — production is traceable to commits** **[pack]**: each deployment records the commit SHA it deployed (a GitHub deployment, a release tag, an image label or digest built from that SHA), and that SHA maps to a merged PR. Test: take the deployments in the period and trace each back; a deployed SHA that is on no PR, or a deploy with no recorded SHA, is an exception. Build provenance (`actions/attest-build-provenance`, signed images) makes the link tamper-evident.
 - Private repos on GitHub Free cannot enforce branch protection: say so, and name the compensating control (rule that every PR goes through `pr-review` by a separate agent, merged only on green CI, plus periodic review of `git log --first-parent main` for commits without a PR).
 
 ## SOX-SOD — Segregation of duties
@@ -42,20 +51,23 @@ Auditors pick a sample of production changes and ask: was each one requested, te
 - **SOD2** — developers don't have write access to production data or production infrastructure in their daily role; break-glass access is time-bound and logged.
 - **SOD3** — in the application: a user can't both create and approve a financial transaction, refund, write-off, credit-limit change or price change (see SOX-MC); an admin can't edit their own permissions.
 - **SOD4** — a single CI token or service account can't both merge and deploy and change protection rules; workflow `permissions:` least privilege.
+- **SOD5 — one-person teams**: when one person is the only maintainer, GitHub can't enforce author ≠ approver. Name the compensating control (an independent reviewer, human or a separate agent, recording a review on every PR; or a periodic after-the-fact review of every change by someone else) and test that it ran on a sample. Report the missing setting once, not once per PR.
 
 ## SOX-AC — Access to programs and data
 
 - **AC1** — authentication for every user and service; unique IDs; MFA for administrators and for production access.
 - **AC2** — role-based authorisation on every endpoint, job and tool that reads or changes financial data; deny by default.
-- **AC3** — provisioning and de-provisioning are traceable (who granted which role, when, approved by whom); periodic access reviews possible (a way to list who has which role).
+- **AC3 — access reviews** **[pack]**: provisioning and de-provisioning are traceable (who granted which role, when, approved by whom), and a periodic review (quarterly for privileged roles) lists who has which role and is signed off by an owner. Evidence: the repository's admins, maintainers and writers, team grants, environment reviewers and cloud roles, exported at the review date, with the reviewer's decision per person. Leavers lose access within a set time; test with the org audit log (`gh api orgs/<org>/audit-log`, Enterprise) or the access list against HR leavers.
 - **AC4** — privileged and service accounts: no shared credentials, no hard-coded secrets, rotation supported.
 - **AC5** — direct database access to financial tables restricted; application DB user can't alter audit tables (see SOX-AT).
+- **AC6 — who can merge and who can deploy** **[pack]**: write access is merge access unless a ruleset restricts it; deploy access is whoever can approve the production environment, plus anyone holding cloud credentials that deploy outside the pipeline. List both; each should be a short, named list that matches job roles.
+- **AC7 — privileged access** **[pack]**: admin roles, ruleset bypass actors, "admins can bypass branch protection" (`enforce_admins` off), deploy keys with write access, personal access tokens and GitHub Apps with write or admin scope. Each is a way around change management: keep them few, named, justified and reviewed; prefer time-bound elevation (break-glass) with a log.
 
 ## SOX-OPS — Computer operations
 
-- **OPS1** — scheduled jobs that post, bill, accrue, reconcile or report: failures are detected and alerted (not swallowed), jobs are idempotent and safely re-runnable, and each run records start, end, counts and outcome.
-- **OPS2** — backups of financial data exist and restore is tested; point-in-time recovery enabled on financial tables (e.g. DynamoDB PITR, RDS automated backups).
-- **OPS3** — incident and problem records link to the changes that fixed them.
+- **OPS1 — job monitoring** **[pack]**: scheduled jobs that post, bill, accrue, reconcile or report: failures are detected and alerted (not swallowed), jobs are idempotent and safely re-runnable, and each run records start, end, counts and outcome. Test: every failed run in the period has a follow-up (a re-run that succeeded, an incident, or a ticket); a scheduled job whose latest run failed is an open exception.
+- **OPS2 — backup monitoring** — backups of financial data exist and restore is tested; point-in-time recovery enabled on financial tables (e.g. DynamoDB PITR, RDS automated backups) in the infrastructure code; backup job failures alert someone; a restore test at least yearly leaves a record (date, what was restored, result). Not in GitHub: name it as a gap in the evidence pack and say where the evidence lives.
+- **OPS3 — incident records** **[pack]**: incidents that touch financial processing are recorded (an issue or ticket with a label such as `incident`), with times, impact, root cause, and a link to the change that fixed it; that fix went through change management like any other change (or as an emergency change, CM7).
 - **OPS4** — time: UTC timestamps, synchronised clocks; period boundaries (month/quarter end, fiscal calendar, time zones) handled explicitly.
 
 ## SOX-AT — Audit trail of financial data
@@ -98,10 +110,12 @@ Auditors pick a sample of production changes and ask: was each one requested, te
 - **RET2** — conflicts with privacy erasure are resolved by keeping the financial record with minimal identifying data (legal-hold exception) and documenting why.
 - **RET3** — CI/CD evidence (PR reviews, build and deploy logs) kept long enough for the audit period, or exported.
 
-## SOX-EVD — Evidence
+## SOX-EVD — Audit evidence
 
-- Prefer machine-generated evidence over screenshots: export branch protection and rulesets (`gh api`), PR review history (`gh pr list --state merged --search "merged:>=<period start>" --limit 1000 --json number,author,reviews,mergedBy,mergeCommit`; the default limit is 30), deployment history (`gh api repos/{owner}/{repo}/deployments`), workflow run logs.
-- A check for unreviewed changes: every commit on `main` since the last audit maps to a merged PR with an approving review by someone other than the author.
+- **EVD1 — producible**: the evidence for each control can be generated now, for the whole period, by a repeatable command rather than screenshots. `scripts/sox_evidence.py` exports branch protection and rulesets, the access listing, every merged PR with its approvers, default-branch commits with their PRs, environments and deployments, workflow runs and incidents. If you gather by hand: `gh pr list --state merged --search "merged:<start>..<end>" --limit 1000 --json number,author,reviews,mergedBy,mergeCommit,headRefOid` (the default limit is 30; asking for `commits` too hits GraphQL's node limit), `gh api repos/{owner}/{repo}/deployments`, `gh api repos/{owner}/{repo}/actions/runs`.
+- **EVD2 — retained** **[pack]**: each source keeps its records for the period plus the audit window, or is exported before it's gone. GitHub keeps PRs and reviews while the repo exists, but Actions logs and artifacts only for the retention setting (90 days by default, up to 400 on paid plans), and the org audit log for 180 days (7 days of Git events). Test: the retention setting covers the period; if not, logs are exported at least that often (see RET3).
+- **EVD3 — tamper-evident**: the exported pack carries a hash manifest (`MANIFEST.sha256`) and is stored where it can't be edited or deleted for the retention period (object lock or WORM bucket, or a signed release asset). Signed commits and build provenance make the change → deploy chain hard to rewrite; a force push to the production branch breaks it (CM1).
+- **EVD4 — complete**: the population is the whole period with no cap hit (the pack lists any cap it reached under "Gaps"), and each gap (a permission the token lacks, data outside GitHub) names where that evidence lives.
 
 ## Sources
 
@@ -113,4 +127,5 @@ Auditors pick a sample of production changes and ask: was each one requested, te
 - SafePaaS, "Key change management controls auditors look for in SOX ITGC audits": https://www.safepaas.com/itgc/key-change-management-controls-auditors-look-for-in-sox-itgc-audits/
 - Harness, "SOX Compliance for Software Delivery": https://www.harness.io/harness-devops-academy/sox-compliance-for-software-delivery-explained
 - Liquibase, "SOX compliance for database change management": https://www.liquibase.com/resources/guides/sox-compliance-for-database-change-management-best-practices
-- GitHub Docs: protected branches, rulesets, deployment environments (required reviewers, prevent self-review).
+- GitHub Docs: protected branches, rulesets, deployment environments (required reviewers, prevent self-review), artifact and log retention, the organisation audit log, artifact attestations.
+- PCAOB AS 1105, *Audit Evidence*, and AS 2315, *Audit Sampling* (population completeness and sample sizes).
