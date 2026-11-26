@@ -7,7 +7,6 @@
   "plugins": [
     {
       "name": "manoj-skills",
-      "description": "Claude Code skills that take code from pull request to merge: reviews, CI fixes, security, compliance and WCAG audits, performance, resilience and upkeep. Built for Claude Code; most need git, gh and a shell.",
       "source": "./",
       "license": "Apache-2.0"
     }

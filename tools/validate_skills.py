@@ -21,7 +21,7 @@ And for the README: every skill has a row linking to its SKILL.md and a change-l
 every skill link resolves. And for the plugin: when .claude-plugin/plugin.json exists, it is valid JSON
 with a MAJOR.MINOR.PATCH `version`, and its `skills` list names every skill directory exactly once, as
 ./<dir>, and nothing else, so a new skill can't ship without being installable; the marketplace's root
-entries ("source": "./") then carry its `name` and no `skills` or `strict: false` (with a plugin.json,
+entries ("source": "./") then include one with its `name`, all carry that `name`, and no `skills` or `strict: false` (with a plugin.json,
 an entry's skills are appended to the manifest's, and `strict: false` beside them is a load conflict).
 Without a plugin.json, the `skills` lists of the marketplace's root entries are checked the same way.
 
@@ -315,7 +315,11 @@ def check_manifest(root: Path, skills: list[str]) -> list[str]:
     market, bad = load_json(root, MARKETPLACE)
     if bad:
         return problems + bad
-    for entry in root_entries(market):
+    entries = root_entries(market)
+    if not any(entry.get("name") == data.get("name") for entry in entries):
+        problems.append(f"{MARKETPLACE}: no entry with \"source\": \"./\" is named {data.get('name')!r}, "
+                        "so the plugin can't be installed from the marketplace")
+    for entry in entries:
         label = f"{MARKETPLACE}: entry {entry.get('name')!r}"
         if entry.get("name") != data.get("name"):
             problems.append(f"{label} is not named like plugin.json ({data.get('name')!r})")

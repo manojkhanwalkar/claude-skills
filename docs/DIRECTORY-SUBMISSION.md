@@ -17,7 +17,7 @@ Sources (read 2026-11-26):
 | Manifest | Add `.claude-plugin/plugin.json` | The directory reads a folder that contains `.claude-plugin/plugin.json`; without one, validation blocks with **No plugin.json** [checklist]. It also sets `description`, `author`, `homepage` and `repository` [publish, step 5]. |
 | Where the skills are listed | In `plugin.json` (`skills`: the 27 folders, as `./<dir>`) | The directory reads `plugin.json`, not the marketplace entry. `skills` accepts folders that each hold a `SKILL.md` [manifest]. |
 | `strict` in `marketplace.json` | Removed (defaults to `true`), along with the entry's `skills` list | With a `plugin.json` present, `strict: false` plus a `skills` list in the entry fails to load with "conflicting manifests", and with `strict: true` the entry's skills are appended to the manifest's, which would list each skill twice [manifest, "How entry fields combine"]. The entry keeps the same `name` as `plugin.json` [publish]. |
-| Version | `1.0.0`, raised in every PR that changes a skill | Once `version` is set, users stay on it until it changes; the alternative is to omit it and track the commit SHA, which makes `validate --strict` fail on the missing `version` [publish, step 2 and 3]. The directory says "If your `plugin.json` sets `version`, raise it with every release" [submit]. CI enforces the raise. |
+| Version | `1.0.0`, raised in every PR that changes what the plugin ships | Once `version` is set, users stay on it until it changes; the alternative is to omit it and track the commit SHA, which makes `validate --strict` fail on the missing `version` [publish, step 2 and 3]. The directory says "If your `plugin.json` sets `version`, raise it with every release" [submit]. CI enforces the raise. |
 | Icon | `.claude-plugin/icon.png` (512 x 512 PNG), named in `icon` | `validate` warns `ICON_MISSING`, and the icon becomes the listing icon only the first time the plugin is saved or submitted in the portal, so it has to be there before the first submission. |
 | Listing links | `supportUrl` (GitHub issues), `documentationUrl` (README), `privacyPolicyUrl` (README privacy section) | Directory listing fields that only `plugin.json` may carry [manifest]. No email in the repository: the portal asks for the contact email itself. |
 | What to submit | The whole plugin, described as built for Claude Code | See [Surface compatibility](#surface-compatibility). |
@@ -46,7 +46,7 @@ The first run with `plugin.json` reported one directory warning, `ICON_MISSING`,
 
 Every row of [checklist] with its result for this repository. The plugin folder is the repository root.
 
-**Summary: 27 pass, 0 fail, 15 not applicable, 2 open for the owner (behaviour tests on claude.ai and Cowork, and the portal's own name check). No blocker.**
+**Summary: 27 pass, 0 fail, 15 not applicable, 2 open for the owner (the portal's name check and a `claude plugin eval` comparison). No blocker.**
 
 ### Repository and folder layout
 
@@ -96,7 +96,7 @@ Every row of [checklist] with its result for this repository. The plugin folder 
 
 | Check | Result | Evidence |
 |---|---|---|
-| Launchers pinned to exact versions | N/A | No hooks or MCP servers run a launcher. The one `npx` a skill suggests (`ada-compatibility`, axe or pa11y, only if the user agrees) now says to pin an exact version. |
+| Launchers pinned to exact versions | N/A | No hooks or MCP servers run a launcher. The one `npx` a skill suggests (`ada-compatibility`, axe or pa11y, only if the user agrees) now says to pin an exact version published at least two weeks earlier. |
 | No package-manager config that sets a registry | N/A | No `.npmrc`, `bunfig.toml` or `uv.toml`. |
 | No real credentials in any file | Pass | Gitleaks runs on every PR and push and weekly over the whole history. The two scanners' tests hold fake keys built by concatenation (`"AKIA" + "..."`), allowlisted by path in `.gitleaks.toml`. |
 | No credential from the user's environment sent to a server | Pass | No hook or server reads one. `emulator-fidelity` exports the emulator's own per-run throwaway keys and sends them only to `127.0.0.1`. `javatopython-converter`'s workflow template uses `${{ secrets.GITHUB_TOKEN }}` inside the generated project's GitHub Actions, not on the user's machine. A reviewer may still read these. |
@@ -169,9 +169,9 @@ The plugin holds only skills, which load in chat, Cowork and Claude Code [platfo
 2. **Open** [claude.ai/directory/manage](https://claude.ai/directory/manage), select **Submit new**, then **Plugin bundle**.
 3. **Source:** Repository `manojkhanwalkar/claude-skills`; Plugin path empty (the root); Branch or tag `master` (or leave empty, the default branch). Select **Validate**, and fix any **Blocking** finding in a PR, then **Re-validate**.
 4. **Listing details:** check that it shows `Manoj Skills`, version `1.0.0`, the description and the README; change them only through `plugin.json` or the README.
-5. **Data handling:** reads or stores personal data: *No* (it reads your own code and git history locally, which may contain personal data, and masks what its scanners find; it stores nothing of its own). Sends data to services other than declared connectors: *Yes*, to GitHub through your own `gh` (PRs, comments, issues you approve) and to public documentation and registries for reads; all listed in the README. Retention: *none*; reports stay in local files you control. Intended for people under 18: *No*.
+5. **Data handling:** reads or stores personal data: *Yes, reads* (your code, git history, CI logs and local Claude Code transcripts, on your machine, which may contain personal data; scanners mask what they find; it stores nothing of its own outside your files, repositories and project memory). Sends data to services other than declared connectors: *Yes*: to GitHub through your own `gh` (PRs, comments, merges, new repositories, and issues you approve), to claude.ai docs through your own connectors when your memory names a design doc, to a secret's issuer for a liveness check you approve, and reads from public docs, registries and `downloads.aws.com`; all listed in the README's privacy section. Retention: *none*; reports stay in local files you control. Intended for people under 18: *No*.
 6. **Compliance:** confirm the contact email (the portal's field; the repository carries no email) and select all four acknowledgements.
 7. **Review and submit:** keep **GitHub push webhook** (needs repository admin; select **Set up push updates** afterwards), leave **Auto-publish passing versions** off for the first version, then **Submit for review**.
 8. **After review:** when the version passes, select **Publish**. Then install it once from **Customize > Plugins** on claude.ai to see how it loads there.
 
-**Later releases:** merge to `master` with `version` raised (CI requires it when a skill changes); the directory scans each new commit and publishes it under the plugin's publish setting. If a scan holds or fails a version, the plugin's **Versions** tab says why.
+**Later releases:** merge to `master` with `version` raised (CI requires it when anything the plugin ships changes); the directory scans each new commit and publishes it under the plugin's publish setting. If a scan holds or fails a version, the plugin's **Versions** tab says why.

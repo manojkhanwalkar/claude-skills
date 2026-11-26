@@ -429,7 +429,11 @@ class ValidateSkillsTest(unittest.TestCase):
                          self.problems())
         self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "q", "source": "./"},
                                                           {"name": "x", "source": "./x", "skills": []}]}))
-        self.assertEqual([f"{m}: entry 'q' is not named like plugin.json ('p')"], self.problems())
+        self.assertEqual([f"{m}: no entry with \"source\": \"./\" is named 'p', so the plugin can't be installed "
+                          "from the marketplace", f"{m}: entry 'q' is not named like plugin.json ('p')"], self.problems())
+        self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "p", "source": "./x"}]}))
+        self.assertEqual([f"{m}: no entry with \"source\": \"./\" is named 'p', so the plugin can't be installed "
+                          "from the marketplace"], self.problems())
         self.repo.marketplace(raw=json.dumps({"plugins": [{"name": "p", "source": "./"}]}))
         self.assertEqual([], self.problems())
 
