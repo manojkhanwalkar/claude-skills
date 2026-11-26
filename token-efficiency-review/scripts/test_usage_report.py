@@ -48,6 +48,16 @@ class UsageReportTest(unittest.TestCase):
             result(NOW, "t1", "x" * 5000 + MARKER),
             result(NOW, "t2", [{"type": "text", "text": "y" * 300}, "stray"]),
             result(NOW, "t4", "z" * 20),
+            result(NOW, "t6", "r" * 20),
+            result(NOW, "t8", "e" * 20),
+            result(NOW, "t8", "e" * 20),                  # the same echo result twice: one row, times 2
+            {"type": "user", "timestamp": NOW, "message": {"content": "<command-name>/clear</command-name>"}},
+            {"type": "user", "timestamp": NOW, "message": {"content": [
+                {"type": "text", "text": "<command-name>post-merge-sync</command-name> <command-name>$(x)</command-name>"}]}},
+            # A rate-limited call: a synthetic message with an error kind; not a model.
+            {"type": "assistant", "timestamp": NOW, "isApiErrorMessage": True, "error": "rate_limit",
+             "message": {"id": "e1", "model": "<synthetic>", "usage": {}, "content": []}},
+            {"type": "system", "timestamp": NOW, "error": MARKER},          # not a plain kind: "other"
             {"type": "user", "timestamp": NOW, "message": {"content": [
                 {"type": "text", "text": MARKER}, "not a block"]}},
             {"type": "user", "timestamp": NOW, "isCompactSummary": True, "message": {"content": "summary"}},
@@ -69,6 +79,14 @@ class UsageReportTest(unittest.TestCase):
             json.dumps(assistant(NOW, msg_id="a3")) + "\n" + json.dumps(assistant(NOW, model="<synthetic>", msg_id="a3b")))
         (project / "s1" / "subagents" / "agent-a3.meta.json").write_text("{broken")
         self.since = datetime(2026, 11, 11, tzinfo=timezone.utc)
+        self.skills = self.root / "skills"
+        for name, front in [("big", 'name: big\ndescription: "' + "d" * 600 + '"'),
+                            ("small", "description: short one\nlicense: MIT"),
+                            ("named", "name: other-name\ndescription: x")]:
+            (self.skills / name).mkdir(parents=True)
+            (self.skills / name / "SKILL.md").write_text(f"---\n{front}\n---\n\ndescription: body text\n")
+        (self.skills / "bare").mkdir()
+        (self.skills / "bare" / "SKILL.md").write_text("no front matter")
 
     def tearDown(self):
         self._tmp.cleanup()
@@ -85,17 +103,22 @@ class UsageReportTest(unittest.TestCase):
         self.assertEqual({"description": "agent-a3", "tokens": 2320, "model": "claude-opus-5-5"}, r["top_agents"][0])
         self.assertEqual({"description": "Review PR 7", "tokens": 12, "model": "claude-sonnet-5-5"}, r["top_agents"][1])
         self.assertEqual(1000 + 2000, r["cache_reads"])
+        self.assertEqual(100 + 200, r["cache_writes"])
+        self.assertEqual({"rate_limit": 1, "other": 1}, r["api_errors"])
+        self.assertRegex(r["generated"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d[+-]\d\d:\d\d$")
         self.assertEqual(50 + 7 + 100, r["output_tokens"])
 
     def test_tools_polling_skills_and_compactions(self):
         r = self.run_report()
         self.assertEqual(6, r["tool_calls"]["Bash"])
-        self.assertEqual(5000 + len(MARKER) + 300, r["tool_result_chars"]["Bash"])
+        self.assertEqual(5000 + len(MARKER) + 300 + 3 * 20, r["tool_result_chars"]["Bash"])
         self.assertEqual(40, r["tool_result_chars"]["Grep"])
-        self.assertEqual({"pr-review": 1}, r["skills"])
+        self.assertEqual({"pr-review": 1, "/clear": 1, "/post-merge-sync": 1}, r["skills"])
         self.assertEqual(1, r["polling_commands"])     # the sleep only: not `gh pr view`, not a lone --watch
         self.assertEqual(1, r["compactions"])
-        self.assertEqual({"chars": 5000 + len(MARKER), "tool": "Bash", "command": "mvn"}, r["largest_results"][0])
+        self.assertEqual({"chars": 5000 + len(MARKER), "tool": "Bash", "command": "mvn", "times": 1},
+                         r["largest_results"][0])
+        self.assertIn({"chars": 20, "tool": "Bash", "command": "echo", "times": 2}, r["largest_results"])
 
     def test_nothing_from_a_transcript_is_printed(self):
         r = self.run_report()
@@ -136,9 +159,12 @@ class UsageReportTest(unittest.TestCase):
     def test_main_prints_markdown_or_json(self):
         out = io.StringIO()
         with redirect_stdout(out):
-            self.assertEqual(0, u.main(["--projects", str(self.root), "--since", "2026-11-11"]))
+            self.assertEqual(0, u.main(["--projects", str(self.root), "--since", "2026-11-11",
+                                        "--skills", str(self.skills), "--desc-target", "1000"]))
         self.assertIn("# Token usage since 2026-11-11T00:00+00:00", out.getvalue())
         self.assertIn("| Review PR 7 | 12 | claude-sonnet-5-5 |", out.getvalue())
+        self.assertIn("API errors: rate_limit 1, other 1", out.getvalue())
+        self.assertIn("Descriptions over 1000 characters: 0", out.getvalue())
         out = io.StringIO()
         with redirect_stdout(out):
             self.assertEqual(0, u.main(["--projects", str(self.root), "--since", "2026-09-01T00:00+05:00", "--json"]))
@@ -156,6 +182,21 @@ class UsageReportTest(unittest.TestCase):
         with redirect_stderr(err):
             self.assertEqual(1, u.main(["--projects", str(self.root / "nope")]))
         self.assertIn("No transcripts folder", err.getvalue())
+
+    def test_skill_listing(self):
+        s = u.skill_listing(self.skills, 200_000, 400, 10)
+        self.assertEqual(4, s["skills"])
+        # "- name: description" per skill, joined by newlines; the bare skill has an empty description.
+        self.assertEqual((3 + 4 + 600) + (5 + 4 + 9) + (10 + 4 + 1) + (4 + 4) + 3, s["listing_chars"])
+        self.assertEqual(8000, s["budget"])
+        self.assertEqual(40000, s["budget_1m"])
+        self.assertEqual([{"skill": "big", "chars": 600}], s["longest"])
+        self.assertEqual(1, s["over_target"])
+        self.assertIsNone(u.skill_listing(self.root / "nope", 200_000, 400, 10))
+        text = u.markdown(u.report(u.Stats(), self.since, 5, s))
+        self.assertIn("4 skills take 651 characters of the listing; the budget is 8,000", text)
+        self.assertIn("  - big: 600", text)
+        self.assertNotIn("## Skill listing", u.markdown(u.report(u.Stats(), self.since, 5)))
 
     def test_no_skills_line(self):
         self.assertIn("- none", u.markdown(u.report(u.Stats(), self.since, 5)))
