@@ -145,9 +145,11 @@ flowchart TD
         docr["documenter<br/><small>touched code</small>"]
         dp["design-patterns<br/><small>250+ line PRs</small>"]
         perf["perf-review<br/><small>250+ lines on hot paths</small>"]
+        conc["concurrency-audit<br/><small>250+ lines, concurrent code</small>"]
+        api["api-audit<br/><small>250+ lines, API surface</small>"]
         sec["security-review<br/><small>+ owasp-llm-top10, compliance-check,<br/>digital-regulation-check, ada-compatibility<br/>when the diff touches them</small>"]
     end
-    review --> walk & docr & dp & perf & sec
+    review --> walk & docr & dp & perf & conc & api & sec
 
     review -. "red CI" .-> fixci["fix-ci"]
     review -. "conflicts" .-> conf["resolve-conflicts"]
@@ -168,7 +170,7 @@ flowchart TD
 
 Dashed arrows are borrowed or suggested steps, not automatic calls.
 
-**One gate, one loop.** Every change, whoever opened it, passes through `pr-review`. On larger PRs it starts with `pr-walkthrough`; on every code PR it brings doc comments on the touched code up to date with `documenter`, runs `design-patterns` and (on hot paths) `perf-review` for large diffs, and runs `security-review` plus whichever specialised checks the diff triggers, all in one independent pass. Red CI and conflicts are handled the way `fix-ci` and `resolve-conflicts` do it, and `test-gen` fills a coverage gap.
+**One gate, one loop.** Every change, whoever opened it, passes through `pr-review`. On larger PRs it starts with `pr-walkthrough`; on every code PR it brings doc comments on the touched code up to date with `documenter`, runs `design-patterns`, `perf-review` (on hot paths), `concurrency-audit` (on concurrent code) and `api-audit` (on the API surface) for large diffs, and runs `security-review` plus whichever specialised checks the diff triggers, all in one independent pass. Red CI and conflicts are handled the way `fix-ci` and `resolve-conflicts` do it, and `test-gen` fills a coverage gap.
 
 **After the merge,** `post-merge-sync` updates docs, cleans up and counts code-changing merges. Every 10 of them it starts `deep-review`, which runs `concurrency-audit`, `perf-review`, `api-audit` (when the project serves HTTP APIs), `java-modernizer` (on Java code), `design-patterns`, `dynamodb-optimizer` (when the project uses DynamoDB) and `documenter` over the whole codebase, each in its own commit, and comes back as a PR through the same gate.
 
@@ -189,7 +191,7 @@ Branch from the up-to-date default branch, commit, push, open a PR. Never commit
 | PR size (additions plus deletions, as GitHub counts them) | Review |
 |---|---|
 | Under 250 lines | A self-review, recorded as such in the findings table |
-| 250 lines or more | An independent reviewer agent, plus `pr-walkthrough`, `design-patterns`, and `perf-review` when the PR touches request paths, data access or loops |
+| 250 lines or more | An independent reviewer agent, plus `pr-walkthrough`, `design-patterns`, `perf-review` when the PR touches request paths, data access or loops, `concurrency-audit` when it touches concurrent code and `api-audit` when it touches the API surface |
 
 Either way the merge bar is the same: **never merge with failing CI, or with an open Critical, High or Medium finding.** Findings are posted as a table on the PR, so the decision is visible.
 
