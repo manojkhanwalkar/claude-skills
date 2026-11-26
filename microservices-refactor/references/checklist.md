@@ -45,7 +45,7 @@ Tick every item, or say in the report why it doesn't apply.
 - [ ] Callers switched through the interface's remote implementation behind a flag, off by default.
 - [ ] Failure behaviour tested: callee down, slow, 5xx, 429; the worst-case wait (connect timeouts × attempts + backoff + one read timeout) stated and inside the caller's budget.
 - [ ] ADR note (context, decision, alternatives, consequences, rollback); README run and config docs.
-- [ ] Design doc and system diagram updated (the user's rules).
+- [ ] Design doc and system diagram updated (where the project keeps them).
 
 ## Verify
 

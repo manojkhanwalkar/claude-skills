@@ -284,7 +284,7 @@ Copy `templates/artifact-cleanup.yml` from the claude-skills repo (`~/.claude/sk
 clone; the `templates/` folder beside this skill's folder in a plugin install) and replace `__WORKFLOWS__` with the exact
 names of this repo's workflows that upload artifacts (here: `CI, CodeQL, Release, Security`).
 Whenever one of them finishes a run, it deletes older runs' artifacts and keeps only the newest
-completed run's, per artifact kind, branch and source repository (rule 8). Keep the list in sync
+completed run's, per artifact kind, branch and source repository. Keep the list in sync
 when a workflow is added or renamed.
 
 ## `.github/dependabot.yml`
@@ -315,7 +315,7 @@ updates:
   #       update-types: [minor, patch]
 ```
 
-Minor and patch bumps arrive as one weekly PR per ecosystem (rule 8); majors stay separate.
+Minor and patch bumps arrive as one weekly PR per ecosystem; majors stay separate.
 `pr-triage` takes them through `pr-review`.
 
 ## `.github/pull_request_template.md`

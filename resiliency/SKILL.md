@@ -149,7 +149,7 @@ Run the build and tests of the changed modules and their dependents before and a
 
 ## Phase 5 – Report
 
-Commit on the branch, one commit per half (retries and timeouts, request limits) plus docs. Update the README configuration table and the architecture docs with a **Resilience** section, the per-call table and the worst-case latencies (the design doc's trade-offs, rule 6).
+Commit on the branch, one commit per half (retries and timeouts, request limits) plus docs. Update the README configuration table and the architecture docs with a **Resilience** section, the per-call table and the worst-case latencies (the design doc's trade-offs, where the project keeps one).
 
 - **Run alone:** push, open a PR and take it through `pr-review`.
 - **Under a caller:** commit only; don't push or open a PR. Return what the caller merges into its report and write no file: for `deep-review` or `microservices-refactor`, the gaps as a findings table with a Status column (Fixed `<sha>`, Open with the reason), the Needs a decision list, the commit SHAs (`git log --oneline $START..HEAD`) and a "checked and fine" line; for `pr-review`, one finding row per issue.
@@ -165,7 +165,7 @@ Run alone, report concisely:
 
 ## How other skills use it
 
-They read **The checklist** above and `references/platforms.md`; they don't run the phases. Rule 6 of the user's rules names this checklist.
+They read **The checklist** above and `references/platforms.md`; they don't run the phases. The resilience convention (`${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`) names this checklist.
 
 - **deep-review**, area 3 (Resilience): checks each outbound dependency against the checklist, fixes the worst gaps, and lists `/resiliency` under Needs a decision when retries or limits are missing across the board.
 - **perf-review**: reports a missing timeout here; flags only the thread or connection it holds.

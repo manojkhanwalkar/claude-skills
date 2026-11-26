@@ -130,7 +130,7 @@ Keep the report to the table and these lines; no essay. With `--out`, write the 
 
 ## How other skills use it
 
-- **pr-review**: for PRs of 250 or more changed lines that touch request paths, data access or loops, the reviewer runs `perf-review --diff origin/<base> --report-only` and adds its findings to the PR's table; the merge bar is unchanged (no open Critical, High or Medium). A smaller PR's self-review checks performance by eye.
+- **pr-review**: for PRs at or over the review threshold (250 changed lines by default) that touch request paths, data access or loops, the reviewer runs `perf-review --diff origin/<base> --report-only` and adds its findings to the PR's table; the merge bar is unchanged (no open Critical, High or Medium). A smaller PR's self-review checks performance by eye.
 - **deep-review**: area 5 (Performance, run when its focus includes `perf`) calls this skill in its own subagent on the review branch, after areas 1 to 4 are committed, with deep-review's scope and `--fix` (or `--report-only` when deep-review is report-only); never deep-review's `--focus` or `--out`. When area 4 (`dynamodb-optimizer`) ran, its brief says so and this skill skips DynamoDB items.
 - **microservices-refactor**: Phase 4 (Verify) commits its work, then runs `perf-review --fix` on the new service and the monolith's remote client, on its branch: the latency budget of the added hop (worst-case wait, retries included), connection reuse, batching and payload size. It fixes the Critical, High and Medium findings before the PR.
 

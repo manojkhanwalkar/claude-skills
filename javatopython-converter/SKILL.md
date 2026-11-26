@@ -64,7 +64,7 @@ Read, don't skim. Build an inventory (keep it; it goes into the design doc):
 - **Dependencies:** each one, what it is used for, and its Python counterpart (see `references/idioms.md`).
 - **Tests:** what they cover. These are the first source of parity cases.
 - **Cross-cutting:** logging, error handling, security controls (auth, validation, size limits), resilience (timeouts, retries, rate limits), concurrency.
-- **LLM/agent code:** prompts, model calls, MCP/A2A, tools, RAG, memory → decides whether `owasp-llm-top10` applies (rule 4).
+- **LLM/agent code:** prompts, model calls, MCP/A2A, tools, RAG, memory → decides whether `owasp-llm-top10` applies (the security-checks convention).
 
 Then write the **conversion plan**:
 - Java module → Python package mapping and the target layout.
@@ -72,10 +72,10 @@ Then write the **conversion plan**:
 - Decisions that change shape (e.g. Spring Boot → FastAPI; Spring AI MCP → official `mcp` SDK; threads → asyncio). Apply the defaults in `references/idioms.md`; **ask the user only when a choice changes the external contract or there is no sensible default.**
 - The PR sequence (Phase 4).
 
-## Phase 2 – Design doc and system diagram (rule 2)
+## Phase 2 – Design doc and system diagram
 
-Look for existing ones first: `Artifact` list and the new project's memory. Then:
-- **Design doc** — a Claude Doc named exactly `<name>`. Sections: Purpose, Origin (link the Java repo and commit SHA converted), Architecture, Module mapping, Library mapping, Public contract, Parity strategy, Performance/resilience/scale trade-offs (rule 6), Security, Testing and coverage, Open questions.
+The design-doc convention (`${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`; the user's `CLAUDE.md` overrides every convention named here) makes these optional: create them when the user's rules ask for them, otherwise ask once. Look for existing ones first: `Artifact` list and the new project's memory. Then:
+- **Design doc** — a Claude Doc named exactly `<name>`. Sections: Purpose, Origin (link the Java repo and commit SHA converted), Architecture, Module mapping, Library mapping, Public contract, Parity strategy, Performance/resilience/scale trade-offs (the resilience convention), Security, Testing and coverage, Open questions.
 - **System diagram** — a Design canvas named `<name> System Diagram`: a system page plus one page per major flow.
 
 After each merge, `post-merge-sync` updates both when the PR changed behaviour, APIs, data or architecture.
@@ -109,7 +109,7 @@ After each merge, `post-merge-sync` updates both when the PR changed behaviour, 
 
 ## Phase 4 – Convert through PRs
 
-Every change from here on goes through a PR (rule 1): branch from up-to-date `main`, commit, push, `gh pr create`. Recommended sequence — merge each before starting the next, so later PRs build on reviewed code:
+Every change from here on goes through a PR (the PR policy): branch from up-to-date `main`, commit, push, `gh pr create`. Recommended sequence — merge each before starting the next, so later PRs build on reviewed code:
 
 | PR | Contents |
 |---|---|
@@ -123,11 +123,11 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 - **Full type hints**; `mypy --strict` passes. Prefer the standard library; add a dependency only when the Java code used an equivalent library or it is clearly better than hand-rolling.
 - **Keep the contract byte-for-byte where it is external:** JSON field names (use Pydantic aliases if Java used camelCase), HTTP status codes, MCP tool names/schemas/descriptions, CLI flags, exit codes, config property names (map `a.b.c` to `A_B_C` env vars *and* document it).
 - **Numbers:** Java `int`/`long` overflow, integer division, `double` formatting (`Double.toString`) and `BigDecimal` differ from Python. Where the contract depends on them, reproduce Java's behaviour explicitly and test it.
-- **Concurrency:** `ExecutorService`/`CompletableFuture` → `asyncio` for I/O-bound code (with FastAPI/`httpx`), `concurrent.futures` for CPU-bound. No unbounded queues or caches (rule 6).
-- **Resilience (rule 6):** every outbound call has a timeout; retries only on recoverable errors and idempotent calls, with exponential backoff + jitter (`tenacity` or hand-rolled); token-bucket + concurrency-cap limits on every service, returning 429/503 with `Retry-After`. Use the `resiliency` skill's checklist. If the Java code lacked these, add them and note it in the design doc as an intentional difference.
+- **Concurrency:** `ExecutorService`/`CompletableFuture` → `asyncio` for I/O-bound code (with FastAPI/`httpx`), `concurrent.futures` for CPU-bound. No unbounded queues or caches (the resilience convention).
+- **Resilience (the resilience convention):** every outbound call has a timeout; retries only on recoverable errors and idempotent calls, with exponential backoff + jitter (`tenacity` or hand-rolled); token-bucket + concurrency-cap limits on every service, returning 429/503 with `Retry-After`. Use the `resiliency` skill's checklist. If the Java code lacked these, add them and note it in the design doc as an intentional difference.
 - **Security:** carry over every Java control (auth, validation, size limits, log redaction, safe path handling) and don't weaken one. Never log secrets or PII. No `eval`, `exec`, `pickle` on untrusted data, `shell=True`, or `yaml.load` without `SafeLoader`.
 - **Logging:** `logging` with module loggers; keep Java's log levels and don't log what Java deliberately didn't.
-- **UI (rule 4a):** if the Java project serves a UI, the port's UI meets WCAG 2.2 AA: native elements, a label on every control, visible focus, and axe checks (Playwright or jest-axe) in CI. `pr-review` runs `ada-compatibility --diff` on it.
+- **UI (the security-checks convention, WCAG 2.2 AA):** if the Java project serves a UI, the port's UI meets WCAG 2.2 AA: native elements, a label on every control, visible focus, and axe checks (Playwright or jest-axe) in CI. `pr-review` runs `ada-compatibility --diff` on it.
 
 ### Proving parity
 
@@ -145,26 +145,26 @@ Every change from here on goes through a PR (rule 1): branch from up-to-date `ma
 
 ### Every PR
 
-1. **Local gate:** `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, and the tests for what changed (`uv run pytest tests/<area> --no-cov`: the 95% gate measures the whole package, so a partial run with coverage on fails it). CI runs the full suite and the coverage gate (rule 7). Put CI's coverage figure in the PR body; where it is under 95%, say what is uncovered and why. Run the whole suite locally (`uv run pytest`) only to reproduce what CI can't show.
-2. **`pr-review <n>`** (rules 3 and 4) takes the PR the rest of the way; don't repeat its steps here. It runs the walkthrough and an independent reviewer on PRs of 250 or more changed lines (a self-review below that), `design-patterns` and `perf-review` on 250+ line PRs, one security pass (`security-review`, plus `owasp-llm-top10` for MCP, LLM or agent code, and `compliance-check`, `digital-regulation-check` or `ada-compatibility` when the diff triggers them), `documenter` on the touched code, the findings table, green CI and the squash-merge. Nothing merges with failing CI or an open Critical, High or Medium finding. Add this parity checklist to the review (the reviewer subagent's prompt, or your own self-review):
+1. **Local gate:** `uv run ruff check`, `uv run ruff format --check`, `uv run mypy`, and the tests for what changed (`uv run pytest tests/<area> --no-cov`: the 95% gate measures the whole package, so a partial run with coverage on fails it). CI runs the full suite and the coverage gate (the coverage target). Put CI's coverage figure in the PR body; where it is under 95%, say what is uncovered and why. Run the whole suite locally (`uv run pytest`) only to reproduce what CI can't show.
+2. **`pr-review <n>`** (the review threshold and security checks) takes the PR the rest of the way; don't repeat its steps here. It runs the walkthrough and an independent reviewer on PRs of 250 or more changed lines (a self-review below that), `design-patterns` and `perf-review` on 250+ line PRs, one security pass (`security-review`, plus `owasp-llm-top10` for MCP, LLM or agent code, and `compliance-check`, `digital-regulation-check` or `ada-compatibility` when the diff triggers them), `documenter` on the touched code, the findings table, green CI and the squash-merge. Nothing merges with failing CI or an open Critical, High or Medium finding. Add this parity checklist to the review (the reviewer subagent's prompt, or your own self-review):
    - Compare each converted file with its Java source (give both paths). Any behaviour difference in the public contract, error handling, numeric semantics, ordering, null/None handling or defaults?
    - Any Java test without a Python counterpart, or a ported test that asserts less than the original?
    - Any Java security or resilience control missing in the port?
    - Non-idiomatic Python (Java-isms: getters/setters, static-only classes, manual resource closing, `== None`, index loops)?
-3. **`post-merge-sync <n>`** after the merge: design doc and diagram, the merged-PR counters, branch and worktree cleanup. It owns the deep-review count (rule 5) and starts `deep-review` when one is due; that review ships as its own PR through this same gate, and merges before the next module starts.
+3. **`post-merge-sync <n>`** after the merge: design doc and diagram, the merged-PR counters, branch and worktree cleanup. It owns the deep-review count (the deep-review cadence) and starts `deep-review` when one is due; that review ships as its own PR through this same gate, and merges before the next module starts.
 
 With `--no-merge`, run `pr-review <n> --no-merge` and skip step 3.
 
-**Delegating PRs to agents:** one agent per PR (rule 9). A forked agent can't start subagents, so it can't run the independent review. The fork writes the code, runs the local gate, opens the PR and waits for green CI, then **stops before merging and hands back** the PR number. The parent runs steps 2 and 3 (`pr-review` may send fixes back to the fork to make).
+**Delegating PRs to agents:** one agent per PR (the agent-concurrency convention). A forked agent can't start subagents, so it can't run the independent review. The fork writes the code, runs the local gate, opens the PR and waits for green CI, then **stops before merging and hands back** the PR number. The parent runs steps 2 and 3 (`pr-review` may send fixes back to the fork to make).
 
 After PR 1 merges and CI has run: set branch protection (`references/github-setup.md` §Branch protection) with the CI, CodeQL and security jobs as required checks.
 
-After the first module PR merges (the first real code, rule 4): run `compliance-check` and `digital-regulation-check` on the whole project and put their applicability tables and data maps in the design doc's Security section; run `owasp-llm-top10` on the whole project when the first MCP, LLM or agent module lands. Fixes go through a PR like any other.
+After the first module PR merges (the first real code, the security-checks convention): run `compliance-check` and `digital-regulation-check` on the whole project and put their applicability tables and data maps in the design doc's Security section; run `owasp-llm-top10` on the whole project when the first MCP, LLM or agent module lands. Fixes go through a PR like any other.
 
 ## Phase 5 – Wrap up
 
 1. **Project memory:** open questions and links up to date (`post-merge-sync` keeps the counters).
-2. If the port handles sensitive data, run **`owasp-top10`** on the whole project (rule 4).
+2. If the port handles sensitive data, run **`owasp-top10`** on the whole project (the security-checks convention).
 3. **Hand off to `port-parity`:** check both projects' memory carries the link and the parity baseline from Phase 3, and add the capture scripts' paths as its `Golden capture` line. If golden files were re-captured from a newer Java commit during the port, move the baseline to that commit. From now on Java changes reach the port through `port-parity`, never by re-running this skill.
 4. Tag `v0.1.0` (`git tag v0.1.0 && git push origin v0.1.0`) only if the user asks for a release; the release workflow publishes the wheel/sdist (and image if there is a Dockerfile).
 

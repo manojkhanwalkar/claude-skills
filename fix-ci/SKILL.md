@@ -32,7 +32,7 @@ A red check is information. The job is to find out what it says and fix that, no
 
 These are legitimate: running the project's formatter, regenerating a lockfile from its manifest with the package manager, fixing test data that was itself wrong (with the reason).
 
-**Never widen privileges, for any PR** (fork, Dependabot or same-repository): don't add `pull_request_target` or a `workflow_run` workflow that checks out PR code, don't widen `permissions:`, and don't pass secrets to code from the PR's head. A token or secret failure on a fork or Dependabot run is reported, not elevated (the user's rule 8: least-privilege tokens).
+**Never widen privileges, for any PR** (fork, Dependabot or same-repository): don't add `pull_request_target` or a `workflow_run` workflow that checks out PR code, don't widen `permissions:`, and don't pass secrets to code from the PR's head. A token or secret failure on a fork or Dependabot run is reported, not elevated (least-privilege tokens).
 
 **Workflow files** (`.github/workflows/*`) change only when the workflow itself is the bug (a wrong path, an action version that no longer exists), within the rules above, and the report says so.
 
@@ -109,7 +109,7 @@ With `--report-only`, go to the report.
    echo "watch stopped: GitHub unreachable or no checks reported"
    ```
    `[]` means green; a list names the red checks; the last line is a watcher problem to report, not a red check.
-2. **`--default-branch`:** open the fix PR first, then watch its checks. Check that each workflow that failed on the default branch actually ran on the PR. A workflow that runs only on push, on a schedule, on tags or from `workflow_run` won't: say the fix is unverified until it merges, run it by `workflow_dispatch` on the branch only if the workflow allows that and is idempotent (never a publishing, release or deploy workflow without asking), and after the merge re-check the default branch's run. Take the PR through `pr-review` (the user's rule 3).
+2. **`--default-branch`:** open the fix PR first, then watch its checks. Check that each workflow that failed on the default branch actually ran on the PR. A workflow that runs only on push, on a schedule, on tags or from `workflow_run` won't: say the fix is unverified until it merges, run it by `workflow_dispatch` on the branch only if the workflow allows that and is idempotent (never a publishing, release or deploy workflow without asking), and after the merge re-check the default branch's run. Take the PR through `pr-review` (the review threshold).
 3. Green → done. Red again → back to Phase 2 with the new logs (a watcher error goes back to step 1, not Phase 2). Stop after `--max-attempts` cycles (reruns included) and report what is known.
 
 ## Final report
