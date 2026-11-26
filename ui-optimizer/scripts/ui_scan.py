@@ -92,6 +92,7 @@ def line_of(text: str, pos: int) -> int:
 
 
 def scan_markup(path: str, text: str) -> list[Hit]:
+    """Leads from <img>, <iframe> and <script> tags; capitalised framework components are skipped in component files."""
     hits = []
     components = path.lower().endswith(COMPONENT_FILES)
     for m in TAG.finditer(text):
@@ -144,6 +145,7 @@ def scan_text(path: str, text: str) -> list[Hit]:
 
 
 def _jpeg_size(data: bytes) -> tuple[int, int] | None:
+    """Width and height from the first JPEG frame header (SOF0-SOF15, not DHT, JPG or DAC), or None."""
     i = 2
     while i + 9 < len(data):
         if data[i] != 0xFF:
@@ -186,6 +188,7 @@ def image_size(data: bytes) -> tuple[int, int] | None:
 
 
 def scan_image(path: str, size: int, head: bytes, max_kib: int, max_svg_kib: int, max_px: int) -> list[Hit]:
+    """Leads for one image file: over the byte limit, a large GIF, or pixel dimensions over max_px."""
     lower, kib = path.lower(), size / 1024
     hits = []
     limit = max_svg_kib if lower.endswith(".svg") else max_kib
@@ -212,6 +215,7 @@ def walk(paths: list[str]) -> Iterator[str]:
 
 
 def scan_paths(paths: list[str], max_kib: int = 200, max_svg_kib: int = 50, max_px: int = 2560) -> list[Hit]:
+    """Scan files and directory trees, skipping tests, vendor and build output and anything not a regular file."""
     hits: list[Hit] = []
     for path in walk(paths):
         rel = os.path.relpath(path)
@@ -234,6 +238,7 @@ def scan_paths(paths: list[str], max_kib: int = 200, max_svg_kib: int = 50, max_
 
 
 def main(argv: list[str] | None = None) -> int:
+    """CLI entry point: print leads as text with a per-kind summary, or as JSON; always exits 0."""
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("paths", nargs="*")
     p.add_argument("--files-from", help="read paths from this file, '-' for stdin")
