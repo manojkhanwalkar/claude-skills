@@ -8,15 +8,25 @@ For each top-level directory that holds a SKILL.md:
     such as argument-hint are refused on purpose (add them to ALLOWED_KEYS if that changes);
   - `name` is lowercase letters, digits and hyphens, at most 64 characters, equals the directory, and
     doesn't contain the reserved words "anthropic" or "claude";
-  - `description` is present, at most 1024 characters, and has no `<` or `>` (read as XML tags);
-  - every relative Markdown link in the skill's .md files points at a file inside the repository.
-And for the README: every skill has a row linking to its SKILL.md, and every skill link resolves.
+  - `description` is present, at most 1024 characters, has no `<` or `>` (read as XML tags) and has an
+    `Args` part listing the arguments;
+  - every relative Markdown link in the skill's .md files points at a file inside the repository, and
+    every `references/...` or `scripts/...` path quoted in SKILL.md (and every ~/.claude/skills/... path)
+    exists, in the skill itself or, for a pointer to a sibling's file, in another skill;
+  - no private project name (PRIVATE_NAMES) appears in the repository's own files; it is public.
+And for the README: every skill has a row linking to its SKILL.md and a change-log row naming it, and
+every skill link resolves.
+
+Warnings (printed, never failing): a description over LISTING_BUDGET characters, the per-skill share
+that keeps the whole skill listing within Claude Code's budget.
 
 Usage: python3 tools/validate_skills.py [REPO_ROOT]   (exit 1 and one line per problem if any fail)
 """
 
 from __future__ import annotations
 
+import hashlib
+import os
 import re
 import sys
 from pathlib import Path
@@ -27,6 +37,21 @@ import yaml
 NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 MAX_NAME = 64
 MAX_DESCRIPTION = 1024
+LISTING_BUDGET = 400
+ARGS = re.compile(r"\bArgs\b")
+# Private project names, as SHA-256 of the lowercase name so this public repo doesn't publish them.
+# Add one: python3 -c "import hashlib; print(hashlib.sha256(b'myproject').hexdigest(), len('myproject'))"
+PRIVATE_NAMES = {
+    ("eebaee4e5d0467b5d9be37101f0523818a0b93a9aacb7b59deb7161fb3a02fc4", 11),
+    ("ef4afaf1de7a3bf1992c3f7ca255e648105e840bec76673be0aad86d730ca012", 19),
+}
+WORD = re.compile(r"[A-Za-z0-9]+")
+TEXT_SUFFIXES = {".md", ".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".txt"}
+# Places in the repo that hold its own files (a local venv or synced/ folder is not scanned).
+SCANNED_DIRS = ("templates", "tools", ".github")
+# `references/x.md` or `scripts/x.py` quoted in a SKILL.md; ~/.claude/skills/<path> anywhere in it.
+QUOTED_PATH = re.compile(r"`((?:references|scripts)/[A-Za-z0-9_./-]+)`")
+SKILLS_PATH = re.compile(r"~/\.claude/skills/([A-Za-z0-9_./-]*[A-Za-z0-9_-])")
 RESERVED = ("anthropic", "claude")
 ALLOWED_KEYS = {"name", "description", "license", "allowed-tools", "metadata", "compatibility"}
 # [text](target "title"), with the target optionally in <...>; titles in "", '' or ().
@@ -86,6 +111,64 @@ def check_skill(directory: Path) -> list[str]:
             problems.append(f"{where}: description is {len(description)} characters (at most {MAX_DESCRIPTION})")
         if "<" in description or ">" in description:
             problems.append(f"{where}: description contains < or > (write placeholders as FILE, N, ...)")
+        if not ARGS.search(description):
+            problems.append(f"{where}: description has no Args part (end it with \"Args - [PR] [--flag]\" or \"Args - none\")")
+    return problems
+
+
+def description_length(directory: Path) -> int:
+    """Characters in a skill's description, or 0 when check_skill already reports it unreadable."""
+    raw = frontmatter((directory / "SKILL.md").read_text(encoding="utf-8"))
+    try:
+        meta = yaml.safe_load(raw) if raw is not None else None
+    except yaml.YAMLError:
+        return 0
+    description = meta.get("description") if isinstance(meta, dict) else None
+    return len(description) if isinstance(description, str) else 0
+
+
+def check_paths(directory: Path, root: Path, skills: list[Path]) -> list[str]:
+    """Quoted references/ and scripts/ paths, and ~/.claude/skills/ paths, in SKILL.md that point at nothing."""
+    text = (directory / "SKILL.md").read_text(encoding="utf-8")
+    where = f"{directory.name}/SKILL.md"
+    problems = []
+    for path in sorted(set(QUOTED_PATH.findall(text))):
+        # Its own file, or a pointer to a sibling's ("perf-review's `references/data-access.md`").
+        if not any((d / path).exists() for d in [directory, *skills]):
+            problems.append(f"{where}: {path} exists in no skill")
+    for path in sorted(set(SKILLS_PATH.findall(text))):
+        if not (root / path).exists():
+            problems.append(f"{where}: ~/.claude/skills/{path} points at nothing in this repository")
+    return problems
+
+
+def private_names(text: str) -> list[str]:
+    """Words in text that contain a private project name (case-insensitive)."""
+    found = []
+    for word in set(WORD.findall(text)):
+        lower = word.lower()
+        if any(hashlib.sha256(lower[i:i + n].encode()).hexdigest() == digest
+               for digest, n in PRIVATE_NAMES for i in range(len(lower) - n + 1)):
+            found.append(word)
+    return sorted(found)
+
+
+def scanned_files(root: Path, dirs: list[Path]) -> list[Path]:
+    """The repository's own text files: top-level files, skills, templates, tools and workflows."""
+    files = [p for p in root.iterdir() if p.is_file()]
+    for top in [*dirs, *(root / name for name in SCANNED_DIRS)]:
+        if top.is_dir():
+            files += [p for p in top.rglob("*") if p.is_file() and "__pycache__" not in p.parts]
+    return sorted(p for p in files if p.suffix in TEXT_SUFFIXES)
+
+
+def check_private(root: Path, dirs: list[Path]) -> list[str]:
+    problems = []
+    for path in scanned_files(root, dirs):
+        words = private_names(path.read_text(encoding="utf-8", errors="replace"))
+        if words:
+            problems.append(f"{path.relative_to(root)}: private project name in {', '.join(words)} "
+                            "(this repo is public: use a generic example)")
     return problems
 
 
@@ -132,8 +215,18 @@ def check_readme(root: Path, skills: list[str]) -> list[str]:
     if not readme.exists():
         return ["README.md is missing"]
     text = readme.read_text(encoding="utf-8")
-    return [f"README.md: no row for skill {name} (a link to {name}/SKILL.md)"
-            for name in skills if f"({name}/SKILL.md)" not in text]
+    problems = [f"README.md: no row for skill {name} (a link to {name}/SKILL.md)"
+                for name in skills if f"({name}/SKILL.md)" not in text]
+    log = re.split(r"^## Change log\s*$", text, maxsplit=1, flags=re.MULTILINE)
+    if len(log) < 2:
+        return problems + ["README.md: no \"## Change log\" section"]
+    log = re.split(r"^#{1,2} ", log[1], maxsplit=1, flags=re.MULTILINE)[0]
+    rows = [line for line in log.splitlines() if line.startswith("|")]
+    for name in skills:
+        word = re.compile(rf"(?<![\w-]){re.escape(name)}(?![\w-])")
+        if not any(word.search(row) for row in rows):
+            problems.append(f"README.md: no change-log row names skill {name}")
+    return problems
 
 
 def skill_dirs(root: Path) -> list[Path]:
@@ -145,11 +238,20 @@ def validate(root: Path) -> list[str]:
     problems = []
     for directory in dirs:
         problems += check_skill(directory)
+        problems += check_paths(directory, root, dirs)
         for md in sorted(directory.rglob("*.md")):
             problems += check_links(md, root)
     problems += check_readme(root, [d.name for d in dirs])
     problems += check_links(root / "README.md", root) if (root / "README.md").exists() else []
+    problems += check_private(root, dirs)
     return problems
+
+
+def warnings(root: Path) -> list[str]:
+    """Soft limits: reported, never failing the run."""
+    return [f"{d.name}/SKILL.md: description is {n} characters, over the {LISTING_BUDGET}-character "
+            "listing budget (keep the whole skill listing small)"
+            for d in skill_dirs(root) if (n := description_length(d)) > LISTING_BUDGET]
 
 
 def main(argv: list[str]) -> int:
@@ -157,8 +259,12 @@ def main(argv: list[str]) -> int:
     problems = validate(root)
     for problem in problems:
         print(problem)
+    soft = warnings(root)
+    prefix = "::warning::" if os.environ.get("GITHUB_ACTIONS") == "true" else "warning: "
+    for warning in soft:
+        print(prefix + warning)
     count = len(skill_dirs(root))
-    print(f"{count} skills checked, {len(problems)} problem(s)")
+    print(f"{count} skills checked, {len(problems)} problem(s), {len(soft)} warning(s)")
     return 1 if problems else 0
 
 

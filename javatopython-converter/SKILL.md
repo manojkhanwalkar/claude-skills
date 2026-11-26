@@ -20,7 +20,7 @@ The Java project is the source of truth and is **never modified**.
 | Arg | Default |
 |---|---|
 | Java project path | current directory |
-| `--name` | `<JavaProjectName>Py` (e.g. `SimpleMCPCalculator` → `SimpleMCPCalculatorPy`) |
+| `--name` | `<JavaProjectName>Py` (e.g. `OrderService` → `OrderServicePy`) |
 | `--dir` | `~/IdeaProjects` → project at `~/IdeaProjects/<name>` |
 | Visibility | **private**; `--public` for public |
 | `--module` | whole project |
