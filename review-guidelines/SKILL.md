@@ -98,7 +98,7 @@ List each with the evidence and ask before changing anything. A pruned rule beco
 
 ## Ship
 
-Every change to the file is a PR (the user's rule 1):
+Every change to the file is a PR (the PR policy, `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`; the user's `CLAUDE.md` overrides it):
 1. `git fetch`, then branch `review-rules/<date>-<short slug>` from the up-to-date default branch. If the working tree has uncommitted changes, use a new worktree instead of touching them.
 2. Edit `.claude/review-rules.md`; create it with the header above if it doesn't exist.
 3. Commit, push, and open the PR, listing each added, superseded or removed rule with its source.
