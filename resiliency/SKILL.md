@@ -1,6 +1,6 @@
 ---
 name: resiliency
-description: Make services resilient to each other's failures - timeouts on every outbound call, retries with backoff and jitter only when safe, and a token bucket plus concurrency cap returning 429/503 with Retry-After; owns the checklist other skills cite. Use for timeouts, retries, rate limiting, throttling. Not for speed (perf-review). Args - [path] [--retries-only|--limits-only] [--report-only].
+description: Make services resilient to each other's failures - timeouts on every outbound call, retries with backoff and jitter only when safe, and a token bucket plus concurrency cap (429 with Retry-After); owns the checklist other skills cite. Use for timeouts, retries, rate limiting, throttling, load shedding. Not for speed (perf-review). Args - [path] [--retries-only|--limits-only] [--report-only].
 ---
 
 # Resiliency
