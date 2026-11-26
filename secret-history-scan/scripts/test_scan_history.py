@@ -75,7 +75,7 @@ class ScanHistoryTest(unittest.TestCase):
         self.commit("config.py", f'AWS_KEY = "{FAKE_AWS}"\n', "add config")
         self.commit("config.py", "AWS_KEY = os.environ['AWS_KEY']\n", "remove key")
         (finding,) = self.scan()
-        self.assertEqual(finding["rule"], "aws-access-key-id")
+        self.assertEqual(finding["rule"], "aws-access-token")
         self.assertFalse(finding["in_head"])
         self.assertEqual(finding["paths"], ["config.py"])
         self.assertEqual(finding["line"], 1)
@@ -111,7 +111,7 @@ class ScanHistoryTest(unittest.TestCase):
         self.commit("k.txt", f"{FAKE_AWS}\n", "oops")
         git(self.repo, "reset", "-q", "--hard", "HEAD~1")
         self.assertEqual(self.scan(), [])
-        self.assertEqual(self.rules(reflog=True), ["aws-access-key-id"])
+        self.assertEqual(self.rules(reflog=True), ["aws-access-token"])
 
     def test_same_secret_twice_in_one_file_is_listed_once(self):
         self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_AWS}\n", "twice")
@@ -150,7 +150,7 @@ class ScanHistoryTest(unittest.TestCase):
         (self.repo / "creds.txt").write_text(f"{FAKE_AWS}\n")
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "--no-edit")
-        self.assertEqual(self.rules(), ["aws-access-key-id"])
+        self.assertEqual(self.rules(), ["aws-access-token"])
 
     def test_quoted_and_spaced_paths(self):
         self.commit("café.txt", f"{FAKE_AWS}\n", "accent")
@@ -192,7 +192,7 @@ class ScanHistoryTest(unittest.TestCase):
     def test_file_without_a_trailing_newline(self):
         self.commit("a.txt", f"{FAKE_AWS}", "no newline")
         self.commit("a.txt", f"{FAKE_AWS}\n{FAKE_AWS_2}", "still no newline")
-        self.assertEqual(self.rules(), ["aws-access-key-id", "aws-access-key-id"])
+        self.assertEqual(self.rules(), ["aws-access-token", "aws-access-token"])
 
     def test_unterminated_key_blocks_are_still_reported(self):
         (self.repo / "half.pem").write_text(f"{BEGIN}\nMIIEowAbAbAb\n")
@@ -200,7 +200,7 @@ class ScanHistoryTest(unittest.TestCase):
         git(self.repo, "add", "-A")
         git(self.repo, "commit", "-q", "-m", "key cut short, then another file")
         self.commit("last.pem", f"{BEGIN}\nMIIEowZqZqZq\n", "key cut short at the end")
-        self.assertEqual(sorted(self.rules()), ["aws-access-key-id", "private-key", "private-key"])
+        self.assertEqual(sorted(self.rules()), ["aws-access-token", "private-key", "private-key"])
 
     def test_one_line_key_is_masked_and_other_secrets_on_the_hunk_still_found(self):
         body = "MIIEow" + "Kq7Zp3" * 10
@@ -215,12 +215,12 @@ class ScanHistoryTest(unittest.TestCase):
 
     def test_a_key_header_in_prose_does_not_swallow_the_hunk(self):
         self.commit("README.md", f"Never commit a {BEGIN} file.\nExample: see docs.\nkey {FAKE_AWS}\n", "docs")
-        self.assertIn("aws-access-key-id", self.rules())
+        self.assertIn("aws-access-token", self.rules())
 
     def test_lines_after_a_stray_key_header_are_still_scanned(self):
         self.commit("notes.txt", f"Format: {BEGIN}\n{FAKE_AWS}\n", "bare key after header")
         self.commit("c.yml", f"note: {BEGIN}\npassword: {FAKE_GENERIC}\n", "yaml after header")
-        self.assertEqual(sorted(self.rules()), ["aws-access-key-id", "generic-secret-assignment",
+        self.assertEqual(sorted(self.rules()), ["aws-access-token", "generic-secret-assignment",
                                                 "private-key", "private-key"])
 
     def test_non_ascii_names_with_quotes(self):
@@ -243,6 +243,31 @@ class ScanHistoryTest(unittest.TestCase):
                  "self._tokens = min(self._capacity, refill)"]
         self.commit("code.py", "\n".join(lines) + "\n", "code")
         self.assertEqual(self.scan(), [])
+
+    def test_current_token_formats(self):
+        r = "Q9x7Kp2M"  # mixed case and digits, as real keys are
+        samples = {
+            "github-fine-grained-pat": "github_" + "pat_" + "11ABCDE" + r * 8,
+            "gitlab-pat": "gl" + "pat-" + r * 3,
+            "anthropic-api-key": "sk-" + "ant-admin01-" + r * 4,
+            "openai-api-key": "sk-" + "svcacct-" + r * 6,
+            "slack-app-token": "xa" + "pp-1-A0B1C2D3E4-1234567890123-" + "a1b2c3d4" * 4,
+            "slack-webhook-url": "hooks.slack.com/" + "services/" + "T0A1B2C3D/B4E5F6G7H/" + "a1B2c3D4e5F6g7H8i9J0k1L2",
+            "stripe-access-token": "sk_" + "test_" + r * 3,
+            "npm-access-token": "np" + "m_" + "a1B2c3D4e5" * 3 + "f6G7h8",
+            "pypi-upload-token": "pypi-" + "AgEIcHlwaS5vcmc" + r * 7,
+            "huggingface-access-token": "hf_" + "aBcDeFgHiJ" * 3 + "kLmN",
+            "sendgrid-api-token": "SG." + "a1B2c3D4e5F6g7H8i9J0k1" + "." + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8s9T0u1V",
+            "aws-access-token": "AS" + "IA" + "Q7XK2M4PZ8RT1VWC",
+        }
+        for rule, value in samples.items():
+            with self.subTest(rule=rule):
+                self.assertEqual([r for r, _ in scan_history.find_in_line(f"x = {value} ")], [rule])
+
+    def test_loose_shapes_need_a_random_looking_value(self):
+        for text in ["class sk-this-is-a-long-css-class-name-for-buttons", "hf" + "_" + "abcdefghijklmnopq" * 2]:
+            with self.subTest(text=text):
+                self.assertEqual(list(scan_history.find_in_line(text)), [])
 
     def test_short_values_show_no_prefix(self):
         self.assertEqual(scan_history.mask("slack-token", "xoxb-12345678"), "…(13 chars)")
@@ -297,8 +322,32 @@ class ScanHistoryTest(unittest.TestCase):
         allow = Path(self.tmp.name) / "allow.txt"
         allow.write_text(f"# reviewed\n{gh['fingerprint']}  # test token\n\n")
         code, _, _ = self.run_main(str(self.repo), "--allow", str(allow), "--out", str(out))
-        self.assertEqual([f["rule"] for f in json.loads(out.read_text())], ["aws-access-key-id"])
+        self.assertEqual([f["rule"] for f in json.loads(out.read_text())], ["aws-access-token"])
         self.assertNotIn(FAKE_AWS, out.read_text())
+
+    def test_key_file_is_tightened_validated_and_never_tracked(self):
+        self.commit("a.txt", "x\n", "init")
+        self.key_path.write_text("ab" * 32)
+        os.chmod(self.key_path, self.key_path.stat().st_mode | 0o040)  # group-readable
+        code, out, err = self.run_main(str(self.repo))
+        self.assertEqual(code, 0)
+        self.assertEqual(self.key_path.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn("ab" * 32, out + err)
+        for bad in ["", "not hex", "ab" * 8]:
+            with self.subTest(bad=bad):
+                self.key_path.write_text(bad)
+                code, out, err = self.run_main(str(self.repo))
+                self.assertEqual(code, 2)
+                self.assertIn("not a valid key", err)
+        tracked = self.repo / "scan.key"
+        tracked.write_text("cd" * 32)
+        git(self.repo, "add", "scan.key")
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = scan_history.main([str(self.repo), "--key-file", str(tracked)])
+        self.assertEqual(code, 2)
+        self.assertIn("tracked by git", err.getvalue())
+        self.assertNotIn("cd" * 32, out.getvalue() + err.getvalue())
 
     def test_main_on_a_clean_history_returns_zero(self):
         self.commit("a.txt", "nothing secret here\n", "init")

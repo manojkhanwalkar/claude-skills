@@ -30,18 +30,29 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-# Well-known token formats: (rule id, pattern). The first group holds the secret.
+# Well-known token formats: (rule id, pattern). The first group holds the secret. Rule ids follow
+# gitleaks' names where one rule maps to one of ours, so findings from both tools line up.
 RULES = [
-    ("aws-access-key-id", re.compile(r"\b((?:AKIA|ASIA)[0-9A-Z]{16})\b")),
-    ("github-token", re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{36,})\b")),
+    ("aws-access-token", re.compile(r"\b((?:A3T[A-Z0-9]|AKIA|ASIA|ABIA|ACCA)[0-9A-Z]{16})\b")),
+    ("github-token", re.compile(r"\b(gh[pousr]_[A-Za-z0-9]{36,})\b")),  # gitleaks: github-pat, -oauth, -app-token, -refresh-token
     ("github-fine-grained-pat", re.compile(r"\b(github_pat_[A-Za-z0-9_]{50,})\b")),
-    ("anthropic-api-key", re.compile(r"\b(sk-ant-[A-Za-z0-9_\-]{20,})")),
-    ("openai-api-key", re.compile(r"\b(sk-(?:proj-)?[A-Za-z0-9_\-]{32,})")),
-    ("slack-token", re.compile(r"\b(xox[abposr]-[A-Za-z0-9-]{10,})\b")),
-    ("google-api-key", re.compile(r"\b(AIza[0-9A-Za-z_\-]{35})\b")),
-    ("stripe-live-key", re.compile(r"\b((?:sk|rk)_live_[0-9A-Za-z]{24,})\b")),
+    ("gitlab-pat", re.compile(r"\b(glpat-[A-Za-z0-9_\-]{20,})")),
+    ("anthropic-api-key", re.compile(r"\b(sk-ant-[A-Za-z0-9_\-]{20,})")),  # api03 and admin01 keys
+    ("openai-api-key", re.compile(r"\b(sk-(?:proj-|svcacct-|admin-)?[A-Za-z0-9_\-]{32,})")),
+    ("slack-token", re.compile(r"\b(xox[abposre]-[A-Za-z0-9-]{10,})\b")),  # gitleaks: slack-bot-token, -user-token, ...
+    ("slack-app-token", re.compile(r"\b(xapp-\d-[A-Z0-9]+-\d+-[a-z0-9]+)\b")),
+    ("slack-webhook-url", re.compile(r"(hooks\.slack\.com/(?:services|workflows|triggers)/[A-Za-z0-9+/]{43,56})")),
+    ("gcp-api-key", re.compile(r"\b(AIza[0-9A-Za-z_\-]{35})\b")),
+    ("stripe-access-token", re.compile(r"\b((?:sk|rk)_(?:test|live|prod)_[0-9A-Za-z]{10,99})\b")),
+    ("npm-access-token", re.compile(r"\b(npm_[A-Za-z0-9]{36})\b")),
+    ("pypi-upload-token", re.compile(r"\b(pypi-AgEIcHlwaS5vcmc[A-Za-z0-9_\-]{50,})")),
+    ("huggingface-access-token", re.compile(r"\b(hf_[A-Za-z]{34})\b")),
+    ("sendgrid-api-token", re.compile(r"\b(SG\.[A-Za-z0-9_\-]{22}\.[A-Za-z0-9_\-]{43})\b")),
     ("jwt", re.compile(r"\b(eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})\b")),
 ]
+# Shapes loose enough to match ordinary identifiers (sk-some-long-css-class-name): a real key is
+# random, so it mixes upper and lower case, and digits where its alphabet has them.
+MUST_LOOK_RANDOM = {"openai-api-key": True, "huggingface-access-token": False}  # rule -> needs a digit
 KEY_BEGIN = re.compile(r"-----BEGIN ((?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?)-----")
 KEY_END = re.compile(r"-----END ((?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?)-----")
 KEY_MAX_LINES = 200
@@ -80,6 +91,12 @@ def entropy(value: str) -> float:
     return -sum(n / len(value) * math.log2(n / len(value)) for n in counts.values())
 
 
+def mixed(value: str, digit: bool) -> bool:
+    """True when a value mixes upper and lower case (and digits, if asked), as a random key does."""
+    return (any(c.isupper() for c in value) and any(c.islower() for c in value)
+            and (not digit or any(c.isdigit() for c in value)))
+
+
 def fingerprint(value: str, key: bytes) -> str:
     return hmac.new(key, value.encode(), hashlib.sha256).hexdigest()[:24]
 
@@ -99,6 +116,8 @@ def find_in_line(line: str):
     for rule, pattern in RULES:
         for match in pattern.finditer(line):
             value = match.group(1)
+            if rule in MUST_LOOK_RANDOM and not mixed(value, MUST_LOOK_RANDOM[rule]):
+                continue
             if value not in seen:  # an Anthropic key also matches the OpenAI shape
                 seen.add(value)
                 yield rule, value
@@ -289,13 +308,30 @@ def mask_line(text: str, finding_line: bool = False) -> str:
 
 
 def load_key(path: Path) -> bytes:
-    """The local HMAC key, created (owner-only) on first use."""
+    """The local HMAC key: created owner-only on first use, kept owner-only, never printed.
+
+    A missing, short or corrupt key would turn fingerprints into plain hashes that anyone could
+    match against guessed passwords, so it is an error, not a fallback.
+    """
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, "w") as handle:
             handle.write(token_source.token_hex(32))
-    return bytes.fromhex(path.read_text().strip())
+    elif os.name == "posix" and path.stat().st_mode & 0o077:
+        os.chmod(path, 0o600)
+        print(f"note: {path} was readable by others; now owner-only", file=sys.stderr)
+    tracked = git(path.parent, "ls-files", "--error-unmatch", "--", path.name)
+    if tracked.returncode == 0:
+        raise ScanError(f"{path} is tracked by git: move it out of the repository and make a new key")
+    try:
+        key = bytes.fromhex(path.read_text().strip())
+    except ValueError:
+        key = b""
+    if len(key) < 32:
+        raise ScanError(f"{path} is not a valid key (64 hex characters): delete it to make a new one; "
+                        "existing allow-list fingerprints will then need regenerating")
+    return key
 
 
 def load_allow(path: str | None) -> frozenset:
