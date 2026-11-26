@@ -99,12 +99,11 @@ One table, most severe first:
 
 Then: **Threading model** (two or three lines: what runs concurrently and on what executors), **Needs a decision** (schema or distributed locking, preview APIs, new dependencies), **Checked and fine** (one line), **Suppressed by review rules**.
 
-**When called by another skill**, return only what it merges, and write no file. `deep-review`: the table with Status (Fixed `<sha>`, Open with the reason, Suppressed by R<n>), Needs a decision, the threading-model lines, the commits (`git log --oneline $START..HEAD`) and the checked-and-fine line. `pr-review`: one line per finding in the reviewer's columns (`file:line`, severity, defect, scenario: the interleaving, fix), plus the checked-and-fine line.
+**When called by another skill**, return only what it merges, and write no file. `deep-review`: the table with Status (Fixed `<sha>`, Open with the reason, Suppressed by R<n>), Needs a decision, the threading-model lines, the commits (`git log --oneline $START..HEAD`) and the checked-and-fine line.
 
 ## How other skills use it
 
 - **deep-review**: area 3 (Concurrency, run when its focus includes `concurrency` or `correctness`) calls this skill in its own subagent on the review branch, after areas 1 and 2 are committed, with deep-review's scope and `--fix` (or `--report-only`).
-- **pr-review** may run `concurrency-audit --diff origin/<base> --report-only` when a PR adds threads, executors, async code, locks or mutable state to a shared bean.
 
 ## References
 

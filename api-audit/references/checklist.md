@@ -39,7 +39,8 @@ Rules are defaults: a documented, consistent house convention wins. "GQL" and "g
 | Not found | 404 | |
 | Method not allowed | 405 | With `Allow` |
 | Not acceptable / unsupported media type | 406 / 415 | |
-| Conflict (state, duplicate, idempotency key reused with a different body) | 409 (or 422 for key reuse per the draft) | |
+| Conflict (state, duplicate, or an `Idempotency-Key` whose first request is still in flight) | 409 | |
+| `Idempotency-Key` reused with a different request body | 422 | Per the IETF draft |
 | Precondition failed (`If-Match` mismatch) | 412 | Precondition required: 428 |
 | Payload too large | 413 | Limits set in the server and the gateway |
 | Too many requests | 429 | `Retry-After`; optionally `RateLimit`/`RateLimit-Policy` (IETF draft) |

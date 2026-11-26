@@ -92,12 +92,11 @@ One table, most severe first:
 
 Then: **Inventory** (endpoint count per API, client class, spec present and in sync), **Needs a decision** (breaking changes with a migration plan, new dependencies, a versioning scheme), **Checked and fine** (one line), **Suppressed by review rules**.
 
-**When called by another skill**, return only what it merges, and write no file. `deep-review`: the table with Status (Fixed `<sha>`, Open with the reason, Suppressed by R<n>), Needs a decision, the inventory line, the commits (`git log --oneline $START..HEAD`) and the checked-and-fine line. `pr-review`: one line per finding in the reviewer's columns, plus the checked-and-fine line.
+**When called by another skill**, return only what it merges, and write no file. `deep-review`: the table with Status (Fixed `<sha>`, Open with the reason, Suppressed by R<n>), Needs a decision, the inventory line, the commits (`git log --oneline $START..HEAD`) and the checked-and-fine line.
 
 ## How other skills use it
 
 - **deep-review**: area 7 (API, run when its focus includes `api`, on projects that serve HTTP APIs) calls this skill in its own subagent on the review branch, after the earlier areas are committed, with deep-review's scope and `--fix` (or `--report-only`).
-- **pr-review** may run `api-audit --diff origin/<base> --report-only` when a PR changes controllers, DTOs, exception handlers or an API spec.
 
 ## References
 

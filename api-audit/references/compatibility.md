@@ -26,7 +26,7 @@ Detect with `oasdiff breaking old.yaml new.yaml` when specs exist (ask before do
 ## Migration path for a breaking fix
 
 1. Add the new shape alongside the old (a new field, endpoint or version); old clients keep working.
-2. Mark the old one: `deprecated: true` in the spec, `Deprecation` header (RFC 9745, a date or `@<epoch>`), `Sunset` header (RFC 8594) with the removal date, and `Link: <docs-url>; rel="deprecation"`.
+2. Mark the old one: `deprecated: true` in the spec, `Deprecation` header (RFC 9745: a structured-field date, `Deprecation: @<epoch-seconds>`, not an HTTP-date or `true`, which were earlier draft forms), `Sunset` header (RFC 8594, an HTTP-date) with the removal date, and `Link: <docs-url>; rel="deprecation"`.
 3. Measure use of the old shape (logs or metrics per client) and tell its consumers.
 4. Remove it after the sunset date, in its own PR.
 

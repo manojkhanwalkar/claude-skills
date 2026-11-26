@@ -49,13 +49,21 @@ ResponseEntity<OrderDto> create(@Valid @RequestBody CreateOrder req, UriComponen
 ## Cursor pagination with a cap
 
 ```java
-@GetMapping("/orders")
-Page<OrderDto> list(@RequestParam(required = false) String cursor,
-                    @RequestParam(defaultValue = "50") @Max(200) int limit) { … }
-// response: { "items": [ … ], "next": "eyJpZCI6IjEyMyJ9" }   // opaque, null on the last page
+record CursorPage<T>(List<T> items, String next) {}      // next: opaque, null on the last page
+
+@Validated                                                // needed for @Max on a parameter before Spring 6.1
+@RestController
+class OrderController {
+    @GetMapping("/orders")
+    CursorPage<OrderDto> list(@RequestParam(required = false) String cursor,
+                              @RequestParam(defaultValue = "50") @Min(1) @Max(200) int limit) {
+        return service.page(cursor, limit);               // keyset query: WHERE id > :after ORDER BY id LIMIT :limit
+    }
+}
+// response: { "items": [ … ], "next": "eyJpZCI6IjEyMyJ9" }
 ```
 
-Spring Data: `spring.data.web.pageable.max-page-size=200` caps `Pageable`; keyset with `ScrollPosition` / `Window` (Spring Data 3.1+).
+Not Spring Data's `Page<T>`: it serialises offset metadata (`totalElements`, `totalPages`) and runs a count query on every call. For keyset paging in Spring Data use `ScrollPosition` and `Window<T>` (3.1+), mapped to the envelope above; `spring.data.web.pageable.max-page-size=200` caps `Pageable` where offset paging is kept.
 
 ## Conditional update (lost-update protection)
 
@@ -66,14 +74,29 @@ ResponseEntity<OrderDto> get(@PathVariable String id) {
     return ResponseEntity.ok().eTag("\"" + o.version() + "\"").body(OrderDto.from(o));
 }
 
+private static final Pattern STRONG_ETAG = Pattern.compile("\"(\\d{1,18})\"");
+
 @PutMapping("/orders/{id}")
-ResponseEntity<OrderDto> put(@PathVariable String id, @RequestHeader("If-Match") String ifMatch,
+ResponseEntity<OrderDto> put(@PathVariable String id,
+                             @RequestHeader(value = "If-Match", required = false) String ifMatch,
                              @Valid @RequestBody OrderDto body) {
-    long expected = Long.parseLong(ifMatch.replace("\"", ""));
-    Order o = service.replace(id, body, expected);        // UPDATE … WHERE version = ?; 0 rows → 412
+    if (ifMatch == null) {
+        return ResponseEntity.status(HttpStatus.PRECONDITION_REQUIRED).build();      // 428
+    }
+    Long expected = null;                                  // "*": any current version matches (RFC 9110)
+    if (!ifMatch.strip().equals("*")) {
+        Matcher m = STRONG_ETAG.matcher(ifMatch.strip());  // one strong ETag; weak (W/"…") or a list never matches
+        if (!m.matches()) {
+            return ResponseEntity.status(HttpStatus.PRECONDITION_FAILED).build();    // 412
+        }
+        expected = Long.parseLong(m.group(1));
+    }
+    Order o = service.replace(id, body, expected);        // UPDATE … WHERE version = ?; 0 rows → 412; 404 if absent
     return ResponseEntity.ok().eTag("\"" + o.version() + "\"").body(OrderDto.from(o));
 }
 ```
+
+A list of ETags (`"1", "2"`) is legal in `If-Match`; this example treats it as no match (412), which is safe. Support it only if clients send it.
 
 ## Idempotency-Key on POST
 
