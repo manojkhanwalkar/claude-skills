@@ -108,8 +108,12 @@ logging:
   threshold:
     console: off               # NOT pattern.console: "" (logback errors on an empty pattern)
   file:
-    name: ${java.io.tmpdir}/<name>-mcp-server.log
+    name: ${user.home}/.<name>-mcp-server/server.log   # per-user, not the shared temp dir
 ```
+
+The log holds tool arguments and results, so keep it in the user's home directory, not in
+`java.io.tmpdir` (`/tmp` is shared on Linux, and a predictable name there can be read or
+pre-created by another user). Name the path in the README.
 
 Tool design rules:
 - Tool names: short `snake_case` verbs; descriptions say what it returns and when it fails —

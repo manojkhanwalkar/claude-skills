@@ -310,6 +310,13 @@ class ScanHistoryTest(unittest.TestCase):
         self.assertEqual(self.run_main(str(self.repo), "--context", "nonsense")[0], 2)
         self.assertEqual(self.run_main(str(self.repo), "--context", "HEAD:missing.txt:1")[0], 2)
 
+    def test_context_spec_is_never_read_as_a_git_option(self):
+        self.commit("a.txt", "x\n", "init")
+        target = Path(self.tmp.name) / "written-by-git"
+        code, _, _ = self.run_main(str(self.repo), f"--context=--output={target}:a.txt:1")
+        self.assertEqual(code, 2)
+        self.assertFalse(target.exists())
+
     # --- CLI and errors -----------------------------------------------------------------
 
     def test_main_writes_json_reads_an_allow_file_and_creates_a_private_key_file(self):
