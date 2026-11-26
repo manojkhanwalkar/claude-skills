@@ -6,7 +6,7 @@ license: Apache-2.0
 
 # Token Efficiency Review
 
-The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` came from one session's experience. Usage changes as projects and habits change, so this skill measures it again about every 10 days, checks whether the rules are followed and still aimed at the biggest costs, and proposes changes backed by the numbers.
+The rules in `efficiency.md` (in this repo) and any efficiency rules in the user's `~/.claude/CLAUDE.md` came from one session's experience. Usage changes as projects and habits change, so this skill measures it again about every 10 days, checks whether the rules are followed and still aimed at the biggest costs, and proposes changes backed by the numbers.
 
 ## Arguments
 
@@ -18,7 +18,7 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 - **Transcripts are private.** They hold prompts, code, keys and personal data. Read them only through `scripts/usage_report.py`, which prints numbers, tool, skill and model names, a command's program name (plus a short subcommand for a few known programs), and agent descriptions (written by the model when it started each agent). Never open, quote or summarise a transcript's content, and never put it in a report, PR, issue or doc.
 - **The report stays local.** It goes to `~/.claude/token-efficiency/reports/<date>.md`. It names agents by their model-written descriptions, so it is never committed or published. What reaches the public repo is only the resulting rule text, with rounded numbers ("about 30% of tokens went to background agents"), never project names.
 - **Never relax a gate.** A proposal may cut the work spent reaching a gate, never the gate: no fewer PRs, no skipped security checks where they apply, no merging on red CI, no lower coverage gate. Proposals that would are dropped.
-- **Changes go through a PR.** Skill and `efficiency.md` changes go to the claude-skills repo through `pr-review`. Edits to `~/.claude/CLAUDE.md` need the user's yes in this session; the scheduled run never edits it.
+- **Changes go through a PR.** Skill and `efficiency.md` changes go to the skills repo through `pr-review` when the user maintains a clone of it; otherwise they stay proposals in the report. Edits to `~/.claude/CLAUDE.md` need the user's yes in this session; the scheduled run never edits it.
 
 ## Phase 1 – Measure
 
@@ -31,12 +31,12 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 
 ## Phase 2 – Compare with the rules
 
-Read `efficiency.md`, rule 9 and the efficiency lines in rules 3–8 of `~/.claude/CLAUDE.md`, and check what the numbers show against each rule. Below, **E***n* is row *n* of `efficiency.md`'s table and **C***n* is rule *n* of `CLAUDE.md`:
+Read `efficiency.md` (`${CLAUDE_SKILL_DIR}/../efficiency.md`), the conventions in `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`, and the efficiency rules in `~/.claude/CLAUDE.md` if it has any, and check what the numbers show against each rule. Below, **E***n* is row *n* of `efficiency.md`'s table:
 
 | Signal in the report | Points at |
 |---|---|
 | Cache reads are most of the tokens; compactions above 0 | Long sessions: E12 (fresh sessions), and reading less per turn (E11) |
-| Background agents take a large share; the top agents are reviews of small or version-only PRs | C3's small-PR self-review and E4 / C8's Dependabot path not being used; E9's smaller model for mechanical agents |
+| Background agents take a large share; the top agents are reviews of small or version-only PRs | The review threshold's small-PR self-review and E4's Dependabot path not being used; E9's smaller model for mechanical agents |
 | A top agent ran on the strongest model for mechanical work | E9 (smaller models) |
 | Many polling commands | E8 (one background wait) |
 | Bash results dominate; the largest results are builds or test runs | E1 (targeted tests), and trimming output (E11) |
@@ -60,9 +60,9 @@ With `--report-only`, stop here and tell the user where the report is, in one li
 ## Phase 4 – Apply (not with --report-only)
 
 1. Show the user the proposals and ask which to apply.
-2. **Skills and `efficiency.md`:** one branch in the claude-skills repo, the accepted changes, a row per change in `efficiency.md`'s table, and the README's change log; open the PR and take it through `pr-review`. Under 250 changed lines it is a self-review.
+2. **Skills and `efficiency.md`** (only with a clone of the skills repo the user maintains): one branch there, the accepted changes, a row per change in `efficiency.md`'s table, and the README's change log; open the PR and take it through `pr-review`. Under the review threshold it is a self-review.
 3. **`~/.claude/CLAUDE.md`:** apply only the rule edits the user accepted, after their yes.
-4. **Docs:** update the "Token Efficiency" Claude Doc and the "Claude Skills" catalogue doc if the project memory names them.
+4. **Docs:** update a token-efficiency doc and a skills catalogue doc only if the project memory names them.
 
 ## Phase 5 – Record
 

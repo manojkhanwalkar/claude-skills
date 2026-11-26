@@ -11,7 +11,7 @@ Coverage is a proxy. A test that runs a line without checking what it did raises
 ## Arguments
 
 - A path or module → only that scope.
-- `--target <percent>` → coverage to reach: lines, and branches where the tool measures them. Default: 95 (the user's rule 7), or the project's own gate where it is higher. Either way the project's gate must pass at its own scope (Phase 2).
+- `--target <percent>` → coverage to reach: lines, and branches where the tool measures them. Default: 95 (the coverage target in `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`; the user's `CLAUDE.md` overrides it), or the project's own gate where it is higher. Either way the project's gate must pass at its own scope (Phase 2).
 - `--diff [base]` → only lines changed since `base` (default the default branch), for a PR. See Phase 2 step 4. Deleted files are skipped; if no production lines changed, say so and stop.
 - `--no-mutation` → skip Phase 5's mutation check.
 

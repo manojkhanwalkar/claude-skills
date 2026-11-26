@@ -1,6 +1,6 @@
 # Token efficiency
 
-Sixteen rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8, 9 and 10), in the skills below, and in each repo's `.github/dependabot.yml`.
+Sixteen rules cut the tokens spent on each change without relaxing any safety gate. They come from one long session (2026-11-21) in which full local builds, long review reports and an agent per small PR used most of the budget. They live in the owner's global rules (`~/.claude/CLAUDE.md`, rules 3, 4, 5, 7, 8, 9 and 10; [CONVENTIONS.md](CONVENTIONS.md) has the defaults the skills use for everyone else), in the skills below, and in each repo's `.github/dependabot.yml`.
 
 ## The rules
 
