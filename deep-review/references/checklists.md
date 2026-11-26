@@ -46,9 +46,9 @@ Leads for the areas this skill reviews itself, not findings. Confirm each one by
 - **Tests.** Each failure mode that matters has a test that simulates it: a mock server returning 5xx or a delay, a thrown IOException, a full queue.
 - Usually fine: demo or CLI tools where a crash is acceptable (say so); retries skipped deliberately for non-idempotent calls.
 
-## Concurrency, performance, DynamoDB, API, modernization, design and doc comments
+## Concurrency, performance, UI, DynamoDB, API, modernization, design and doc comments
 
-Owned by `concurrency-audit`, `perf-review`, `dynamodb-optimizer`, `api-audit`, `java-modernizer`, `design-patterns` and `documenter`, which carry their own checklists. Don't repeat their checks here.
+Owned by `concurrency-audit`, `perf-review`, `ui-optimizer`, `dynamodb-optimizer`, `api-audit`, `java-modernizer`, `design-patterns` and `documenter`, which carry their own checklists. Don't repeat their checks here.
 
 ## Duplication
 
