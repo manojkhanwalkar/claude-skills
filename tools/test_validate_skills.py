@@ -3,6 +3,7 @@
 import hashlib
 import io
 import os
+import subprocess
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -265,33 +266,49 @@ class ValidateSkillsTest(unittest.TestCase):
             "paths/SKILL.md: ~/.claude/skills/other/scripts/nope.py points at nothing in this repository",
         ]), sorted(self.problems()))
 
-    def test_private_project_names_are_refused_anywhere_in_the_repo_but_local_folders(self):
-        names = {(hashlib.sha256(b"secretproj").hexdigest(), len("secretproj"))}
+    SECRET = {(hashlib.sha256(b"secretproj").hexdigest(), len("secretproj"))}
+    SUFFIX = " (this repo is public: use a generic example)"
+
+    def write(self, *rels, text="# from secretproj\n"):
+        for rel in rels:
+            f = self.repo.root / rel
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(text, encoding="utf-8")
+
+    def test_private_project_names_are_refused_in_every_file_outside_git_but_hidden_folders(self):
         self.repo.skill("leaky", GOOD.format(name="leaky") + "Ported SecretProj to SecretProjPy.\n")
         self.repo.readme("leaky")
-        for rel in ["templates/a.yml", "tools/b.py", ".github/workflows/c.yml", "notes.md"]:
-            f = self.repo.root / rel
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text("# from secretproj\n", encoding="utf-8")
-        for rel in ["synced/d.md", "leaky/e.png", "leaky/__pycache__/f.txt"]:
-            f = self.repo.root / rel
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text("secretproj\n", encoding="utf-8")
-        with patch.object(v, "PRIVATE_NAMES", names):
+        self.write("templates/a.yml", ".github/workflows/c.yml", "notes.md", "security/audit.md")
+        self.write(".venv/d.md", "leaky/e.png", "leaky/__pycache__/f.txt")
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
             problems = self.problems()
-        suffix = " (this repo is public: use a generic example)"
         self.assertEqual(sorted([
-            ".github/workflows/c.yml: private project name in secretproj" + suffix,
-            "leaky/SKILL.md: private project name in SecretProj, SecretProjPy" + suffix,
-            "notes.md: private project name in secretproj" + suffix,
-            "templates/a.yml: private project name in secretproj" + suffix,
-            "tools/b.py: private project name in secretproj" + suffix,
+            ".github/workflows/c.yml: private project name in secretproj" + self.SUFFIX,
+            "leaky/SKILL.md: private project name in SecretProj, SecretProjPy" + self.SUFFIX,
+            "notes.md: private project name in secretproj" + self.SUFFIX,
+            "security/audit.md: private project name in secretproj" + self.SUFFIX,
+            "templates/a.yml: private project name in secretproj" + self.SUFFIX,
         ]), sorted(problems))
 
-    def test_the_built_in_denylist_matches_its_names(self):
-        word = "Credit" + "AgentPy"                      # split so this file doesn't hold the name
-        self.assertEqual([word], v.private_names("Not here " + word))
-        self.assertEqual([], v.private_names("credit agent"))
+    def test_in_a_git_checkout_only_tracked_files_are_scanned(self):
+        self.repo.skill("clean")
+        self.repo.readme("clean")
+        self.write("tracked.md", "synced/untracked.md")
+        subprocess.run(["git", "init", "-q", str(self.repo.root)], check=True)
+        subprocess.run(["git", "-C", str(self.repo.root), "add", "tracked.md", "clean", "README.md"], check=True)
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
+            self.assertEqual(["tracked.md: private project name in secretproj" + self.SUFFIX], self.problems())
+
+    def test_hyphens_underscores_and_dots_inside_a_name_are_ignored_but_spaces_are_not(self):
+        with patch.object(v, "PRIVATE_NAMES", self.SECRET):
+            self.assertEqual(["Secret_Proj", "secret-proj", "secret.projPy"],
+                             v.private_names("secret-proj, Secret_Proj and secret.projPy; secret proj is prose"))
+
+    def test_the_built_in_denylist_is_well_formed(self):
+        self.assertTrue(v.PRIVATE_NAMES)
+        for digest, length in v.PRIVATE_NAMES:
+            self.assertRegex(digest, r"^[0-9a-f]{64}$")
+            self.assertGreater(length, 3)
 
     def test_descriptions_over_the_listing_budget_warn_but_do_not_fail(self):
         self.repo.skill("wordy", "---\nname: wordy\ndescription: Args - none " + "x" * 390 + "\n---\n")

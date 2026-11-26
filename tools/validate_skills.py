@@ -13,7 +13,8 @@ For each top-level directory that holds a SKILL.md:
   - every relative Markdown link in the skill's .md files points at a file inside the repository, and
     every `references/...` or `scripts/...` path quoted in SKILL.md (and every ~/.claude/skills/... path)
     exists, in the skill itself or, for a pointer to a sibling's file, in another skill;
-  - no private project name (PRIVATE_NAMES) appears in the repository's own files; it is public.
+  - no private project name (PRIVATE_NAMES) appears in a tracked text file (git ls-files; outside git,
+    every file but hidden folders and __pycache__); the repository is public.
 And for the README: every skill has a row linking to its SKILL.md and a change-log row naming it, and
 every skill link resolves.
 
@@ -28,6 +29,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 from urllib.parse import unquote
@@ -39,16 +41,17 @@ MAX_NAME = 64
 MAX_DESCRIPTION = 1024
 LISTING_BUDGET = 400
 ARGS = re.compile(r"\bArgs\b")
-# Private project names, as SHA-256 of the lowercase name so this public repo doesn't publish them.
+# Private project names, as SHA-256 of the lowercase name, so they aren't spelled out or greppable here
+# (a short name's hash can still be guessed: this keeps names out of the text, it doesn't hide them).
 # Add one: python3 -c "import hashlib; print(hashlib.sha256(b'myproject').hexdigest(), len('myproject'))"
 PRIVATE_NAMES = {
     ("eebaee4e5d0467b5d9be37101f0523818a0b93a9aacb7b59deb7161fb3a02fc4", 11),
     ("ef4afaf1de7a3bf1992c3f7ca255e648105e840bec76673be0aad86d730ca012", 19),
 }
-WORD = re.compile(r"[A-Za-z0-9]+")
+# A word, with -, _ and . joining its parts: "my-project" is matched as "myproject".
+WORD = re.compile(r"[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*")
+SEPARATORS = re.compile(r"[-_.]")
 TEXT_SUFFIXES = {".md", ".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".txt"}
-# Places in the repo that hold its own files (a local venv or synced/ folder is not scanned).
-SCANNED_DIRS = ("templates", "tools", ".github")
 # `references/x.md` or `scripts/x.py` quoted in a SKILL.md; ~/.claude/skills/<path> anywhere in it.
 QUOTED_PATH = re.compile(r"`((?:references|scripts)/[A-Za-z0-9_./-]+)`")
 SKILLS_PATH = re.compile(r"~/\.claude/skills/([A-Za-z0-9_./-]*[A-Za-z0-9_-])")
@@ -146,25 +149,30 @@ def private_names(text: str) -> list[str]:
     """Words in text that contain a private project name (case-insensitive)."""
     found = []
     for word in set(WORD.findall(text)):
-        lower = word.lower()
+        lower = SEPARATORS.sub("", word.lower())
         if any(hashlib.sha256(lower[i:i + n].encode()).hexdigest() == digest
                for digest, n in PRIVATE_NAMES for i in range(len(lower) - n + 1)):
             found.append(word)
     return sorted(found)
 
 
-def scanned_files(root: Path, dirs: list[Path]) -> list[Path]:
-    """The repository's own text files: top-level files, skills, templates, tools and workflows."""
-    files = [p for p in root.iterdir() if p.is_file()]
-    for top in [*dirs, *(root / name for name in SCANNED_DIRS)]:
-        if top.is_dir():
-            files += [p for p in top.rglob("*") if p.is_file() and "__pycache__" not in p.parts]
-    return sorted(p for p in files if p.suffix in TEXT_SUFFIXES)
+def scanned_files(root: Path) -> list[Path]:
+    """The repository's own text files: tracked ones (so a local venv or synced/ folder is skipped);
+    outside a git checkout, every file except hidden folders (.github kept) and __pycache__."""
+    try:
+        listed = subprocess.run(["git", "-C", str(root), "ls-files", "-z"], capture_output=True,
+                                check=True, timeout=60).stdout.decode("utf-8").split("\0")
+        files = [root / name for name in listed if name]
+    except (OSError, subprocess.SubprocessError):
+        files = [p for p in root.rglob("*")
+                 if not any(part.startswith(".") and part != ".github" or part == "__pycache__"
+                            for part in p.relative_to(root).parts[:-1])]
+    return sorted(p for p in files if p.suffix in TEXT_SUFFIXES and p.is_file())
 
 
-def check_private(root: Path, dirs: list[Path]) -> list[str]:
+def check_private(root: Path) -> list[str]:
     problems = []
-    for path in scanned_files(root, dirs):
+    for path in scanned_files(root):
         words = private_names(path.read_text(encoding="utf-8", errors="replace"))
         if words:
             problems.append(f"{path.relative_to(root)}: private project name in {', '.join(words)} "
@@ -243,7 +251,7 @@ def validate(root: Path) -> list[str]:
             problems += check_links(md, root)
     problems += check_readme(root, [d.name for d in dirs])
     problems += check_links(root / "README.md", root) if (root / "README.md").exists() else []
-    problems += check_private(root, dirs)
+    problems += check_private(root)
     return problems
 
 
