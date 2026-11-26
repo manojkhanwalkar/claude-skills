@@ -1,6 +1,6 @@
 # Skills and working rules
 
-A guided tour of this repository for someone meeting it for the first time: what the 27 skills are, how to install them, how they fit together, and the working rules they enforce.
+A guided tour of this repository for someone meeting it for the first time: what the 30 skills are, how to install them, how they fit together, and the working rules they enforce.
 
 - [Why this exists](#why-this-exists)
 - [Install](#install)
@@ -11,7 +11,7 @@ A guided tour of this repository for someone meeting it for the first time: what
 
 ## Why this exists
 
-This is a set of 27 [Claude Code](https://claude.com/claude-code) skills for an everyday engineering workflow: open a pull request, review it, check it, fix it, merge it, and keep the codebase healthy afterwards. Each skill is a written procedure Claude follows, with a few small bundled scripts where a check is better done by code than by judgement.
+This is a set of 30 [Claude Code](https://claude.com/claude-code) skills for an everyday engineering workflow: open a pull request, review it, check it, fix it, merge it, and keep the codebase healthy afterwards. Each skill is a written procedure Claude follows, with a few small bundled scripts where a check is better done by code than by judgement.
 
 The skills exist to make a few habits automatic, whoever (or whatever) writes the code:
 
@@ -102,9 +102,12 @@ Improving a codebase rather than a single change, in small steps verified by the
 
 | Skill | What it does |
 |---|---|
-| `deep-review` | Reviews an entire codebase for bugs, performance, duplication, readability, security and resilience, and fixes what it proves. Ships as its own PR. |
+| `deep-review` | Reviews an entire codebase for bugs, concurrency, performance, APIs, Java modernization, duplication, readability, security and resilience, and fixes what it proves. Ships as its own PR. |
 | `design-patterns` | Finds design smells (type switches, god classes, hard-wired dependencies) and fixes each with the simplest design that removes it, which is sometimes "no pattern needed". |
 | `perf-review` | Finds hot paths first, then N+1 calls, scans, unbounded memory and blocking calls, with a cost estimate for each and a benchmark or load test as proof. |
+| `concurrency-audit` | Finds data races, check-then-act, deadlocks, lost interrupts, leaked executors and virtual-thread pitfalls, proves each with a stress test, and fixes it with the simplest correct construct. |
+| `api-audit` | Checks REST/JSON APIs: methods and status codes, RFC 9457 errors, validation, pagination, compatibility, idempotency, ETags and object-level authorization; fixes what doesn't break clients. |
+| `java-modernizer` | Moves Java code to the features of the JDK it builds for (records, pattern matching, text blocks, `java.time`) and off deprecated APIs; plans JDK upgrades. |
 | `dynamodb-optimizer` | Reviews how code uses DynamoDB: scans that should be queries, unused indexes, hot keys, dropped batch items, TTL mistakes and capacity cost. |
 | `resiliency` | Adds timeouts on every outbound call, retries with backoff and jitter only when safe, and rate and concurrency limits. Owns the checklist the other skills cite. |
 | `microservices-refactor` | Finds service boundaries, says which to split now, later or never, and extracts one service per PR behind a flag. |
@@ -153,7 +156,8 @@ flowchart TD
 
     merged --> sync["post-merge-sync<br/><small>docs, counter, cleanup</small>"]
     sync -- "every 10 code PRs" --> deep["deep-review"]
-    deep --> dp2["design-patterns"] & perf2["perf-review"] & dyn["dynamodb-optimizer"] & doc2["documenter"]
+    deep --> conc2["concurrency-audit"] & perf2["perf-review"] & api2["api-audit"] & jm2["java-modernizer"]
+    deep --> dp2["design-patterns"] & dyn["dynamodb-optimizer"] & doc2["documenter"]
     deep -- "ships as its own PR" --> pr
 
     triage["pr-triage<br/><small>across repos</small>"] -- "one PR at a time" --> review
@@ -166,7 +170,7 @@ Dashed arrows are borrowed or suggested steps, not automatic calls.
 
 **One gate, one loop.** Every change, whoever opened it, passes through `pr-review`. On larger PRs it starts with `pr-walkthrough`; on every code PR it brings doc comments on the touched code up to date with `documenter`, runs `design-patterns` and (on hot paths) `perf-review` for large diffs, and runs `security-review` plus whichever specialised checks the diff triggers, all in one independent pass. Red CI and conflicts are handled the way `fix-ci` and `resolve-conflicts` do it, and `test-gen` fills a coverage gap.
 
-**After the merge,** `post-merge-sync` updates docs, cleans up and counts code-changing merges. Every 10 of them it starts `deep-review`, which runs `design-patterns`, `perf-review`, `dynamodb-optimizer` (when the project uses DynamoDB) and `documenter` over the whole codebase, each in its own commit, and comes back as a PR through the same gate.
+**After the merge,** `post-merge-sync` updates docs, cleans up and counts code-changing merges. Every 10 of them it starts `deep-review`, which runs `concurrency-audit`, `perf-review`, `api-audit` (when the project serves HTTP APIs), `java-modernizer` (on Java code), `design-patterns`, `dynamodb-optimizer` (when the project uses DynamoDB) and `documenter` over the whole codebase, each in its own commit, and comes back as a PR through the same gate.
 
 **Around the loop,** `pr-triage` feeds waiting PRs (Dependabot's especially) into `pr-review` one at a time, and `javatopython-converter` hands a finished port to `port-parity`, which keeps it in step through reviewed PRs.
 

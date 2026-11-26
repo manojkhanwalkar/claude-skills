@@ -137,7 +137,7 @@ Keep the report to the tables and these lines; no essay. With `--out`, write the
 
 ## How other skills use it
 
-- **deep-review**: area 4 (DynamoDB, when the project uses it and the focus includes `correctness` or `perf`) calls this skill in its own subagent on the review branch, after areas 1 to 3 are committed, with deep-review's scope and `--fix` (or `--report-only` when deep-review is report-only); never deep-review's `--focus` or `--out`. Its correctness findings go under Correctness, the rest under Performance, both at their own severity, and irreversible schema changes under Needs a decision; `perf-review` then skips DynamoDB items.
+- **deep-review**: area 5 (DynamoDB, when the project uses it and the focus includes `correctness` or `perf`) calls this skill in its own subagent on the review branch, after areas 1 to 4 are committed, with deep-review's scope and `--fix` (or `--report-only` when deep-review is report-only); never deep-review's `--focus` or `--out`. Its correctness findings go under Correctness, the rest under Performance, both at their own severity, and irreversible schema changes under Needs a decision; `perf-review` then skips DynamoDB items.
 - **perf-review** points here for a full DynamoDB review; it keeps the basics for PR diffs. `pr-review` does not run this skill.
 
 ## References

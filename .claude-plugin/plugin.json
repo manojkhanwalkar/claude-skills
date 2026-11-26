@@ -1,7 +1,7 @@
 {
   "name": "manoj-skills",
   "displayName": "Manoj Skills",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Claude Code skills that take code from pull request to merge: reviews, CI fixes, security, compliance and WCAG audits, performance, resilience and upkeep. Built for Claude Code; most need git, gh and a shell.",
   "author": {
     "name": "Manoj Khanwalkar",
@@ -22,7 +22,10 @@
     "performance",
     "resilience",
     "testing",
-    "refactoring"
+    "refactoring",
+    "concurrency",
+    "api",
+    "java"
   ],
   "icon": "./.claude-plugin/icon.png",
   "documentationUrl": "https://github.com/manojkhanwalkar/claude-skills#readme",
@@ -30,7 +33,9 @@
   "privacyPolicyUrl": "https://github.com/manojkhanwalkar/claude-skills#privacy-and-data-handling",
   "skills": [
     "./ada-compatibility",
+    "./api-audit",
     "./compliance-check",
+    "./concurrency-audit",
     "./deep-review",
     "./design-patterns",
     "./digital-regulation-check",
@@ -39,6 +44,7 @@
     "./dynamodb-optimizer",
     "./emulator-fidelity",
     "./fix-ci",
+    "./java-modernizer",
     "./javatopython-converter",
     "./mcp-builder",
     "./microservices-refactor",
