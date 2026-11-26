@@ -60,7 +60,7 @@ Six skills check code against named standards, each with `file:line` evidence, a
 - **compliance-check** checks SOX (change control, segregation of duties, audit trails, exact money arithmetic), PII security controls and PCI DSS v4.0.1. Its bundled scanner finds SSNs, card numbers and sensitive fields in logs, printing only masked values.
 - **digital-regulation-check** covers GDPR and ePrivacy, the DMA, DSA, AI Act, Data Act, Accessibility Act, CRA, NIS2 and DORA, plus CCPA and other regions' laws. Its tracker scanner finds cookies, client storage and third-party scripts loaded before consent.
 - **ada-compatibility** reviews and fixes web and mobile UIs to WCAG 2.2 AA, with axe and keyboard tests. The first change to a project with a UI fixes the existing UI too and records a baseline. It never uses accessibility overlays.
-- **secret-history-scan** scans every branch, tag and PR ref of a repo's history for committed secrets, with gitleaks, trufflehog or its own scanner. Values are always masked, a liveness check runs only with approval and only against the issuer, and rotation comes before any history rewrite.
+- **secret-history-scan** scans every branch, tag and PR ref of a repo's history for committed secrets, with gitleaks, trufflehog or its own scanner. Values are always masked, the report stays outside the working tree, a liveness check runs only with approval and only against the issuer, and rotation comes before any history rewrite.
 
 ## Code quality and engineering
 
