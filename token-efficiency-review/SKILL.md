@@ -1,6 +1,6 @@
 ---
 name: token-efficiency-review
-description: Review how Claude Code has spent tokens since the last review (about every 10 days) and propose updates to the token-efficiency rules and the skills - measure from the local session transcripts (main conversation, background agents, tools, largest results, CI polling, compactions, skills used) with a bundled script that prints only numbers and names, compare against efficiency.md and the user's rules, and turn what the numbers show into specific rule and skill changes, shipped through a reviewed PR. Use when the user asks to review or reduce token usage, check the efficiency rules, or when the scheduled run fires. Not for the code's own performance (deep-review) or a single PR's review (pr-review). Args - optional --since YYYY-MM-DD (default the last run), optional --report-only (measure and propose; change nothing).
+description: Measure how Claude Code spent tokens since the last review (agents, tools, re-reads, polling, rate limits, the skill-listing budget) from local transcripts with a numbers-only script, and propose rule and skill changes through a reviewed PR. Use about every 10 days, on the scheduled run, or to cut token use. Not for code performance (perf-review). Args - [--since TIME] [--report-only].
 ---
 
 # Token Efficiency Review
@@ -21,13 +21,12 @@ The rules in `efficiency.md` (in this repo) and rule 9 of `~/.claude/CLAUDE.md` 
 
 ## Phase 1 – Measure
 
-1. Work out the period (Arguments). Then run the script:
+1. Work out the period (Arguments). Then run the script once (add `--json` only if you need the raw numbers; `--context 1000000` when the sessions ran with a 1M-token context window):
    ```bash
    python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <time> --top 10
-   python3 -I ~/.claude/skills/token-efficiency-review/scripts/usage_report.py --since <time> --top 10 --json
    ```
-2. Note the headline numbers: total tokens, the share spent by background agents, the share that was cache reads (re-reading a long conversation), output tokens, compactions, polling commands (sleeps and checks calls that don't wait by themselves; one background `--watch` is the recommended pattern and isn't counted), and the tools whose results took the most characters.
-3. Read the previous report, if there is one (`~/.claude/token-efficiency/reports/`), to see the trend.
+2. Note the headline numbers: total tokens, the share spent by background agents, cache reads (re-reading a long conversation) and writes, output tokens, compactions, API errors (rate limits), polling commands (sleeps and checks calls that don't wait by themselves; one background `--watch` is the recommended pattern and isn't counted), the tools whose results took the most characters, results repeated with the same size (the **Times** column: usually the same guide or file loaded again), the skills and slash commands used, and the **Skill listing** section: how many characters the installed skills' descriptions take against Claude Code's listing budget (1% of the context window at about 4 characters per token, shared with built-in and plugin skills; over it, some skills are listed without a description and trigger worse).
+3. Read the previous report, `~/.claude/token-efficiency/reports/latest.md`, if it exists, before Phase 3 overwrites it, to see the trend.
 
 ## Phase 2 – Compare with the rules
 
@@ -41,7 +40,10 @@ Read `efficiency.md`, rule 9 and the efficiency lines in rules 3–8 of `~/.clau
 | Many polling commands | E8 (one background wait) |
 | Bash results dominate; the largest results are builds or test runs | E1 (targeted tests), and trimming output (E11) |
 | Read, docs or web results dominate | E11 (read by range, outline or delta) |
+| A large result repeated many times (Times column) | E11 (load a long reference once per session) |
+| Many rate-limit errors | Too many background agents at once: E13's one agent per task still holds, but start fewer at a time |
 | A skill appears often and its runs are costly | That skill's own steps: where does it read or run more than it needs? |
+| Skill listing over its budget, or descriptions over the target | Shorter descriptions: what the skill does, when to use it, when not, and its args, with detail moved to the body. For what each skill costs in context, the user can run the built-in `/skill-doctor` in an interactive session |
 
 For each finding, say whether an existing rule covers it (and is being ignored, or needs sharper wording) or whether a new rule is needed. Look up the skill text before proposing a change to it.
 
@@ -63,7 +65,7 @@ With `--report-only`, stop here and tell the user where the report is, in one li
 
 ## Phase 5 – Record
 
-Write the current time as an ISO timestamp with its zone (for example `2026-12-01T10:00:00-05:00`, from the context) to `~/.claude/token-efficiency/last-run`, also after `--report-only`, so the next run starts exactly where this one ended.
+Write the report's **Generated** timestamp (the script's clock, with its zone, for example `2026-12-01T10:00:00-05:00`) to `~/.claude/token-efficiency/last-run`, also after `--report-only`, so the next run starts exactly where this one's data ended. Never invent a time.
 
 ## Scheduling
 
