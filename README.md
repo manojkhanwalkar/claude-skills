@@ -2,6 +2,7 @@
 
 27 [Claude Code](https://claude.com/claude-code) skills that take code from pull request to merge, check it for security, compliance and accessibility, and build, port or test software along the way. Install them as a plugin (see [Install](#install)) or clone the repository to `~/.claude/skills`; either way Claude Code loads them in every project.
 
+- **New here?** [docs/SKILLS-AND-RULES.md](docs/SKILLS-AND-RULES.md) is a guided tour: the skills by purpose, how they work together, and the working rules they enforce.
 - **Invoke** a skill by name as a slash command (`/pr-review 30`, `/owasp-top10 --fix`), or let Claude pick it when a request matches its description.
 - **Change** a skill through a pull request: a separate agent reviews it, [CI](#checks) validates every skill, and it is squash-merged to `master`.
 - **Catalogue:** the owner keeps the same content in a private Claude doc, updated whenever a skill is added or changed.
@@ -178,6 +179,7 @@ Every merged pull request, newest merge first.
 
 | Date | PR | Change |
 |---|---|---|
+| 2026-11-26 | this PR | Docs: `docs/SKILLS-AND-RULES.md`, a guided tour for newcomers (install, the 27 skills grouped by purpose, a flow diagram of how they work together, the working rules from `CONVENTIONS.md` written as principles, and how the skills themselves are kept honest), linked from the top of the README |
 | 2026-11-26 | this PR | Release: plugin manifest and directory submission prep. `.claude-plugin/plugin.json` (`manoj-skills` 1.0.0, description, author, homepage, repository, license, keywords, icon, support and privacy links, the 27 skills), and the marketplace entry defers to it (`strict` default); `docs/DIRECTORY-SUBMISSION.md` (checklist, surface compatibility, portal steps); README privacy and data-handling section; CI runs `claude plugin validate --strict` with a pinned CLI and fails a change to shipped files that doesn't raise `version`; the validator checks plugin.json; ada-compatibility pins `npx` tools to an exact version |
 | 2026-11-26 | [#71](https://github.com/manojkhanwalkar/claude-skills/pull/71) | Shared conventions, part 3 (the rest): javatopython-converter, token-efficiency-review, deep-review, fix-ci, pr-review, test-gen, port-parity, resiliency, microservices-refactor, design-patterns and perf-review cite conventions from `CONVENTIONS.md` instead of the owner's rule numbers; javatopython-converter creates a design doc and diagram only when the user's rules ask for them (otherwise it asks); token-efficiency-review proposes skill changes as a PR only with a clone the user maintains, and updates docs only when the project memory names them; efficiency.md points to `CONVENTIONS.md` |
 | 2026-11-26 | [#70](https://github.com/manojkhanwalkar/claude-skills/pull/70) | Shared conventions, part 2 (security and compliance skills): owasp-top10, secret-history-scan, compliance-check and digital-regulation-check cite the PR policy, security-checks and design-doc conventions from `CONVENTIONS.md` instead of the owner's rule numbers; compliance-check and digital-regulation-check keep their applicability tables in the report when the project has no design doc |
