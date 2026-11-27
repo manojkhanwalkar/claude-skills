@@ -1,6 +1,6 @@
 ---
 name: mcp-builder
-description: Create an MCP server, client or both - tools, stdio or HTTP transport, an end-to-end test and a README. Java with Spring AI by default; Python and TypeScript follow Anthropic's mcp-builder skill. Use to build an MCP server or client, or "make an MCP for X". Not for audits (owasp-llm-top10). Args - [what to wrap] [--lang java|python|typescript] [--plain-sdk] [--http] [--server-only|--client-only].
+description: Build an MCP server, client or both - tools, stdio or HTTP, an end-to-end test, a README; Java with Spring AI by default. Use for "make an MCP for X". Not for audits (owasp-llm-top10). Args - [what to wrap] [--lang java|python|typescript] [--plain-sdk] [--http] [--server-only|--client-only].
 license: Apache-2.0
 ---
 

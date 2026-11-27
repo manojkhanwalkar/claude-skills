@@ -1,6 +1,6 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase - bugs, concurrency, speed, UI, APIs, duplication, readability, security, resilience - in small commits; runs concurrency-audit, perf-review, ui-optimizer, api-audit, java-modernizer, design-patterns, dynamodb-optimizer, documenter. Use for "deep review the project". Not for a PR or diff (pr-review). Args - [path] [--report-only] [--focus LIST] [--out FILE].
+description: Deep review of an ENTIRE codebase in small verified commits; runs concurrency-audit, perf-review, ui-optimizer, api-audit, java-modernizer, design-patterns, dynamodb-optimizer, documenter. Not for a PR or diff (pr-review). Args - [path] [--report-only] [--focus LIST] [--out FILE].
 license: Apache-2.0
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: design-patterns
-description: Review and refactor code design with GoF, Fowler, DDD, SOLID and Effective Java - smells with file:line evidence; --fix refactors in small tested steps. Use for "design patterns", "SOLID", "code smells", "refactor the design". Not for bugs (pr-review) or service boundaries (microservices-refactor). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
+description: Review and refactor code design (GoF, SOLID, DDD, Effective Java) - smells with file:line evidence, small tested refactors. Use for "design patterns", "code smells". Not for bugs (pr-review). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
 license: Apache-2.0
 ---
 

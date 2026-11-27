@@ -1,6 +1,6 @@
 ---
 name: ui-optimizer
-description: Speed up a web UI - flag heavy and oversized images, defer render-blocking and non-critical code, load above-the-fold content first and lazy-load the rest, then create and run Lighthouse tests and CI budgets and fix what they find. Use for "Lighthouse", "Core Web Vitals", "slow page", "optimize images". Args - [path] [--url URL] [--diff [base]] [--report-only] [--fix] [--ci] [--out FILE].
+description: Speed up a web UI - flag heavy images, defer blocking code, load above the fold first and lazy-load the rest; create and run Lighthouse tests and CI budgets and fix what they find. Use for "Lighthouse". Args - [path] [--url URL] [--diff [base]] [--report-only] [--fix] [--ci] [--out FILE].
 license: Apache-2.0
 ---
 

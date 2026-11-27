@@ -1,6 +1,6 @@
 ---
 name: java-modernizer
-description: Modernize Java to the features its own JDK release supports - records, pattern matching, switch, text blocks, java.time, try-with-resources - and replace deprecated APIs in small tested commits; --target plans a JDK upgrade. Use for "modernize Java", "upgrade to Java 21". Not for Spring or Jakarta migrations. Args - [path] [--diff [base]] [--report-only] [--fix] [--target N] [--out FILE].
+description: Modernize Java to its own JDK release - records, pattern matching, switch, text blocks, java.time - and replace deprecated APIs in tested commits; --target plans an upgrade. Not for Spring or Jakarta migrations. Args - [path] [--diff [base]] [--report-only] [--fix] [--target N] [--out FILE].
 license: Apache-2.0
 ---
 

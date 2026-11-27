@@ -1,6 +1,6 @@
 ---
 name: ada-compatibility
-description: Review and fix UI code for WCAG 2.2 AA (ADA, Section 508) - labels, keyboard, focus, contrast, reflow, forms, motion - in web and mobile UIs. Use when a change touches user-facing UI, a UI project's first change, or for accessibility, a11y, WCAG; pr-review runs --diff. Not for accessibility law (digital-regulation-check). Args - [path] [--diff [base]] [--fix] [--out FILE].
+description: WCAG 2.2 AA (ADA) review and fixes for web and mobile UI - labels, keyboard, focus, contrast, forms. Use for UI changes, a11y, WCAG. Not for accessibility law (digital-regulation-check). Args - [path] [--diff [base]] [--fix] [--out FILE].
 license: Apache-2.0
 ---
 

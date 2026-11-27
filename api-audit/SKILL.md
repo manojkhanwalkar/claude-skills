@@ -1,6 +1,6 @@
 ---
 name: api-audit
-description: Audit REST/JSON APIs - resource design, methods, status codes, RFC 9457 errors, validation, pagination, versioning, idempotency, ETags, JSON conventions, OpenAPI drift, BOLA and mass assignment - and fix without breaking clients. Use for "API review", "REST best practices". Not for a full security audit (owasp-top10). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
+description: Audit REST/JSON APIs - status codes, RFC 9457 errors, validation, pagination, versioning, idempotency, BOLA - and fix without breaking clients. Use for "API review". Not for a full security audit (owasp-top10). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
 license: Apache-2.0
 ---
 

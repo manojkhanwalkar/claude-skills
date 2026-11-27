@@ -1,6 +1,6 @@
 ---
 name: concurrency-audit
-description: Find and fix concurrency bugs - data races, check-then-act, unsafe publication, deadlocks, lost interrupts, leaked executors, virtual-thread pinning, async races - with simpler concurrent constructs, proved by stress tests. Use for "race condition", "deadlock", "thread safety". Not for speed alone (perf-review). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
+description: Find and fix concurrency bugs - races, check-then-act, deadlocks, lost interrupts, leaked executors, virtual-thread pinning - proved by stress tests. Use for "race condition", "thread safety". Not for speed (perf-review). Args - [path] [--diff [base]] [--report-only] [--fix] [--out FILE].
 license: Apache-2.0
 ---
 

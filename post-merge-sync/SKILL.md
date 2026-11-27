@@ -1,6 +1,6 @@
 ---
 name: post-merge-sync
-description: Follow-up after PRs merge - update the design doc and system diagram, keep merged-PR counters and start deep-review when due, record port follow-ups, and clean up merged branches and worktrees. Use right after a merge, "post-merge", "sync the docs after the merge". Not for reviewing or merging (pr-review) or porting (port-parity). Args - [PR] [--dry-run] [--no-docs] [--no-cleanup].
+description: After PRs merge - update the design doc and diagram, keep merge counters and start deep-review when due, record port follow-ups, clean up branches and worktrees. Use right after a merge. Not for merging (pr-review). Args - [PR] [--dry-run] [--no-docs] [--no-cleanup].
 license: Apache-2.0
 ---
 
