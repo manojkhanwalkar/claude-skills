@@ -97,7 +97,7 @@ Then:
 
 ## How other skills use it
 
-- **deep-review**: area 8 (Modernization, run when its focus includes `modernize` or `readability`, on Java projects) calls this skill in its own subagent on the review branch, after the earlier areas are committed, with deep-review's scope and `--fix` (or `--report-only`).
+- **deep-review**: area 9 (Modernization, run when its focus includes `modernize` or `readability`, on Java projects) calls this skill in its own subagent on the review branch, after the earlier areas are committed, with deep-review's scope and `--fix` (or `--report-only`).
 
 ## References
 

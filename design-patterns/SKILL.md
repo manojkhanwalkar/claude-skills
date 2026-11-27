@@ -127,7 +127,7 @@ Keep the report to the table and these lines; no essay. With `--out`, write the 
 ## How other skills use it
 
 - **pr-review**: for PRs at or over the review threshold (250 changed lines by default), the reviewer runs `design-patterns --diff origin/<base> --report-only` and adds its findings to the PR's table; Medium design findings block the merge until fixed or accepted by the owner.
-- **deep-review**: area 9 (Design, run when its focus includes `dup` or `readability`) calls this skill in its own subagent on the review branch, after areas 1 to 8 (performance, API and modernization among them) are committed, with deep-review's scope and `--fix` (or `--report-only` when deep-review is report-only); never deep-review's `--focus` or `--out`.
+- **deep-review**: area 10 (Design, run when its focus includes `dup` or `readability`) calls this skill in its own subagent on the review branch, after areas 1 to 9 (performance, UI, API and modernization among them) are committed, with deep-review's scope and `--fix` (or `--report-only` when deep-review is report-only); never deep-review's `--focus` or `--out`.
 - **microservices-refactor**: in Phase 3, on each new service module and the branch-by-abstraction seam (Adapter or Gateway per provider, an anti-corruption layer at the boundary, Strategy for provider selection).
 
 ## References

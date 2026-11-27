@@ -1,12 +1,12 @@
 ---
 name: deep-review
-description: Deep review of an ENTIRE codebase - bugs, concurrency, speed, APIs, duplication, readability, security, resilience - in small commits; runs concurrency-audit, perf-review, api-audit, java-modernizer, design-patterns, dynamodb-optimizer and documenter. Use for "deep review the project". Not for a PR or a diff (pr-review, code-review). Args - [path] [--report-only] [--focus LIST] [--out FILE].
+description: Deep review of an ENTIRE codebase - bugs, concurrency, speed, UI, APIs, duplication, readability, security, resilience - in small commits; runs concurrency-audit, perf-review, ui-optimizer, api-audit, java-modernizer, design-patterns, dynamodb-optimizer, documenter. Use for "deep review the project". Not for a PR or diff (pr-review). Args - [path] [--report-only] [--focus LIST] [--out FILE].
 license: Apache-2.0
 ---
 
 # Deep Review
 
-A whole-codebase pass over **security, correctness, concurrency, resilience, DynamoDB, performance, APIs, Java modernization, design, duplication, readability and doc comments**, seven of them done by the skills that own them (see the table in Phase 3). It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
+A whole-codebase pass over **security, correctness, concurrency, resilience, DynamoDB, performance, UI performance, APIs, Java modernization, design, duplication, readability and doc comments**, eight of them done by the skills that own them (see the table in Phase 3). It finds issues, proves them, fixes them in small verified steps, and reports what changed and what still needs a decision.
 
 This skill looks at everything in scope, not at what changed recently. If the user is asking about a PR, a branch, a diff or "my changes", stop. Tell them to use `/pr-review` to review, fix and merge it (or `/code-review` / `/security-review` to only report) instead.
 
@@ -16,7 +16,7 @@ The value comes from verified, behaviour-preserving improvements. A finding is w
 
 - A path or module name → limit the review to that scope.
 - `--report-only` → do Phases 1–3 and report (Phase 5). Make no edits.
-- `--focus correctness,concurrency,perf,api,modernize,dup,readability,security,resilience,docs` → only those areas (default all); the table in Phase 3 maps each to its areas.
+- `--focus correctness,concurrency,perf,ui,api,modernize,dup,readability,security,resilience,docs` → only those areas (default all); the table in Phase 3 maps each to its areas.
 - `--out <file>` → also write the report as markdown, for example `docs/DEEP-REVIEW.md`. In a public repo, ask before writing security findings inside the working tree.
 - No args → the whole repository, all areas, with fixes.
 
@@ -60,12 +60,13 @@ The areas, in the order they get fixed and committed. Each runs when one of its 
 | 4 | Resilience | `resilience` | this skill |
 | 5 | DynamoDB | `correctness` or `perf`, when the project uses DynamoDB | `dynamodb-optimizer` |
 | 6 | Performance | `perf` | `perf-review` |
-| 7 | API | `api`, when the project serves HTTP APIs | `api-audit` |
-| 8 | Modernization | `modernize` or `readability`, on Java code | `java-modernizer` |
-| 9 | Design | `dup` or `readability` | `design-patterns` |
-| 10 | Duplication | `dup` | this skill |
-| 11 | Readability and maintenance | `readability` | this skill |
-| 12 | Documentation (doc comments) | `docs` | `documenter`, always last |
+| 7 | UI performance | `perf` or `ui`, when the project serves a web UI | `ui-optimizer` |
+| 8 | API | `api`, when the project serves HTTP APIs | `api-audit` |
+| 9 | Modernization | `modernize` or `readability`, on Java code | `java-modernizer` |
+| 10 | Design | `dup` or `readability` | `design-patterns` |
+| 11 | Duplication | `dup` | this skill |
+| 12 | Readability and maintenance | `readability` | this skill |
+| 13 | Documentation (doc comments) | `docs` | `documenter`, always last |
 
 1. **Security recheck.** Re-verify the security properties the project depends on: authentication and authorization on every entry point, input validation at trust boundaries, injection sinks, secrets, crypto, deserialization, upload and parser limits, PII in logs and errors, and dependency versions. Compare against the project's own security docs. A documented control that the code no longer enforces is a finding. This is a recheck, not a full audit. If it turns up systemic problems, recommend `/owasp-top10` in the report. If the project handles personal, payment or financial data, or serves EU (or other regulated-region) users, also recheck the compliance controls its design doc relies on and recommend `/compliance-check` and `/digital-regulation-check` for a full pass. If it has a user interface, run the `ada-compatibility` lead finder over the UI and recommend `/ada-compatibility` when it finds issues.
 2. **Correctness.** Bugs that make the code do the wrong thing, on normal paths and on its own error paths: null dereferences, off-by-one and comparison errors, overflow, swallowed exceptions, error paths that leave state inconsistent, and logic that contradicts its name, comments or tests. Failing tests from the baseline are bug candidates here. Races and other shared-state bugs belong to area 3.
@@ -73,12 +74,13 @@ The areas, in the order they get fixed and committed. Each runs when one of its 
 4. **Resilience.** What happens when each outbound dependency is slow, down, or returns garbage, checked against the `resiliency` skill's checklist: timeouts, bounded retries only for idempotent operations, fail-fast, resource limits, cleanup on error paths, partial-failure consistency, graceful degradation, health checks, start-up order and shutdown. When a multi-service codebase lacks retries or request limits across the board, fix the worst gaps and put `/resiliency` under Needs a decision rather than rewiring every call here.
 5. **DynamoDB.** When the project uses DynamoDB (an AWS SDK DynamoDB dependency, `DynamoDbClient` or `DynamoDbEnhancedClient`, boto3 `dynamodb`, `@aws-sdk/client-dynamodb`, or table definitions in IaC or `createTable` code), run `dynamodb-optimizer`. Its correctness findings (pagination ignored, unprocessed batch items, races without conditions) are filed under Correctness; the rest under Performance; its irreversible schema changes under Needs a decision. With `correctness` but not `perf` in focus, keep only its correctness findings.
 6. **Performance.** Run `perf-review`. It finds the hot paths, estimates and proves each cost, and owns the evidence rule; when area 5 ran, tell it to skip DynamoDB items so nothing is reported twice.
-7. **API.** When the project serves HTTP APIs, run `api-audit`. It inventories the endpoints, then checks resource design, methods and status codes, error format, validation, pagination, JSON conventions, compatibility, conditional requests and idempotency, and the API-shaped security items (object-level authorization, mass assignment, excessive exposure); its security-shaped findings are also listed under area 1. Breaking changes to private or public APIs go under Needs a decision with its migration path.
-8. **Modernization.** On Java code, run `java-modernizer`. It finds the release each module builds for and moves code to that release's final features and off deprecated or removed APIs, behaviour-preserving; raising the JDK release itself and framework migrations go under Needs a decision. When the focus has `readability` but not `modernize`, tell it to keep only removed or deprecated APIs and bug-prone idioms.
-9. **Design.** Run `design-patterns` for type switches, copied algorithm skeletons, god classes, primitive obsession, leaking external APIs, missing test seams and pattern overuse. A design finding it rates High or Critical is filed as the correctness or security defect it causes.
-10. **Duplication.** Copy-pasted logic, repeated constants and config, and parallel code paths that drifted apart, which area 9 didn't already cover. Extract only when the shared version is clearly simpler than the copies. For the cleanup itself you may hand each module with duplication findings to the built-in `simplify` skill (`/simplify <path>`; from an agent, the Skill tool with skill `simplify` and the path as args), which applies reuse and simplification fixes but hunts no bugs. This skill still owns the rest: review its edits and revert any outside area 10 or the guardrails, record each kept change as a finding on this review's severity scale, run the Phase 4 verification, and commit it as area 10. Where the Skill tool or `simplify` isn't available (for example in a background agent), do the cleanup by hand.
-11. **Readability and maintenance:** dead code, misleading names or comments, long functions and deep nesting, inconsistent error handling, reinventing standard-library or project utilities, and docs (README, architecture) that disagree with the code.
-12. **Documentation.** Run `documenter` after every code fix is committed, so the comments describe the final code. It changes comment lines only, and its missing and stale counts are Low findings, always fixed when editing.
+7. **UI performance.** When the project serves a web UI, run `ui-optimizer`. It scans for heavy and oversized images and blocking or shifting markup, runs Lighthouse on the built app (mobile and desktop, three runs, median), maps the fold, and fixes images, render-blocking and non-critical code with fold-aware loading, keeping each change only when a re-run shows the gain. It doesn't add Lighthouse CI here (`--ci` is a separate decision; list it under Needs a decision when the project has none). Skip it, and say so, when the project has no UI or can't be built and served locally.
+8. **API.** When the project serves HTTP APIs, run `api-audit`. It inventories the endpoints, then checks resource design, methods and status codes, error format, validation, pagination, JSON conventions, compatibility, conditional requests and idempotency, and the API-shaped security items (object-level authorization, mass assignment, excessive exposure); its security-shaped findings are also listed under area 1. Breaking changes to private or public APIs go under Needs a decision with its migration path.
+9. **Modernization.** On Java code, run `java-modernizer`. It finds the release each module builds for and moves code to that release's final features and off deprecated or removed APIs, behaviour-preserving; raising the JDK release itself and framework migrations go under Needs a decision. When the focus has `readability` but not `modernize`, tell it to keep only removed or deprecated APIs and bug-prone idioms.
+10. **Design.** Run `design-patterns` for type switches, copied algorithm skeletons, god classes, primitive obsession, leaking external APIs, missing test seams and pattern overuse. A design finding it rates High or Critical is filed as the correctness or security defect it causes.
+11. **Duplication.** Copy-pasted logic, repeated constants and config, and parallel code paths that drifted apart, which area 10 didn't already cover. Extract only when the shared version is clearly simpler than the copies. For the cleanup itself you may hand each module with duplication findings to the built-in `simplify` skill (`/simplify <path>`; from an agent, the Skill tool with skill `simplify` and the path as args), which applies reuse and simplification fixes but hunts no bugs. This skill still owns the rest: review its edits and revert any outside area 11 or the guardrails, record each kept change as a finding on this review's severity scale, run the Phase 4 verification, and commit it as area 11. Where the Skill tool or `simplify` isn't available (for example in a background agent), do the cleanup by hand.
+12. **Readability and maintenance:** dead code, misleading names or comments, long functions and deep nesting, inconsistent error handling, reinventing standard-library or project utilities, and docs (README, architecture) that disagree with the code.
+13. **Documentation.** Run `documenter` after every code fix is committed, so the comments describe the final code. It changes comment lines only, and its missing and stale counts are Low findings, always fixed when editing.
 
 **Running the called skills.** Pass each one this review's scope and mode: `--report-only` when this review is report-only, otherwise `--fix` (`documenter` edits by default and takes no `--fix`). Don't pass this skill's `--focus` or `--out`; their flags differ, and this skill writes the one report. Each checks for a clean tree before editing, so commit the areas before it first. Run each in its own subagent, one after another on this branch (the agent-concurrency convention in `${CLAUDE_SKILL_DIR}/../CONVENTIONS.md`: one agent per task), with a scoped brief: scope, mode, branch, what to skip, and "commit on this branch, don't push or open a PR; return only your findings table, Needs a decision list and commit SHAs" (for `documenter`: its counts per module, Flagged rows, commit SHAs and verification line). The reviewers keep the strongest model; `documenter` may start on `sonnet`.
 
@@ -113,7 +115,7 @@ Subject to **Trust**, verify the final state: when a PR is opened, its CI runs t
 
 Report in this shape; no essay:
 
-- **Header**: scope, commit, focus, trust, and which called skills ran or why one was skipped (no DynamoDB, nothing concurrent, no HTTP API, no Java, not in focus, builds declined).
+- **Header**: scope, commit, focus, trust, and which called skills ran or why one was skipped (no DynamoDB, nothing concurrent, no web UI, no HTTP API, no Java, not in focus, builds declined).
 - **Baseline vs. final**: build and test status, and coverage, with output for anything that fails.
 - **Findings**: one table, rows in fix order, most severe first within an area:
 

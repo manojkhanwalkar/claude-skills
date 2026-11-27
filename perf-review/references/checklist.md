@@ -88,6 +88,7 @@ For UIs the project serves.
 - Compression: text assets served without gzip or br; `Vary: Accept-Encoding` missing when negotiated.
 - Render-blocking scripts in `<head>` without `defer`; images without width and height (CLS) or not lazy-loaded below the fold.
 - Accessibility fixes go through `ada-compatibility`; don't trade them for speed.
+- Page-load work (images, fold-aware lazy loading, render-blocking and async code, Lighthouse runs and budgets) belongs to `ui-optimizer`; flag it here and point there.
 
 ## Python
 

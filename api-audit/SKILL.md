@@ -96,7 +96,7 @@ Then: **Inventory** (endpoint count per API, client class, spec present and in s
 
 ## How other skills use it
 
-- **deep-review**: area 7 (API, run when its focus includes `api`, on projects that serve HTTP APIs) calls this skill in its own subagent on the review branch, after the earlier areas are committed, with deep-review's scope and `--fix` (or `--report-only`).
+- **deep-review**: area 8 (API, run when its focus includes `api`, on projects that serve HTTP APIs) calls this skill in its own subagent on the review branch, after the earlier areas are committed, with deep-review's scope and `--fix` (or `--report-only`).
 - **pr-review**: on PRs at or over the review threshold (250 changed lines by default) that change controllers or route handlers, DTOs, exception handlers or an API spec, the reviewer runs `api-audit --diff origin/<base> --report-only` and adds its rows to the PR's table; the merge bar is unchanged. A smaller PR's self-review checks the API by eye.
 
 ## References
