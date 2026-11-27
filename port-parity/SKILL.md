@@ -1,6 +1,6 @@
 ---
 name: port-parity
-description: Keep a port or mirror in step with its source - find source changes since the parity baseline that alter the shared contract, port them in a reviewed PR and record the new baseline. Use to sync or check parity with a port, or port a change to the other repo. Not for a first conversion (javatopython-converter). Args - [--source PATH] [--target PATH] [--since SHA] [--report-only].
+description: Keep a port in step with its source - find contract changes since the parity baseline, port them in a reviewed PR, record the new baseline. Use to sync a port. Not for a first conversion (javatopython-converter). Args - [--source PATH] [--target PATH] [--since SHA] [--report-only].
 license: Apache-2.0
 ---
 

@@ -343,12 +343,12 @@ class ValidateSkillsTest(unittest.TestCase):
             self.assertGreater(length, 3)
 
     def test_descriptions_over_the_listing_budget_warn_but_do_not_fail(self):
-        self.repo.skill("wordy", "---\nname: wordy\ndescription: Args - none " + "x" * 390 + "\n---\n")
-        self.repo.skill("at-budget", "---\nname: at-budget\ndescription: Args - none " + "x" * 388 + "\n---\n")
+        self.repo.skill("wordy", "---\nname: wordy\ndescription: Args - none " + "x" * 290 + "\n---\n")
+        self.repo.skill("at-budget", "---\nname: at-budget\ndescription: Args - none " + "x" * 288 + "\n---\n")
         self.repo.skill("broken", "---\nname: broken\ndescription: Args: a: b\n---\n")
         self.repo.skill("bare", "# no frontmatter\n")
         self.repo.readme("wordy", "at-budget", "broken", "bare")
-        self.assertEqual(["wordy/SKILL.md: description is 402 characters, over the 400-character listing budget "
+        self.assertEqual(["wordy/SKILL.md: description is 302 characters, over the 300-character listing budget "
                           "(keep the whole skill listing small)"], v.warnings(self.repo.root))
         self.repo.skill("broken", "---\nname: broken\n---\n")
         self.assertEqual(1, len(v.warnings(self.repo.root)))

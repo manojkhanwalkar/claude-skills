@@ -21,7 +21,7 @@ Sixteen rules cut the tokens spent on each change without relaxing any safety ga
 | 13 | One background agent per PR or task, with a scoped brief; never one agent working through a batch of PRs | Rule 9; pr-review, pr-triage, fix-ci | A batch agent re-reads every earlier PR's context; the largest one used about 110M tokens |
 | 14 | Run at most about 3 background agents at a time | Rule 9 | A 2026-11 session hit 15 rate-limit errors running many Opus agents at once, and agents lost work when they were cut off |
 | 15 | Load a long reference once, naming the Docs connector `guide`; pass the parts an agent needs in its brief instead of having each agent reload them | Rule 9 | The same session loaded the 46k-character Docs guide 16 times, about 750k characters |
-| 16 | Keep each skill description to about 400 characters so Claude Code's skill listing fits its budget (about 1% of the context window, around 8,000 characters at 200k) | Rule 10 | 27 descriptions of about 1,000 characters each overflowed it, and seven skills showed with blank descriptions |
+| 16 | Keep each skill description to 300 characters or less (trigger words, the main "Not for", the full Args) so Claude Code's skill listing fits its budget (about 1% of the context window, around 8,000 characters at 200k) | Rule 10 | 27 descriptions of about 1,000 characters each overflowed it, and seven skills showed with blank descriptions |
 
 Already in place before these: PRs under 250 changed lines get a self-review instead of a separate review agent (rule 3, [#27](https://github.com/manojkhanwalkar/claude-skills/pull/27)).
 

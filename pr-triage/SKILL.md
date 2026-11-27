@@ -1,6 +1,6 @@
 ---
 name: pr-triage
-description: Triage open work across the user's GitHub repos - rank open PRs, batch Dependabot PRs through pr-review, and clean up merged branches and orphaned worktrees; acts only with --apply. Use for "what is pending", tidying PRs and branches, or clearing the Dependabot queue. Not for one PR (pr-review) or one merge (post-merge-sync). Args - [owner/repo ...] [--all] [--apply] [--stale-days N].
+description: Triage open work across your GitHub repos - rank PRs, batch Dependabot through pr-review, clean merged branches and worktrees; acts only with --apply. Use for "what is pending". Not for one PR (pr-review). Args - [owner/repo ...] [--all] [--apply] [--stale-days N].
 license: Apache-2.0
 ---
 

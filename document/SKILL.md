@@ -1,6 +1,6 @@
 ---
 name: document
-description: Write docs that let a newcomer understand a project - one page per source file plus a summary merged into the README; re-runs update only changed pages. Use to document a codebase, explain every file or function, or write a project summary or README. Not for in-source doc comments (documenter). Args - [path] [--inline] [--out DIR] [--full].
+description: Write newcomer docs - one page per source file plus a project summary in the README; re-runs update only changed pages. Use to document a codebase or write a README. Not for doc comments (documenter). Args - [path] [--inline] [--out DIR] [--full].
 license: Apache-2.0
 ---
 

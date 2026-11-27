@@ -1,6 +1,6 @@
 ---
 name: token-efficiency-review
-description: Measure how Claude Code spent tokens since the last review (agents, tools, re-reads, polling, rate limits, the skill-listing budget) from local transcripts with a numbers-only script, and propose rule and skill changes through a reviewed PR. Use about every 10 days, on the scheduled run, or to cut token use. Not for code performance (perf-review). Args - [--since TIME] [--report-only].
+description: Measure Claude Code token spend since the last review (agents, tools, re-reads, polling, skill listing) from local transcripts and propose rule and skill changes via a reviewed PR. Use about every 10 days. Not for code speed (perf-review). Args - [--since TIME] [--report-only].
 license: Apache-2.0
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: dynamodb-optimizer
-description: Review and improve Amazon DynamoDB use - scans that should be queries, unused indexes, hot partitions, dropped batch items, TTL mistakes, RCU and WCU cost; --fix in small tested steps. Use for "dynamodb review", "GSI", "TTL", "scan vs query"; deep-review runs it. Not for other databases (perf-review). Args - [path] [--report-only] [--fix] [--focus LIST] [--out FILE].
+description: Review and fix DynamoDB use - scans that should be queries, unused indexes, hot partitions, dropped batch items, TTL mistakes, capacity cost. Use for "dynamodb review", "GSI". Not for other databases (perf-review). Args - [path] [--report-only] [--fix] [--focus LIST] [--out FILE].
 license: Apache-2.0
 ---
 

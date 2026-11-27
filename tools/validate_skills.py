@@ -47,7 +47,7 @@ import yaml
 NAME = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 MAX_NAME = 64
 MAX_DESCRIPTION = 1024
-LISTING_BUDGET = 400
+LISTING_BUDGET = 300
 ARGS = re.compile(r"\bArgs\b")
 # Private project names, as SHA-256 of the lowercase name, so they aren't spelled out or greppable here
 # (a short name's hash can still be guessed: this keeps names out of the text, it doesn't hide them).

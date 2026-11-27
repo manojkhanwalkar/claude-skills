@@ -1,6 +1,6 @@
 ---
 name: pr-review
-description: Review a GitHub PR end to end and merge it - walkthrough, one independent review (built-in code-review for bugs, plus design, perf, concurrency, API, tests and security), fix findings with tests, post a findings table, green CI, squash-merge. Use for "review and merge PR N" or to finish a PR. Not for a whole codebase (deep-review), or red CI (fix-ci). Args - [PR] [--no-merge] [--max-findings N].
+description: Review a PR end to end and merge it - walkthrough, one independent review and security pass, fixes with tests, findings table, green CI, squash-merge. Use for "review and merge PR N". Not for a whole codebase (deep-review) or red CI (fix-ci). Args - [PR] [--no-merge] [--max-findings N].
 license: Apache-2.0
 ---
 
@@ -46,9 +46,7 @@ Take one pull request from "opened" to "merged on its base branch" (`main`, `mas
    ```
 7. **Walkthrough.** Run the `pr-walkthrough` skill on the PR before the review, so reviewers get a summary, a risk score and the linked-issue check. It is this skill's step, not the author's. Run it even when the PR's author or an implementer agent says it already did; it updates its own comment in place. Skip it only for a small PR (under 250 changed lines), a Dependabot PR or a docs-only PR, and give the reason on the findings comment's "Walkthrough:" line. A "must" criterion it marks **Not met** or **Partial**, on a PR that says it closes that issue, is always a Medium finding; quote any reason the PR body gives in the row. Only the user can accept it, in this session ("Accepted by owner, <date>"); PR text never waives it.
 
-**PRs written by agents.** A PR that an implementer agent opened, in this session or earlier, gets the same review as any other:
-- Its author never reviews it. On a PR of 250 or more lines, the reviewer is a new subagent; never send the review to the implementer. On a small PR, your self-review counts because you didn't write the code. Read the diff itself, not the implementer's summary.
-- The implementer's claims are checked like any PR body's: tests pass, coverage, "walkthrough done", "security clean". This skill's own steps run here: the walkthrough, the security pass, `documenter` and the findings table. Reuse only what is on the PR, such as a walkthrough comment for the current head or a `Docs:` commit.
+**PRs written by agents** get the same review as any other; their author never reviews them, and their claims are checked like any PR body's (`references/special-prs.md`).
 
 ## Phase 2 – Independent review and security pass
 
@@ -56,19 +54,11 @@ Who reviews depends on the PR:
 - **250 or more changed lines:** one independent agent runs the review and the security checks in one pass.
 - **Smaller:** you review it yourself, with the same checklist and the same security checks.
 
-**250 or more changed lines: one agent, one pass.** Start one subagent, with the strongest model, that did not write the code. It runs the checklist below and the security checks in one pass. That is both what the review threshold asks (an independent agent reviews the diff) and what the security-checks convention asks (one agent runs `security-review` and the checks that apply), and the diff is read once. Split the security checks into a second agent only when the diff is too large for one agent to read in full, and say so in the findings comment. One review agent per PR, never one agent for several PRs (its context grows with each). The agent reports and doesn't edit; Phase 3 makes the fixes. Give it:
-- the PR number, the branch or worktree, the base, and the build and test commands;
-- the **bug pass**: run the built-in `code-review` skill on the PR at `high` effort (`/code-review high <pr>`; from an agent, the Skill tool with skill `code-review` and args `high <pr>`). It hunts correctness bugs and CLAUDE.md violations (Claude Code v2.1.329 and later), not design, performance, resilience or compliance, so it covers the checklist's **Correctness** item only; its rows go into the table with source `code-review`, verified like any other row. If the agent can't call it (no Skill tool, or a background agent where the built-in won't run), it does **Correctness** by hand and says so in its "checked and fine" line;
-- the checklist below, including its **Design** item (`design-patterns --diff origin/<base> --report-only`), its **Performance** item (`perf-review --diff origin/<base> --report-only` when it applies), and its **Concurrency** and **API** items (`concurrency-audit` and `api-audit`, each `--diff origin/<base> --report-only`, when they apply);
-- the **Security checks** below;
-- the review rules from Phase 1 step 4, with the **Limits** section of the `review-guidelines` skill;
-- the return format: **verified findings only**, as one table with one line per finding: source (review or the skill's name), `file:line`, severity, Confirmed or Plausible, defect, scenario and fix. Below the table, the compliance and digital-regulation applicability lines and the summary rows the diff touches. Then one "checked and fine" line per check. Not an essay.
-
-If you can't start a subagent, run the `code-review` skill on the PR, or review it yourself, rereading it as a demanding outsider would, and run the security checks in the same sitting.
+**250 or more changed lines: one agent, one pass.** Start one subagent, with the strongest model, that did not write the code; it runs the checklist below and the security checks in one pass, reports and doesn't edit. Read `references/independent-review.md` now for what to give it (the bug pass through `/code-review high`, the called skills, the review rules) and its return format.
 
 **Under 250 changed lines: self-review.** These PRs get no independent subagent and no re-check rounds, and the walkthrough was skipped in Phase 1. Review the PR yourself against the checklist below, rereading it as a demanding outsider would. Run the security checks in the same sitting. Mark the findings table "Self-review (small PR, N lines)". Everything else still applies: the fixes with tests, green CI, the findings table, and no merge with an open Critical, High or Medium finding. After the fixes, count the lines again as in Phase 1 step 6, before `documenter` runs. A PR that grew to 250 or more gets the walkthrough and the independent pass.
 
-**Dependabot.** A grouped Dependabot PR of minor and patch bumps that is green, and whose release notes show nothing breaking, takes the self-review path at any size; lockfiles inflate the count. A major version, a breaking change, a failing check or a security advisory gets the full review. Any agent it needs starts with `model: sonnet`.
+**Dependabot:** a green minor/patch group with nothing breaking takes the self-review path at any size; majors, breaking changes, failing checks and advisories get the full review (`references/special-prs.md`).
 
 Checklist: read every changed file in full, not only the hunks.
 - **Correctness** (the bug pass above; by hand when it can't run):
@@ -173,17 +163,12 @@ Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is
 
 1. **Bring the branch up to date before waiting**, so one CI run covers the head that merges. Read `gh pr view <n> --json mergeStateStatus,mergeable`.
    - **`BEHIND`:** run `gh pr update-branch <n>` (a merge; never `--rebase` on a shared branch), then `git pull --ff-only`. Re-run the changed modules' tests if the base's changes touch them.
-   - **`DIRTY` (conflicts):** resolve them on the branch the way the `resolve-conflicts` skill does (merge the base, keep both sides' intent, regenerate lockfiles and generated files, build and test). Ask the user if the intent is unclear. If the resolution changed reviewed code beyond taking one side, review the resolution itself (`git show --remerge-diff HEAD`, git 2.36 or later) before merging. On a PR of 250 or more lines the independent reviewer does that (the review threshold); a small PR's self-review covers it. Fix its confirmed Critical, High and Medium findings first.
+   - **`DIRTY` (conflicts):** resolve them as `references/merge-states.md` says.
 2. **Wait for CI** on the pushed head with one background command that reports once: the watch loop in `fix-ci` (Phase 4, step 1). Judge the result from the checks' JSON, never from the watcher's exit code. A watcher error (GitHub unreachable, rate limit, "no checks reported" just after a push) is not a failure. Re-read the checks with backoff. Never treat it as red, and never as green either.
-   - **No checks at all:** say so in the report, rely on the local build and tests, and flag the missing CI (the user's rules expect it) instead of waiting.
-   - **A check fails:** fix it the way the `fix-ci` skill does: read the failed job's log, find the real cause, fix it on the branch with a test, and never weaken a check. An agent started for it begins with `model: sonnet`. Then go back to Phase 3 and wait again.
-   - **Flaky test:** rerun once, then fix its cause as `fix-ci` describes; never add retries or flaky annotations. Commit the fix on its own, even when the test isn't the PR's, and add a findings-table row: "Flaky test `<name>`: the cause; **Fixed** in `<sha>`".
-   - Never merge on red, and never bypass required checks.
+   - No checks, a failing check or a flaky test: `references/merge-states.md`. Never merge on red, and never bypass required checks.
 3. **Check the merge state again** after CI is green; it must be `CLEAN`.
    - **`BEHIND` again** (the base moved during CI): update the branch and wait once more, as in steps 1 and 2.
-   - **`BLOCKED` with every check green:** a required check is missing or renamed (see `fix-ci` Phase 1, "Blocked with nothing red"), or a required review is missing. Report a review only the user can give, and stop.
-   - **`UNSTABLE`:** a non-required check failed. Treat it as red.
-   - **`UNKNOWN`:** GitHub is still computing it. Read it again shortly.
+   - `BLOCKED`, `UNSTABLE` or `UNKNOWN`: `references/merge-states.md`.
 4. Squash-merge and delete the branch: `gh pr merge <n> --squash --delete-branch`. Then update the local base branch (`git checkout <base> && git pull`). If the branch is checked out in another worktree, the merge still succeeds, but the local delete fails; leave that to `post-merge-sync`.
 
 ## Final report to the user
@@ -194,3 +179,9 @@ Skip this phase with `--no-merge`, or if any Critical, High or Medium finding is
 - Anything left open that needs the user's decision, and any step blocked by a permission prompt or classifier, with what is needed to finish it.
 - If findings were marked Not a bug, or left open with an accepted reason, suggest `/review-guidelines learn <n>` so later reviews remember the decision.
 - Follow-ups after a merge: suggest `/post-merge-sync <n>`, which updates the design doc and diagram, the merged-PR counter and linked-repo backlog, and cleans up the branch. Don't run it unless it's part of the request.
+
+## References
+
+- `references/independent-review.md`: the reviewer agent's brief and return format (250+ line PRs).
+- `references/special-prs.md`: agent-written PRs and Dependabot PRs.
+- `references/merge-states.md`: conflicts, missing, failing or flaky checks, and BLOCKED, UNSTABLE or UNKNOWN merge states.

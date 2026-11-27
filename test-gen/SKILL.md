@@ -1,6 +1,6 @@
 ---
 name: test-gen
-description: Raise unit-test coverage to the target (95% default) with tests that check behaviour - measure, rank gaps by risk, write tests that prove they bite with a mutation check. Use to add tests, raise coverage, meet a coverage gate or "get to 95%"; fix-ci calls it for a red gate. Not for failing tests (fix-ci). Args - [path] [--target PERCENT] [--diff [base]] [--no-mutation].
+description: Raise unit-test coverage to the target (95% default) with behaviour tests that pass a mutation check, gaps ranked by risk. Use to add tests or meet a coverage gate. Not for failing tests (fix-ci). Args - [path] [--target PERCENT] [--diff [base]] [--no-mutation].
 license: Apache-2.0
 ---
 
